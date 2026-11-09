@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "rulesIdentity": "pioneer-planning/ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+  "mode": "autonomous",
+  "start": {
+    "kind": "planning",
+    "data": {
+      "state": {
+        "turn": 3,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 400,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          200,
+          400
+        ],
+        "islandTrainingTickets": 0,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10100
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10200
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10300
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10400
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10500
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10600
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      }
+    }
+  },
+  "outcomes": [],
+  "script": [
+    {
+      "decisionId": {
+        "kind": 13,
+        "ordinal": 0,
+        "key": 12884901888
+      },
+      "action": {
+        "kind": "submitConstruction",
+        "commandId": 0,
+        "eventId": 0,
+        "characterId": 0,
+        "choiceNumber": 0,
+        "plan": {
+          "steps": [
+            {
+              "priority": 2,
+              "facilityId": 101,
+              "previousStateId": 10100,
+              "targetStateId": 10110
+            },
+            {
+              "priority": 3,
+              "facilityId": 102,
+              "previousStateId": 10200,
+              "targetStateId": 10210
+            },
+            {
+              "priority": 1,
+              "facilityId": 106,
+              "previousStateId": 10600,
+              "targetStateId": 10610
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

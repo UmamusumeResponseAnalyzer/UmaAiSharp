@@ -1,0 +1,22 @@
+{
+  "constraints": [
+    { "attribute": "Stamina", "comparison": "GreaterThan", "value": 1201 },
+    { "attribute": "Wisdom", "comparison": "GreaterThan", "value": 1201 }
+  ],
+  "priorities": [
+    {
+      "terms": [
+        { "metric": { "kind": "deficit", "attribute": "Speed" }, "weight": -1 },
+        { "metric": { "kind": "overflow", "attribute": "Speed" }, "weight": -1 }
+      ]
+    },
+    {
+      "terms": [
+        {
+          "metric": { "kind": "attribute", "attribute": "Power", "curve": { "points": [{ "value": 0, "weight": 1 }] } },
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

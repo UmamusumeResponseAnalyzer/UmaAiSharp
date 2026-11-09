@@ -1,0 +1,50 @@
+{
+  "inputs": {
+    "audit.json": "7070ebbca0fb3bf1bbfd5a4a7b2db4730e8aec4a4364b8937ebc240f1c9720b0",
+    "exchanges.jsonl": "d553d4efbc4cf3c9e072d1561dd3378d5d6ff2ff7b1015e67b945402009a165e",
+    "pioneer-actions.jsonl": "5f7f8a2a267bce0f697a989ce37339f27bfc4e04076fd077a808b9e9293ff7a1",
+    "pioneer-observations.jsonl": "bf5c12652c7ce0be4f480fc2de4c56888ea2d55e5dd1ad436b3e043b8bb589b2",
+    "master-rows.jsonl": "1290127ed5d6f8c9078c38af9609785ec637678001265235643efbf547f32bd6"
+  },
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "sourceHashes": {
+    "packets-0001": "cbe5e392fce0397f5a59f6fcb885f6865b08919a2566f6c3b1a33e1622bc7e09",
+    "packets-0002": "4ff085b450b9f448838b8ec8b14cb0d6d39e4e7651fb2d32cbfb0691dc4798f7",
+    "packets-0003": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+    "packets-0004": "a6acedd7ae0fd3e0a4910055d2ec785af3049f20f52243489953a46b03404f71",
+    "packets-0005": "f487db586de49cd35bb93ac489df49963794cf22cd732be3df077df594361982",
+    "master": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886"
+  },
+  "researchFiles": [
+    {
+      "name": "events-history\\mechanisms-20261108\\analysis-04\\tucker-component-fixtures.jsonl",
+      "sha256": "09ce5d1326a4529151251ef9d20f5e774adaab428f8ced92388bb65b1b1f3524"
+    },
+    {
+      "name": "construction-checkpoints\\expansion-20261108\\delivery-02\\member-joins.json",
+      "sha256": "55e3352501839cdabf0270a55d7b41621d94a812770bc0e61ac56ad7d2376ac4"
+    },
+    {
+      "name": "construction-checkpoints\\expansion-20261108\\delivery-02\\late-reward-confirmations.json",
+      "sha256": "d0781e14b9fb0110356c3b6b027e497a56cfe0f4eb76732506224a06647eb733"
+    }
+  ],
+  "scriptSha256": "4a2d2580211080ba1c98afb21aedc4f40200bdded42087eb91b08f5597a40ee1",
+  "files": [
+    {
+      "name": "tucker-friend-observations.jsonl",
+      "count": 1496,
+      "sha256": "c9b17f38fadfcf36015eac1e9074d981229a3ed6de0b70c0dd677c96a0f94534"
+    },
+    {
+      "name": "project-member-observations.jsonl",
+      "count": 660,
+      "sha256": "13f7f5a9231b3ae7508ad2788add4b398addc4d583951b3b749d9bac30ca26c7"
+    },
+    {
+      "name": "late-checkpoint-confirmations.jsonl",
+      "count": 220,
+      "sha256": "157749af24603df05994c01de1b766e8293bbbd7d0bced1719002d726b4dd095"
+    }
+  ]
+}

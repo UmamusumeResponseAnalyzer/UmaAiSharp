@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "rulesIdentity": "local-character-ending-v1",
+  "mode": "autonomous",
+  "start": {
+    "kind": "characterEnding",
+    "data": {
+      "turn": 78,
+      "rawPlayingState": 5,
+      "characterState": 3,
+      "event": {
+        "eventId": 6,
+        "characterId": 1032,
+        "storyId": 501032111,
+        "playTiming": 3
+      },
+      "resources": {
+        "speed": 1841,
+        "stamina": 1222,
+        "power": 1397,
+        "guts": 1154,
+        "wisdom": 1277,
+        "vital": 72,
+        "skillPoints": 4454
+      },
+      "limits": {
+        "speed": 1869,
+        "stamina": 1700,
+        "power": 1712,
+        "guts": 1614,
+        "wisdom": 1306,
+        "vital": 108
+      },
+      "motivation": 5
+    }
+  },
+  "outcomes": [],
+  "script": []
+}

@@ -1,0 +1,544 @@
+{
+  "sources": [
+    {
+      "alias": "packets-0001",
+      "kind": "DebugSaveAllPackets",
+      "sha256": "cbe5e392fce0397f5a59f6fcb885f6865b08919a2566f6c3b1a33e1622bc7e09",
+      "bytes": 20480
+    },
+    {
+      "alias": "packets-0002",
+      "kind": "DebugSaveAllPackets",
+      "sha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "bytes": 375709696
+    },
+    {
+      "alias": "packets-0003",
+      "kind": "DebugSaveAllPackets",
+      "sha256": "a6acedd7ae0fd3e0a4910055d2ec785af3049f20f52243489953a46b03404f71",
+      "bytes": 35450880
+    },
+    {
+      "alias": "packets-0004",
+      "kind": "DebugSaveAllPackets",
+      "sha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "bytes": 384102400
+    },
+    {
+      "alias": "master",
+      "kind": "GameMasterSqlite",
+      "sha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+      "bytes": 45785088
+    }
+  ],
+  "stories": [
+    {
+      "storyId": 400011107,
+      "observations": 710,
+      "matchedSelections": 705,
+      "facilityMatches": 710,
+      "ticketMatches": 710
+    },
+    {
+      "storyId": 400011108,
+      "observations": 72,
+      "matchedSelections": 72,
+      "facilityMatches": 72,
+      "ticketMatches": 72
+    }
+  ],
+  "componentChanges": [
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "",
+      "facilityChanges": 2,
+      "ticketCountChanges": 5,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400000011",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011006",
+      "facilityChanges": 1,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011021",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 77,
+      "matchedEventSelections": 77
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011022",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011023",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011105",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 3,
+      "matchedEventSelections": 3
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011107",
+      "facilityChanges": 710,
+      "ticketCountChanges": 618,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 705
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011108",
+      "facilityChanges": 72,
+      "ticketCountChanges": 55,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 72
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011110",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 77,
+      "matchedEventSelections": 76
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "400011111",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501003300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501004300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 7,
+      "matchedEventSelections": 7
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501008300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 7,
+      "matchedEventSelections": 7
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501009300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501010300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501011300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 4,
+      "matchedEventSelections": 4
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501014300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 4,
+      "matchedEventSelections": 4
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501016300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 3,
+      "matchedEventSelections": 3
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501018300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501021300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 3,
+      "matchedEventSelections": 3
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501021701",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501024300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 5,
+      "matchedEventSelections": 5
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501027300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501032300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501035300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501037300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501038300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501041300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501045300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501052300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501056300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501060300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501061300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501062300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501063300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501066300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501067300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501068300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 1
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501073300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501077300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501135300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 2
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "501141300",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 3,
+      "matchedEventSelections": 3
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "801000003",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "previousStories": "809049032",
+      "facilityChanges": 2,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+      "previousStories": "400000035",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+      "previousStories": "400011105",
+      "facilityChanges": 1,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+      "previousStories": "400011110",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 2,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/pioneer_complete",
+      "previousStories": "",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 76,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/planning",
+      "previousStories": "",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 78,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/planning",
+      "previousStories": "400011011",
+      "facilityChanges": 0,
+      "ticketCountChanges": 0,
+      "ticketAvailabilityChanges": 1,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "",
+      "facilityChanges": 0,
+      "ticketCountChanges": 758,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "400011023",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "400011105",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "501023520",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "501062108",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "801000003",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "809049011",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    },
+    {
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "previousStories": "830086003",
+      "facilityChanges": 0,
+      "ticketCountChanges": 1,
+      "ticketAvailabilityChanges": 0,
+      "matchedEventSelections": 0
+    }
+  ],
+  "planObservations": 18747,
+  "partialPlanObservations": 919,
+  "immediatePointMismatches": 5514,
+  "settlementObservations": 782,
+  "rawPointMatches": 732,
+  "reachedThresholdMatches": 782,
+  "candidateFacilityMatches": 782,
+  "candidateTicketMatches": 782,
+  "matchedEventSelections": 777,
+  "eventAppearances": 710,
+  "appearancesWithThresholdIncrease": 708,
+  "versionBinding": {
+    "status": "Unverified",
+    "masterResourceVersion": null,
+    "packetResourceVersions": [
+      "10021210:Tcxkvfn+yCx3"
+    ],
+    "reason": "master内容哈希与包头res_ver均已记录；尚无独立证据证明二者属于同一资源版本。表内容相似、文件路径和修改时间不能代替版本绑定。"
+  },
+  "scope": "Adjacent readable observations only. Request match is tracked separately; this is not a complete event scheduler."
+}

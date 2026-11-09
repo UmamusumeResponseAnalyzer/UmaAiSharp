@@ -1,0 +1,214 @@
+{
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "versionBinding": "Unverified",
+  "observedCounts": {
+    "plans": 394,
+    "budget_matches": 394,
+    "prev_zero_to_base_state": 474,
+    "request_zero_to_non_base_response_state": 994
+  },
+  "underBudgetExamples": [
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "requestRecordId": 3815,
+      "responseRecordId": 3816,
+      "requestTurn": 36,
+      "responseTurn": 37,
+      "deckId": 3,
+      "cost": 500,
+      "planningCost": 600,
+      "masterTargetPt": 600,
+      "plan": [
+        {
+          "priority": 2,
+          "facility_id": 101,
+          "prev_state_id": 10120,
+          "target_state_id": 10131
+        },
+        {
+          "priority": 1,
+          "facility_id": 103,
+          "prev_state_id": 10320,
+          "target_state_id": 10331
+        },
+        {
+          "priority": 3,
+          "facility_id": 104,
+          "prev_state_id": 10410,
+          "target_state_id": 10420
+        }
+      ]
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "requestRecordId": 9991,
+      "responseRecordId": 9992,
+      "requestTurn": 48,
+      "responseTurn": 49,
+      "deckId": 3,
+      "cost": 700,
+      "planningCost": 800,
+      "masterTargetPt": 800,
+      "plan": [
+        {
+          "priority": 1,
+          "facility_id": 101,
+          "prev_state_id": 10131,
+          "target_state_id": 10141
+        },
+        {
+          "priority": 2,
+          "facility_id": 103,
+          "prev_state_id": 10331,
+          "target_state_id": 10341
+        },
+        {
+          "priority": 3,
+          "facility_id": 104,
+          "prev_state_id": 10431,
+          "target_state_id": 10441
+        },
+        {
+          "priority": 4,
+          "facility_id": 105,
+          "prev_state_id": 10510,
+          "target_state_id": 10520
+        }
+      ]
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "requestRecordId": 19349,
+      "responseRecordId": 19350,
+      "requestTurn": 48,
+      "responseTurn": 49,
+      "deckId": 3,
+      "cost": 700,
+      "planningCost": 800,
+      "masterTargetPt": 800,
+      "plan": [
+        {
+          "priority": 3,
+          "facility_id": 101,
+          "prev_state_id": 10131,
+          "target_state_id": 10141
+        },
+        {
+          "priority": 4,
+          "facility_id": 102,
+          "prev_state_id": 10210,
+          "target_state_id": 10220
+        },
+        {
+          "priority": 2,
+          "facility_id": 103,
+          "prev_state_id": 10331,
+          "target_state_id": 10341
+        },
+        {
+          "priority": 1,
+          "facility_id": 105,
+          "prev_state_id": 10531,
+          "target_state_id": 10541
+        }
+      ]
+    },
+    {
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "requestRecordId": 545,
+      "responseRecordId": 546,
+      "requestTurn": 36,
+      "responseTurn": 37,
+      "deckId": 3,
+      "cost": 500,
+      "planningCost": 600,
+      "masterTargetPt": 600,
+      "plan": [
+        {
+          "priority": 3,
+          "facility_id": 101,
+          "prev_state_id": 10110,
+          "target_state_id": 10120
+        },
+        {
+          "priority": 1,
+          "facility_id": 103,
+          "prev_state_id": 10320,
+          "target_state_id": 10331
+        },
+        {
+          "priority": 2,
+          "facility_id": 105,
+          "prev_state_id": 10520,
+          "target_state_id": 10531
+        }
+      ]
+    },
+    {
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "requestRecordId": 7334,
+      "responseRecordId": 7335,
+      "requestTurn": 36,
+      "responseTurn": 37,
+      "deckId": 3,
+      "cost": 500,
+      "planningCost": 600,
+      "masterTargetPt": 600,
+      "plan": [
+        {
+          "priority": 2,
+          "facility_id": 103,
+          "prev_state_id": 10320,
+          "target_state_id": 10331
+        },
+        {
+          "priority": 3,
+          "facility_id": 104,
+          "prev_state_id": 10410,
+          "target_state_id": 10420
+        },
+        {
+          "priority": 1,
+          "facility_id": 105,
+          "prev_state_id": 10520,
+          "target_state_id": 10531
+        }
+      ]
+    },
+    {
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "requestRecordId": 13604,
+      "responseRecordId": 13605,
+      "requestTurn": 36,
+      "responseTurn": 37,
+      "deckId": 3,
+      "cost": 500,
+      "planningCost": 600,
+      "masterTargetPt": 600,
+      "plan": [
+        {
+          "priority": 2,
+          "facility_id": 101,
+          "prev_state_id": 10120,
+          "target_state_id": 10131
+        },
+        {
+          "priority": 3,
+          "facility_id": 103,
+          "prev_state_id": 10320,
+          "target_state_id": 10331
+        },
+        {
+          "priority": 1,
+          "facility_id": 105,
+          "prev_state_id": 10510,
+          "target_state_id": 10520
+        }
+      ]
+    }
+  ],
+  "requestPreviousStateValues": {
+    "0": 1471
+  },
+  "interpretation": "Requests use prev_state_id=0 even for upgraded facilities; response prev_state_id is authoritative observed state. Cost checks use response edges, never infer initial state from request zero."
+}

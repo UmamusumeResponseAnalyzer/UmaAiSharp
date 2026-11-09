@@ -1,0 +1,109 @@
+{
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "handoffMasterSha256": "a9f5ad407e71e9ac471493d28aac3c79fa4f292fd345e9f953afce634c04d534",
+  "tablesCompared": [
+    {
+      "table": "single_mode_11_check_point_eff",
+      "rows": 38,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_effect",
+      "rows": 403,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_kind",
+      "rows": 6,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_lv_up",
+      "rows": 43,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_state",
+      "rows": 49,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_gain_training_pt",
+      "rows": 40,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_outing_effect",
+      "rows": 4,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_pioneer_pt_bonus",
+      "rows": 5,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_planning",
+      "rows": 20,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_shima_effect",
+      "rows": 64,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_training_mini",
+      "rows": 6,
+      "schemaMatches": true,
+      "rowsMatch": true
+    }
+  ],
+  "pairedCheckpoints": 387,
+  "pairedSettlementFixtures": 391,
+  "inputEvidenceDirectory": "artifacts/evidence/local-audit-05",
+  "scope": "Only explicit matched check_event selections; resource components only, not complete event simulation.",
+  "normalizedInputFingerprints": [
+    {
+      "alias": "audit.json",
+      "kind": "NormalizedPioneerEvidence",
+      "sha256": "cc8c10b990a050626820b70e68886b63bcafdf6412c6bc43c85ab8a88df362bd",
+      "bytes": 3374074
+    },
+    {
+      "alias": "master-rows.jsonl",
+      "kind": "NormalizedPioneerEvidence",
+      "sha256": "1290127ed5d6f8c9078c38af9609785ec637678001265235643efbf547f32bd6",
+      "bytes": 84921463
+    },
+    {
+      "alias": "exchanges.jsonl",
+      "kind": "NormalizedPioneerEvidence",
+      "sha256": "1ac415e8068bc33545955b61609d01393c074676af45646f964b23268cb1683e",
+      "bytes": 12359207
+    },
+    {
+      "alias": "pioneer-actions.jsonl",
+      "kind": "NormalizedPioneerEvidence",
+      "sha256": "e3e7f61a239efde88f5dc6d024d89cfaec5d56e7a4749f667a21ec77e6672583",
+      "bytes": 13920553
+    },
+    {
+      "alias": "pioneer-observations.jsonl",
+      "kind": "NormalizedPioneerEvidence",
+      "sha256": "7563203ca8b9f658ec5c5375db043d28967d5d36e357749627b53af69c4647f9",
+      "bytes": 621299845
+    }
+  ],
+  "formalAuditReportSha256": "95dd280ffebaa93243fc98c162878a7810d318b1ebbbd1207584c926793fcf3c"
+}

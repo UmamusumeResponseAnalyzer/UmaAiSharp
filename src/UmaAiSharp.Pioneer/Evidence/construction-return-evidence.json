@@ -1,0 +1,345 @@
+{
+  "scope": "Already pending story 400011108 facility-event observations only; no complete scheduler or partner distribution model",
+  "versionBinding": "Unverified",
+  "counts": {
+    "(0, 1, 1, 1)": 55,
+    "requestEventMatches": 72,
+    "choiceZero": 72,
+    "(1, 1, 1, 1)": 17
+  },
+  "phaseTransitions": [
+    [
+      [
+        1,
+        1
+      ],
+      72
+    ]
+  ],
+  "nextQueues": [
+    [
+      [],
+      26
+    ],
+    [
+      [
+        801004001
+      ],
+      3
+    ],
+    [
+      [
+        830107002
+      ],
+      3
+    ],
+    [
+      [
+        830086003
+      ],
+      3
+    ],
+    [
+      [
+        801029001
+      ],
+      2
+    ],
+    [
+      [
+        809049031
+      ],
+      2
+    ],
+    [
+      [
+        501135511
+      ],
+      1
+    ],
+    [
+      [
+        501008719
+      ],
+      1
+    ],
+    [
+      [
+        830031002
+      ],
+      1
+    ],
+    [
+      [
+        501135500
+      ],
+      1
+    ],
+    [
+      [
+        501011511
+      ],
+      1
+    ],
+    [
+      [
+        501014516
+      ],
+      1
+    ],
+    [
+      [
+        820079001
+      ],
+      1
+    ],
+    [
+      [
+        830107001
+      ],
+      1
+    ],
+    [
+      [
+        501024506
+      ],
+      1
+    ],
+    [
+      [
+        830086002
+      ],
+      1
+    ],
+    [
+      [
+        501077524
+      ],
+      1
+    ],
+    [
+      [
+        830107003
+      ],
+      1
+    ],
+    [
+      [
+        801077002
+      ],
+      1
+    ],
+    [
+      [
+        501016802
+      ],
+      1
+    ],
+    [
+      [
+        501066506
+      ],
+      1
+    ],
+    [
+      [
+        501066507
+      ],
+      1
+    ],
+    [
+      [
+        501004523
+      ],
+      1
+    ],
+    [
+      [
+        801048002
+      ],
+      1
+    ],
+    [
+      [
+        830028002
+      ],
+      1
+    ],
+    [
+      [
+        830031003
+      ],
+      1
+    ],
+    [
+      [
+        820034001
+      ],
+      1
+    ],
+    [
+      [
+        501004722
+      ],
+      1
+    ],
+    [
+      [
+        830005001
+      ],
+      1
+    ],
+    [
+      [
+        501027516
+      ],
+      1
+    ],
+    [
+      [
+        501141518
+      ],
+      1
+    ],
+    [
+      [
+        801029002
+      ],
+      1
+    ],
+    [
+      [
+        820066001
+      ],
+      1
+    ],
+    [
+      [
+        801055002
+      ],
+      1
+    ],
+    [
+      [
+        830031001
+      ],
+      1
+    ],
+    [
+      [
+        830230001
+      ],
+      1
+    ],
+    [
+      [
+        501038506
+      ],
+      1
+    ],
+    [
+      [
+        501062511
+      ],
+      1
+    ],
+    [
+      [
+        830211001
+      ],
+      1
+    ]
+  ],
+  "examples": [
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "beforeRecordId": 1364,
+      "requestRecordId": 1365,
+      "afterRecordId": 1366,
+      "requestMatchesPendingEvent": true,
+      "choiceNumber": 0,
+      "before": {
+        "turn": 41,
+        "playingState": 1,
+        "pioneerInfo": {
+          "pioneer_pt": 317,
+          "planning_cost": 600,
+          "gain_shima_training_pt_array": [
+            300,
+            600
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 62
+        },
+        "ticketRemain": 0,
+        "storyIds": [
+          400011108
+        ]
+      },
+      "after": {
+        "turn": 41,
+        "playingState": 1,
+        "pioneerInfo": {
+          "pioneer_pt": 317,
+          "planning_cost": 600,
+          "gain_shima_training_pt_array": [
+            300,
+            600
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 62
+        },
+        "ticketRemain": 1,
+        "storyIds": []
+      }
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "beforeRecordId": 11486,
+      "requestRecordId": 11487,
+      "afterRecordId": 11488,
+      "requestMatchesPendingEvent": true,
+      "choiceNumber": 0,
+      "before": {
+        "turn": 41,
+        "playingState": 1,
+        "pioneerInfo": {
+          "pioneer_pt": 333,
+          "planning_cost": 600,
+          "gain_shima_training_pt_array": [
+            300,
+            600
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 62
+        },
+        "ticketRemain": 1,
+        "storyIds": [
+          400011108
+        ]
+      },
+      "after": {
+        "turn": 41,
+        "playingState": 1,
+        "pioneerInfo": {
+          "pioneer_pt": 333,
+          "planning_cost": 600,
+          "gain_shima_training_pt_array": [
+            300,
+            600
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 62
+        },
+        "ticketRemain": 1,
+        "storyIds": [
+          830107001
+        ]
+      }
+    }
+  ]
+}

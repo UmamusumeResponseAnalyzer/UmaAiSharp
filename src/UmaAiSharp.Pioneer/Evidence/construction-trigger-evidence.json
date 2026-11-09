@@ -1,0 +1,64 @@
+{
+  "eventAppearances": 710,
+  "appearancesWithThresholdIncrease": 708,
+  "lastGainRightsNumberDecreases": 239,
+  "scope": "Event appearances only; threshold crossing is not a complete scheduling rule",
+  "counterexamplesToImmediateVisibleQueue": [
+    {
+      "before": {
+        "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+        "recordId": 22215
+      },
+      "after": {
+        "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+        "recordId": 22217
+      },
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "beforePoints": 458,
+      "afterPoints": 458,
+      "beforeReachedThresholdCount": 1,
+      "afterReachedThresholdCount": 1,
+      "beforeLastGainRightsNum": 1,
+      "afterLastGainRightsNum": 1,
+      "samePlanAndThresholds": true
+    },
+    {
+      "before": {
+        "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+        "recordId": 23413
+      },
+      "after": {
+        "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+        "recordId": 23415
+      },
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "beforePoints": 207,
+      "afterPoints": 207,
+      "beforeReachedThresholdCount": 1,
+      "afterReachedThresholdCount": 1,
+      "beforeLastGainRightsNum": 1,
+      "afterLastGainRightsNum": 1,
+      "samePlanAndThresholds": true
+    }
+  ],
+  "lastGainRightsDecreasesExample": [
+    {
+      "before": {
+        "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+        "recordId": 294
+      },
+      "after": {
+        "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+        "recordId": 298
+      },
+      "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+      "beforePoints": 175,
+      "afterPoints": 256,
+      "beforeReachedThresholdCount": 0,
+      "afterReachedThresholdCount": 1,
+      "beforeLastGainRightsNum": 2,
+      "afterLastGainRightsNum": 1,
+      "samePlanAndThresholds": true
+    }
+  ]
+}

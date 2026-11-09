@@ -1,0 +1,582 @@
+{
+  "source": "training-formula-audit-04/training-formula-samples.jsonl",
+  "sourceSha256": "934963eefd09556c86b980e127d000ef906c579ab263b204b6d66de63bccbe7f",
+  "cases": [
+    {
+      "name": "ordinary-empty",
+      "packetId": 150,
+      "input": {
+        "commandId": 101,
+        "level": 1,
+        "motivation": 3,
+        "fans": 1,
+        "guestCount": 0,
+        "current": {
+          "speed": 116,
+          "stamina": 107,
+          "power": 99,
+          "guts": 69,
+          "wisdom": 119,
+          "vital": 100,
+          "skillPoints": 0
+        },
+        "limits": {
+          "speed": 1858,
+          "stamina": 1704,
+          "power": 1708,
+          "guts": 1600,
+          "wisdom": 1304,
+          "vital": 100
+        },
+        "growthPercent": {
+          "speed": 0,
+          "stamina": 0,
+          "power": 20,
+          "guts": 0,
+          "wisdom": 10,
+          "vital": 0,
+          "skillPoints": 0
+        },
+        "supports": [],
+        "evaluationTrainingPercent": 0
+      }
+    },
+    {
+      "name": "ordinary-many",
+      "packetId": 366,
+      "input": {
+        "commandId": 101,
+        "level": 2,
+        "motivation": 5,
+        "fans": 1093,
+        "guestCount": 1,
+        "current": {
+          "speed": 419,
+          "stamina": 307,
+          "power": 391,
+          "guts": 173,
+          "wisdom": 227,
+          "vital": 60,
+          "skillPoints": 516
+        },
+        "limits": {
+          "speed": 1858,
+          "stamina": 1704,
+          "power": 1708,
+          "guts": 1600,
+          "wisdom": 1304,
+          "vital": 108
+        },
+        "growthPercent": {
+          "speed": 0,
+          "stamina": 0,
+          "power": 20,
+          "guts": 0,
+          "wisdom": 10,
+          "vital": 0,
+          "skillPoints": 0
+        },
+        "supports": [
+          {
+            "cardId": 30107,
+            "level": 50,
+            "position": 1,
+            "trainingCommandId": 101,
+            "bond": 100,
+            "effects": [
+              {
+                "type": 1,
+                "value": 25
+              },
+              {
+                "type": 2,
+                "value": 30
+              },
+              {
+                "type": 3,
+                "value": 1
+              },
+              {
+                "type": 5,
+                "value": 1
+              },
+              {
+                "type": 14,
+                "value": 30
+              },
+              {
+                "type": 15,
+                "value": 5
+              },
+              {
+                "type": 16,
+                "value": 10
+              },
+              {
+                "type": 17,
+                "value": 2
+              },
+              {
+                "type": 18,
+                "value": 30
+              },
+              {
+                "type": 19,
+                "value": 35
+              }
+            ],
+            "uniqueEffects": [
+              {
+                "type": 111,
+                "value": 8,
+                "parameter1": 5,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              },
+              {
+                "type": 0,
+                "value": 0,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              }
+            ]
+          },
+          {
+            "cardId": 30086,
+            "level": 50,
+            "position": 2,
+            "trainingCommandId": 101,
+            "bond": 92,
+            "effects": [
+              {
+                "type": 1,
+                "value": 30
+              },
+              {
+                "type": 3,
+                "value": 1
+              },
+              {
+                "type": 5,
+                "value": 1
+              },
+              {
+                "type": 14,
+                "value": 15
+              },
+              {
+                "type": 15,
+                "value": 10
+              },
+              {
+                "type": 16,
+                "value": 15
+              },
+              {
+                "type": 17,
+                "value": 2
+              },
+              {
+                "type": 18,
+                "value": 30
+              },
+              {
+                "type": 19,
+                "value": 35
+              }
+            ],
+            "uniqueEffects": [
+              {
+                "type": 104,
+                "value": 10000,
+                "parameter1": 20,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              },
+              {
+                "type": 0,
+                "value": 0,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              }
+            ]
+          },
+          {
+            "cardId": 20079,
+            "level": 45,
+            "position": 4,
+            "trainingCommandId": 103,
+            "bond": 100,
+            "effects": [
+              {
+                "type": 1,
+                "value": 30
+              },
+              {
+                "type": 2,
+                "value": 30
+              },
+              {
+                "type": 3,
+                "value": 1
+              },
+              {
+                "type": 14,
+                "value": 25
+              },
+              {
+                "type": 15,
+                "value": 5
+              },
+              {
+                "type": 16,
+                "value": 10
+              },
+              {
+                "type": 17,
+                "value": 2
+              },
+              {
+                "type": 18,
+                "value": 40
+              },
+              {
+                "type": 19,
+                "value": 50
+              }
+            ],
+            "uniqueEffects": [
+              {
+                "type": 8,
+                "value": 5,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              },
+              {
+                "type": 9,
+                "value": 20,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              }
+            ]
+          },
+          {
+            "cardId": 30257,
+            "level": 50,
+            "position": 6,
+            "trainingCommandId": 0,
+            "bond": 100,
+            "effects": [
+              {
+                "type": 2,
+                "value": 30
+              },
+              {
+                "type": 4,
+                "value": 1
+              },
+              {
+                "type": 6,
+                "value": 1
+              },
+              {
+                "type": 8,
+                "value": 10
+              },
+              {
+                "type": 10,
+                "value": 30
+              },
+              {
+                "type": 14,
+                "value": 25
+              },
+              {
+                "type": 25,
+                "value": 60
+              },
+              {
+                "type": 26,
+                "value": 30
+              },
+              {
+                "type": 27,
+                "value": 20
+              },
+              {
+                "type": 28,
+                "value": 20
+              }
+            ],
+            "uniqueEffects": [
+              {
+                "type": 122,
+                "value": 19,
+                "parameter1": 60,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              },
+              {
+                "type": 0,
+                "value": 0,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              }
+            ]
+          }
+        ],
+        "evaluationTrainingPercent": 10
+      }
+    },
+    {
+      "name": "ordinary-upper",
+      "packetId": 690,
+      "input": {
+        "commandId": 101,
+        "level": 5,
+        "motivation": 4,
+        "fans": 98039,
+        "guestCount": 0,
+        "current": {
+          "speed": 1210,
+          "stamina": 630,
+          "power": 1016,
+          "guts": 438,
+          "wisdom": 543,
+          "vital": 104,
+          "skillPoints": 1871
+        },
+        "limits": {
+          "speed": 1859,
+          "stamina": 1705,
+          "power": 1710,
+          "guts": 1600,
+          "wisdom": 1305,
+          "vital": 108
+        },
+        "growthPercent": {
+          "speed": 0,
+          "stamina": 0,
+          "power": 20,
+          "guts": 0,
+          "wisdom": 10,
+          "vital": 0,
+          "skillPoints": 0
+        },
+        "supports": [
+          {
+            "cardId": 30107,
+            "level": 50,
+            "position": 1,
+            "trainingCommandId": 101,
+            "bond": 100,
+            "effects": [
+              {
+                "type": 1,
+                "value": 25
+              },
+              {
+                "type": 2,
+                "value": 30
+              },
+              {
+                "type": 3,
+                "value": 1
+              },
+              {
+                "type": 5,
+                "value": 1
+              },
+              {
+                "type": 14,
+                "value": 30
+              },
+              {
+                "type": 15,
+                "value": 5
+              },
+              {
+                "type": 16,
+                "value": 10
+              },
+              {
+                "type": 17,
+                "value": 2
+              },
+              {
+                "type": 18,
+                "value": 30
+              },
+              {
+                "type": 19,
+                "value": 35
+              }
+            ],
+            "uniqueEffects": [
+              {
+                "type": 111,
+                "value": 8,
+                "parameter1": 5,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              },
+              {
+                "type": 0,
+                "value": 0,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              }
+            ]
+          },
+          {
+            "cardId": 30031,
+            "level": 50,
+            "position": 5,
+            "trainingCommandId": 106,
+            "bond": 100,
+            "effects": [
+              {
+                "type": 1,
+                "value": 20
+              },
+              {
+                "type": 2,
+                "value": 60
+              },
+              {
+                "type": 7,
+                "value": 1
+              },
+              {
+                "type": 13,
+                "value": 30
+              },
+              {
+                "type": 14,
+                "value": 25
+              },
+              {
+                "type": 17,
+                "value": 2
+              },
+              {
+                "type": 18,
+                "value": 40
+              },
+              {
+                "type": 19,
+                "value": 35
+              },
+              {
+                "type": 31,
+                "value": 5
+              }
+            ],
+            "uniqueEffects": [
+              {
+                "type": 8,
+                "value": 5,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              },
+              {
+                "type": 15,
+                "value": 5,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              }
+            ]
+          },
+          {
+            "cardId": 30257,
+            "level": 50,
+            "position": 6,
+            "trainingCommandId": 0,
+            "bond": 100,
+            "effects": [
+              {
+                "type": 2,
+                "value": 30
+              },
+              {
+                "type": 4,
+                "value": 1
+              },
+              {
+                "type": 6,
+                "value": 1
+              },
+              {
+                "type": 8,
+                "value": 10
+              },
+              {
+                "type": 10,
+                "value": 30
+              },
+              {
+                "type": 14,
+                "value": 25
+              },
+              {
+                "type": 25,
+                "value": 60
+              },
+              {
+                "type": 26,
+                "value": 30
+              },
+              {
+                "type": 27,
+                "value": 20
+              },
+              {
+                "type": 28,
+                "value": 20
+              }
+            ],
+            "uniqueEffects": [
+              {
+                "type": 122,
+                "value": 19,
+                "parameter1": 60,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              },
+              {
+                "type": 0,
+                "value": 0,
+                "parameter1": 0,
+                "parameter2": 0,
+                "parameter3": 0,
+                "parameter4": 0
+              }
+            ]
+          }
+        ],
+        "evaluationTrainingPercent": 45
+      }
+    }
+  ]
+}

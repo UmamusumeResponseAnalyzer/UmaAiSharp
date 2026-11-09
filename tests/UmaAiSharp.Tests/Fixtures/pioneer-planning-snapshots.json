@@ -1,0 +1,993 @@
+{
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "plansSha256": "37f5333017472c17d975b03873b698c91fbf5a29e61f167d1c73fe1b12213921",
+  "windows": [
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "beforeRecordId": 186,
+      "requestRecordId": 189,
+      "afterRecordId": 190,
+      "before": {
+        "turn": 3,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 400,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          200,
+          400
+        ],
+        "islandTrainingTickets": 0,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10100
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10200
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10300
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10400
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10500
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10600
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      },
+      "submittedPlan": {
+        "steps": [
+          {
+            "priority": 2,
+            "facilityId": 101,
+            "previousStateId": 10100,
+            "targetStateId": 10110
+          },
+          {
+            "priority": 3,
+            "facilityId": 102,
+            "previousStateId": 10200,
+            "targetStateId": 10210
+          },
+          {
+            "priority": 1,
+            "facilityId": 106,
+            "previousStateId": 10600,
+            "targetStateId": 10610
+          }
+        ]
+      },
+      "after": {
+        "turn": 3,
+        "rawPlayingState": 1,
+        "developmentPoints": 0,
+        "planningCost": 400,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          200,
+          400
+        ],
+        "islandTrainingTickets": 0,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10100
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10200
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10300
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10400
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10500
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10600
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 2,
+              "facilityId": 101,
+              "previousStateId": 10100,
+              "targetStateId": 10110
+            },
+            {
+              "priority": 3,
+              "facilityId": 102,
+              "previousStateId": 10200,
+              "targetStateId": 10210
+            },
+            {
+              "priority": 1,
+              "facilityId": 106,
+              "previousStateId": 10600,
+              "targetStateId": 10610
+            }
+          ]
+        },
+        "pendingStoryIds": []
+      }
+    },
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "beforeRecordId": 270,
+      "requestRecordId": 271,
+      "afterRecordId": 272,
+      "before": {
+        "turn": 12,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 500,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          200,
+          500
+        ],
+        "islandTrainingTickets": 1,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10110
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10210
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10300
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10400
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10500
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      },
+      "submittedPlan": {
+        "steps": [
+          {
+            "priority": 4,
+            "facilityId": 101,
+            "previousStateId": 10110,
+            "targetStateId": 10120
+          },
+          {
+            "priority": 5,
+            "facilityId": 102,
+            "previousStateId": 10210,
+            "targetStateId": 10220
+          },
+          {
+            "priority": 2,
+            "facilityId": 103,
+            "previousStateId": 10300,
+            "targetStateId": 10310
+          },
+          {
+            "priority": 1,
+            "facilityId": 104,
+            "previousStateId": 10400,
+            "targetStateId": 10410
+          },
+          {
+            "priority": 3,
+            "facilityId": 105,
+            "previousStateId": 10500,
+            "targetStateId": 10510
+          }
+        ]
+      },
+      "after": {
+        "turn": 13,
+        "rawPlayingState": 1,
+        "developmentPoints": 0,
+        "planningCost": 500,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          200,
+          500
+        ],
+        "islandTrainingTickets": 1,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10110
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10210
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10300
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10400
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10500
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 4,
+              "facilityId": 101,
+              "previousStateId": 10110,
+              "targetStateId": 10120
+            },
+            {
+              "priority": 5,
+              "facilityId": 102,
+              "previousStateId": 10210,
+              "targetStateId": 10220
+            },
+            {
+              "priority": 2,
+              "facilityId": 103,
+              "previousStateId": 10300,
+              "targetStateId": 10310
+            },
+            {
+              "priority": 1,
+              "facilityId": 104,
+              "previousStateId": 10400,
+              "targetStateId": 10410
+            },
+            {
+              "priority": 3,
+              "facilityId": 105,
+              "previousStateId": 10500,
+              "targetStateId": 10510
+            }
+          ]
+        },
+        "pendingStoryIds": []
+      }
+    },
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "beforeRecordId": 390,
+      "requestRecordId": 401,
+      "afterRecordId": 402,
+      "before": {
+        "turn": 24,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": 1,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10120
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10220
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10310
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10410
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10510
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      },
+      "submittedPlan": {
+        "steps": [
+          {
+            "priority": 1,
+            "facilityId": 101,
+            "previousStateId": 10120,
+            "targetStateId": 10131
+          },
+          {
+            "priority": 3,
+            "facilityId": 102,
+            "previousStateId": 10220,
+            "targetStateId": 10231
+          },
+          {
+            "priority": 2,
+            "facilityId": 103,
+            "previousStateId": 10310,
+            "targetStateId": 10320
+          },
+          {
+            "priority": 4,
+            "facilityId": 104,
+            "previousStateId": 10410,
+            "targetStateId": 10420
+          }
+        ]
+      },
+      "after": {
+        "turn": 25,
+        "rawPlayingState": 1,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": 1,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10120
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10220
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10310
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10410
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10510
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 1,
+              "facilityId": 101,
+              "previousStateId": 10120,
+              "targetStateId": 10131
+            },
+            {
+              "priority": 3,
+              "facilityId": 102,
+              "previousStateId": 10220,
+              "targetStateId": 10231
+            },
+            {
+              "priority": 2,
+              "facilityId": 103,
+              "previousStateId": 10310,
+              "targetStateId": 10320
+            },
+            {
+              "priority": 4,
+              "facilityId": 104,
+              "previousStateId": 10410,
+              "targetStateId": 10420
+            }
+          ]
+        },
+        "pendingStoryIds": [
+          501060101
+        ]
+      }
+    },
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "beforeRecordId": 542,
+      "requestRecordId": 543,
+      "afterRecordId": 544,
+      "before": {
+        "turn": 36,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": 0,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10131
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10231
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10320
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10420
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10510
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      },
+      "submittedPlan": {
+        "steps": [
+          {
+            "priority": 1,
+            "facilityId": 101,
+            "previousStateId": 10131,
+            "targetStateId": 10141
+          },
+          {
+            "priority": 2,
+            "facilityId": 103,
+            "previousStateId": 10320,
+            "targetStateId": 10331
+          },
+          {
+            "priority": 3,
+            "facilityId": 104,
+            "previousStateId": 10420,
+            "targetStateId": 10431
+          }
+        ]
+      },
+      "after": {
+        "turn": 37,
+        "rawPlayingState": 1,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": null,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10131
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10231
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10320
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10420
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10510
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 1,
+              "facilityId": 101,
+              "previousStateId": 10131,
+              "targetStateId": 10141
+            },
+            {
+              "priority": 2,
+              "facilityId": 103,
+              "previousStateId": 10320,
+              "targetStateId": 10331
+            },
+            {
+              "priority": 3,
+              "facilityId": 104,
+              "previousStateId": 10420,
+              "targetStateId": 10431
+            }
+          ]
+        },
+        "pendingStoryIds": [
+          501060406
+        ]
+      }
+    },
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "beforeRecordId": 670,
+      "requestRecordId": 671,
+      "afterRecordId": 672,
+      "before": {
+        "turn": 48,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 800,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          400,
+          800
+        ],
+        "islandTrainingTickets": 1,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10141
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10231
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10331
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10431
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10510
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      },
+      "submittedPlan": {
+        "steps": [
+          {
+            "priority": 1,
+            "facilityId": 101,
+            "previousStateId": 10141,
+            "targetStateId": 10151
+          },
+          {
+            "priority": 2,
+            "facilityId": 103,
+            "previousStateId": 10331,
+            "targetStateId": 10341
+          },
+          {
+            "priority": 3,
+            "facilityId": 104,
+            "previousStateId": 10431,
+            "targetStateId": 10441
+          },
+          {
+            "priority": 4,
+            "facilityId": 105,
+            "previousStateId": 10510,
+            "targetStateId": 10520
+          }
+        ]
+      },
+      "after": {
+        "turn": 49,
+        "rawPlayingState": 1,
+        "developmentPoints": 0,
+        "planningCost": 800,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          400,
+          800
+        ],
+        "islandTrainingTickets": 1,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10141
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10231
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10331
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10431
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10510
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 1,
+              "facilityId": 101,
+              "previousStateId": 10141,
+              "targetStateId": 10151
+            },
+            {
+              "priority": 2,
+              "facilityId": 103,
+              "previousStateId": 10331,
+              "targetStateId": 10341
+            },
+            {
+              "priority": 3,
+              "facilityId": 104,
+              "previousStateId": 10431,
+              "targetStateId": 10441
+            },
+            {
+              "priority": 4,
+              "facilityId": 105,
+              "previousStateId": 10510,
+              "targetStateId": 10520
+            }
+          ]
+        },
+        "pendingStoryIds": [
+          501060102
+        ]
+      }
+    },
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "beforeRecordId": 3814,
+      "requestRecordId": 3815,
+      "afterRecordId": 3816,
+      "before": {
+        "turn": 36,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": 0,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10120
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10231
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10320
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10410
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10531
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      },
+      "submittedPlan": {
+        "steps": [
+          {
+            "priority": 2,
+            "facilityId": 101,
+            "previousStateId": 10120,
+            "targetStateId": 10131
+          },
+          {
+            "priority": 1,
+            "facilityId": 103,
+            "previousStateId": 10320,
+            "targetStateId": 10331
+          },
+          {
+            "priority": 3,
+            "facilityId": 104,
+            "previousStateId": 10410,
+            "targetStateId": 10420
+          }
+        ]
+      },
+      "after": {
+        "turn": 37,
+        "rawPlayingState": 1,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": null,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10120
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10231
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10320
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10410
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10531
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 2,
+              "facilityId": 101,
+              "previousStateId": 10120,
+              "targetStateId": 10131
+            },
+            {
+              "priority": 1,
+              "facilityId": 103,
+              "previousStateId": 10320,
+              "targetStateId": 10331
+            },
+            {
+              "priority": 3,
+              "facilityId": 104,
+              "previousStateId": 10410,
+              "targetStateId": 10420
+            }
+          ]
+        },
+        "pendingStoryIds": [
+          501032407
+        ]
+      }
+    },
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "beforeRecordId": 1344,
+      "requestRecordId": 1345,
+      "afterRecordId": 1346,
+      "before": {
+        "turn": 36,
+        "rawPlayingState": 35,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": 0,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10110
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10220
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10331
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10431
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10520
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": []
+        },
+        "pendingStoryIds": []
+      },
+      "submittedPlan": {
+        "steps": [
+          {
+            "priority": 3,
+            "facilityId": 101,
+            "previousStateId": 10110,
+            "targetStateId": 10120
+          },
+          {
+            "priority": 4,
+            "facilityId": 102,
+            "previousStateId": 10220,
+            "targetStateId": 10232
+          },
+          {
+            "priority": 1,
+            "facilityId": 103,
+            "previousStateId": 10331,
+            "targetStateId": 10341
+          },
+          {
+            "priority": 2,
+            "facilityId": 105,
+            "previousStateId": 10520,
+            "targetStateId": 10531
+          }
+        ]
+      },
+      "after": {
+        "turn": 37,
+        "rawPlayingState": 1,
+        "developmentPoints": 0,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": null,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10110
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10220
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10331
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10431
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10520
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 3,
+              "facilityId": 101,
+              "previousStateId": 10110,
+              "targetStateId": 10120
+            },
+            {
+              "priority": 4,
+              "facilityId": 102,
+              "previousStateId": 10220,
+              "targetStateId": 10232
+            },
+            {
+              "priority": 1,
+              "facilityId": 103,
+              "previousStateId": 10331,
+              "targetStateId": 10341
+            },
+            {
+              "priority": 2,
+              "facilityId": 105,
+              "previousStateId": 10520,
+              "targetStateId": 10531
+            }
+          ]
+        },
+        "pendingStoryIds": [
+          501011405
+        ]
+      }
+    }
+  ]
+}

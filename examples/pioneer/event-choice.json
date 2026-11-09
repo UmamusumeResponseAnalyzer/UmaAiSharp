@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "rulesIdentity": "local-event-501068510-55467",
+  "mode": "autonomous",
+  "start": {
+    "kind": "declaredEvent",
+    "data": {
+      "turn": 57,
+      "rawPlayingState": 1,
+      "event": {
+        "eventId": 10000,
+        "characterId": 1068,
+        "storyId": 501068510,
+        "playTiming": 1
+      },
+      "resources": {
+        "speed": 1157,
+        "stamina": 1199,
+        "power": 968,
+        "guts": 677,
+        "wisdom": 682,
+        "vital": 91,
+        "skillPoints": 2296
+      },
+      "limits": {
+        "speed": 1852,
+        "stamina": 1715,
+        "power": 1700,
+        "guts": 1644,
+        "wisdom": 1310,
+        "vital": 112
+      },
+      "motivation": 5,
+      "choices": [
+        {
+          "choiceNumber": 1,
+          "branches": [
+            {
+              "effects": [
+                {
+                  "displayId": 1,
+                  "value0": 2,
+                  "value1": 10,
+                  "value2": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "choiceNumber": 2,
+          "branches": [
+            {
+              "effects": [
+                {
+                  "displayId": 1,
+                  "value0": 1,
+                  "value1": 5,
+                  "value2": 0
+                },
+                {
+                  "displayId": 1,
+                  "value0": 20,
+                  "value1": 1,
+                  "value2": 0
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "characterEffects": [
+        10,
+        26
+      ]
+    }
+  },
+  "outcomes": [],
+  "script": [
+    {
+      "decisionId": {
+        "kind": 15,
+        "ordinal": 0,
+        "key": 244813145872
+      },
+      "action": {
+        "kind": "chooseEvent",
+        "commandId": 0,
+        "eventId": 10000,
+        "characterId": 1068,
+        "choiceNumber": 1
+      }
+    }
+  ]
+}

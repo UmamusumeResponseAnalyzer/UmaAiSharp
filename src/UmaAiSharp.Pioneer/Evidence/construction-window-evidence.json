@@ -1,0 +1,1113 @@
+{
+  "schemaVersion": "1",
+  "inputs": {
+    "audit.json": "cc8c10b990a050626820b70e68886b63bcafdf6412c6bc43c85ab8a88df362bd",
+    "pioneer-observations.jsonl": "7563203ca8b9f658ec5c5375db043d28967d5d36e357749627b53af69c4647f9",
+    "pioneer-actions.jsonl": "e3e7f61a239efde88f5dc6d024d89cfaec5d56e7a4749f667a21ec77e6672583",
+    "exchanges.jsonl": "1ac415e8068bc33545955b61609d01393c074676af45646f964b23268cb1683e"
+  },
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "rawWindows": [
+    {
+      "purpose": "DelayedConstruction",
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "firstRecordId": 22206,
+      "lastRecordId": 22219,
+      "rawRecordCount": 14,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": true,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [],
+      "routes": {
+        "exec_command": 2,
+        "get_choice_reward": 4,
+        "check_event": 8
+      },
+      "observations": [
+        {
+          "recordId": 22207,
+          "endpoint": "exec_command",
+          "turn": 53,
+          "phase": 5,
+          "developmentPoints": 378,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 21165,
+              "storyId": 809049013,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 22211,
+          "endpoint": "check_event",
+          "turn": 53,
+          "phase": 5,
+          "developmentPoints": 378,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 211075,
+              "storyId": 400011111,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 22215,
+          "endpoint": "check_event",
+          "turn": 53,
+          "phase": 5,
+          "developmentPoints": 458,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 211035,
+              "storyId": 400011019,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 22217,
+          "endpoint": "check_event",
+          "turn": 53,
+          "phase": 5,
+          "developmentPoints": 458,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 211076,
+              "storyId": 400011107,
+              "rawPlayTiming": 10
+            }
+          ]
+        },
+        {
+          "recordId": 22219,
+          "endpoint": "check_event",
+          "turn": 54,
+          "phase": 1,
+          "developmentPoints": 458,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 7022,
+              "storyId": 501008719,
+              "rawPlayTiming": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "purpose": "DelayedConstruction",
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "firstRecordId": 23398,
+      "lastRecordId": 23417,
+      "rawRecordCount": 20,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": true,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [],
+      "routes": {
+        "race_entry": 2,
+        "check_event": 10,
+        "race_start": 2,
+        "race_end": 2,
+        "race_out": 2,
+        "get_choice_reward": 2
+      },
+      "observations": [
+        {
+          "recordId": 23399,
+          "endpoint": "race_entry",
+          "turn": 15,
+          "phase": 2,
+          "developmentPoints": 186,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 3016,
+              "storyId": 501038600,
+              "rawPlayTiming": 2
+            }
+          ]
+        },
+        {
+          "recordId": 23401,
+          "endpoint": "check_event",
+          "turn": 15,
+          "phase": 2,
+          "developmentPoints": 186,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": []
+        },
+        {
+          "recordId": 23407,
+          "endpoint": "race_out",
+          "turn": 15,
+          "phase": 5,
+          "developmentPoints": 186,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 7005,
+              "storyId": 501038708,
+              "rawPlayTiming": 3
+            }
+          ]
+        },
+        {
+          "recordId": 23411,
+          "endpoint": "check_event",
+          "turn": 15,
+          "phase": 5,
+          "developmentPoints": 186,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 211074,
+              "storyId": 400011105,
+              "rawPlayTiming": 3
+            }
+          ]
+        },
+        {
+          "recordId": 23413,
+          "endpoint": "check_event",
+          "turn": 15,
+          "phase": 5,
+          "developmentPoints": 207,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 11793,
+              "storyId": 501038524,
+              "rawPlayTiming": 3
+            }
+          ]
+        },
+        {
+          "recordId": 23415,
+          "endpoint": "check_event",
+          "turn": 15,
+          "phase": 5,
+          "developmentPoints": 207,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 211076,
+              "storyId": 400011107,
+              "rawPlayTiming": 10
+            }
+          ]
+        },
+        {
+          "recordId": 23417,
+          "endpoint": "check_event",
+          "turn": 16,
+          "phase": 1,
+          "developmentPoints": 207,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 1,
+          "events": []
+        }
+      ]
+    },
+    {
+      "purpose": "UnattributedFacilityChange",
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "firstRecordId": 5322,
+      "lastRecordId": 5330,
+      "rawRecordCount": 9,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": false,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [
+        {
+          "recordId": 5322,
+          "direction": "request",
+          "endpoint": "exec_command"
+        },
+        {
+          "recordId": 5327,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 5328,
+          "direction": "response",
+          "endpoint": "check_event"
+        }
+      ],
+      "routes": {
+        "exec_command": 5,
+        "check_event": 4
+      },
+      "observations": [
+        {
+          "recordId": 5324,
+          "endpoint": "exec_command",
+          "turn": 40,
+          "phase": 1,
+          "developmentPoints": 311,
+          "thresholds": [
+            300,
+            600
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 3004,
+              "storyId": 501023104,
+              "rawPlayTiming": 1
+            }
+          ]
+        },
+        {
+          "recordId": 5326,
+          "endpoint": "exec_command",
+          "turn": 40,
+          "phase": 5,
+          "developmentPoints": 412,
+          "thresholds": [
+            300,
+            600
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 21169,
+              "storyId": 809049032,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 5328,
+          "endpoint": "check_event",
+          "turn": 41,
+          "phase": 1,
+          "developmentPoints": 412,
+          "thresholds": [
+            300,
+            600
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 11737,
+              "storyId": 501023402,
+              "rawPlayTiming": 1
+            }
+          ]
+        },
+        {
+          "recordId": 5330,
+          "endpoint": "check_event",
+          "turn": 41,
+          "phase": 1,
+          "developmentPoints": 412,
+          "thresholds": [
+            300,
+            600
+          ],
+          "lastGainRightsNum": 1,
+          "events": []
+        }
+      ]
+    },
+    {
+      "purpose": "UnattributedFacilityChange",
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "firstRecordId": 5402,
+      "lastRecordId": 5411,
+      "rawRecordCount": 10,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": false,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [
+        {
+          "recordId": 5407,
+          "direction": "request",
+          "endpoint": "exec_command"
+        },
+        {
+          "recordId": 5410,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 5411,
+          "direction": "response",
+          "endpoint": "check_event"
+        }
+      ],
+      "routes": {
+        "check_event": 9,
+        "exec_command": 1
+      },
+      "observations": [
+        {
+          "recordId": 5402,
+          "endpoint": "check_event",
+          "turn": 51,
+          "phase": 5,
+          "developmentPoints": 300,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 211024,
+              "storyId": 400000005,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 5404,
+          "endpoint": "check_event",
+          "turn": 52,
+          "phase": 1,
+          "developmentPoints": 300,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 10002,
+              "storyId": 830053001,
+              "rawPlayTiming": 1
+            }
+          ]
+        },
+        {
+          "recordId": 5406,
+          "endpoint": "check_event",
+          "turn": 52,
+          "phase": 1,
+          "developmentPoints": 300,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 2,
+          "events": []
+        },
+        {
+          "recordId": 5409,
+          "endpoint": "check_event",
+          "turn": 52,
+          "phase": 5,
+          "developmentPoints": 421,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 20099,
+              "storyId": 801000003,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 5411,
+          "endpoint": "check_event",
+          "turn": 53,
+          "phase": 1,
+          "developmentPoints": 421,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 10012,
+              "storyId": 501023519,
+              "rawPlayTiming": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "purpose": "UnattributedFacilityChange",
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "firstRecordId": 5313,
+      "lastRecordId": 5323,
+      "rawRecordCount": 11,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": false,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [
+        {
+          "recordId": 5318,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 5319,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 5322,
+          "direction": "response",
+          "endpoint": "check_event"
+        }
+      ],
+      "routes": {
+        "race_out": 1,
+        "get_choice_reward": 2,
+        "check_event": 5,
+        "exec_command": 3
+      },
+      "observations": [
+        {
+          "recordId": 5313,
+          "endpoint": "race_out",
+          "turn": 57,
+          "phase": 5,
+          "developmentPoints": 796,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 7006,
+              "storyId": 501062709,
+              "rawPlayTiming": 3
+            }
+          ]
+        },
+        {
+          "recordId": 5317,
+          "endpoint": "check_event",
+          "turn": 57,
+          "phase": 5,
+          "developmentPoints": 796,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 211074,
+              "storyId": 400011105,
+              "rawPlayTiming": 3
+            }
+          ]
+        },
+        {
+          "recordId": 5321,
+          "endpoint": "exec_command",
+          "turn": 58,
+          "phase": 5,
+          "developmentPoints": 819,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 7059,
+              "storyId": 501062701,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 5322,
+          "endpoint": "check_event",
+          "turn": 59,
+          "phase": 1,
+          "developmentPoints": 819,
+          "thresholds": [
+            400,
+            800
+          ],
+          "lastGainRightsNum": 2,
+          "events": []
+        }
+      ]
+    },
+    {
+      "purpose": "UnattributedFacilityChange",
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "firstRecordId": 6300,
+      "lastRecordId": 6309,
+      "rawRecordCount": 10,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": false,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [
+        {
+          "recordId": 6300,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 6305,
+          "direction": "request",
+          "endpoint": "exec_command"
+        },
+        {
+          "recordId": 6308,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 6309,
+          "direction": "request",
+          "endpoint": "check_event"
+        }
+      ],
+      "routes": {
+        "check_event": 7,
+        "exec_command": 3
+      },
+      "observations": [
+        {
+          "recordId": 6302,
+          "endpoint": "check_event",
+          "turn": 4,
+          "phase": 1,
+          "developmentPoints": 90,
+          "thresholds": [
+            200,
+            400
+          ],
+          "lastGainRightsNum": 0,
+          "events": []
+        },
+        {
+          "recordId": 6304,
+          "endpoint": "exec_command",
+          "turn": 5,
+          "phase": 1,
+          "developmentPoints": 174,
+          "thresholds": [
+            200,
+            400
+          ],
+          "lastGainRightsNum": 0,
+          "events": []
+        },
+        {
+          "recordId": 6307,
+          "endpoint": "check_event",
+          "turn": 5,
+          "phase": 5,
+          "developmentPoints": 246,
+          "thresholds": [
+            200,
+            400
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 20099,
+              "storyId": 801000003,
+              "rawPlayTiming": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "purpose": "UnattributedFacilityChange",
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "firstRecordId": 6360,
+      "lastRecordId": 6375,
+      "rawRecordCount": 16,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": false,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [
+        {
+          "recordId": 6364,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 6365,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 6368,
+          "direction": "request",
+          "endpoint": "exec_command"
+        },
+        {
+          "recordId": 6369,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 6370,
+          "direction": "request",
+          "endpoint": "check_event"
+        },
+        {
+          "recordId": 6371,
+          "direction": "request",
+          "endpoint": "shima_training_exec"
+        }
+      ],
+      "routes": {
+        "planning": 2,
+        "exec_command": 3,
+        "check_event": 8,
+        "get_choice_reward": 2,
+        "shima_training_exec": 1
+      },
+      "observations": [
+        {
+          "recordId": 6361,
+          "endpoint": "planning",
+          "turn": 13,
+          "phase": 1,
+          "developmentPoints": 0,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": []
+        },
+        {
+          "recordId": 6363,
+          "endpoint": "exec_command",
+          "turn": 13,
+          "phase": 5,
+          "developmentPoints": 81,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 21169,
+              "storyId": 809049032,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 6373,
+          "endpoint": "check_event",
+          "turn": 15,
+          "phase": 5,
+          "developmentPoints": 253,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 20099,
+              "storyId": 801000003,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 6375,
+          "endpoint": "check_event",
+          "turn": 16,
+          "phase": 1,
+          "developmentPoints": 253,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 10002,
+              "storyId": 830086001,
+              "rawPlayTiming": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "purpose": "UnattributedFacilityChange",
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "firstRecordId": 6379,
+      "lastRecordId": 6386,
+      "rawRecordCount": 8,
+      "continuousRecordIds": true,
+      "capturedTimesMonotonic": true,
+      "uniqueKnownRunCount": 1,
+      "allRawRequestPairsComplete": false,
+      "duplicatePayloads": 0,
+      "unmatchedRawRecords": [
+        {
+          "recordId": 6381,
+          "direction": "request",
+          "endpoint": "get_choice_reward"
+        },
+        {
+          "recordId": 6382,
+          "direction": "response",
+          "endpoint": "check_event"
+        }
+      ],
+      "routes": {
+        "exec_command": 2,
+        "get_choice_reward": 1,
+        "check_event": 5
+      },
+      "observations": [
+        {
+          "recordId": 6380,
+          "endpoint": "exec_command",
+          "turn": 17,
+          "phase": 5,
+          "developmentPoints": 350,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 21163,
+              "storyId": 809049011,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 6382,
+          "endpoint": "check_event",
+          "turn": 17,
+          "phase": 5,
+          "developmentPoints": 430,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 1,
+          "events": [
+            {
+              "eventId": 211031,
+              "storyId": 400011006,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 6384,
+          "endpoint": "check_event",
+          "turn": 18,
+          "phase": 5,
+          "developmentPoints": 530,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 20099,
+              "storyId": 801000003,
+              "rawPlayTiming": 6
+            }
+          ]
+        },
+        {
+          "recordId": 6386,
+          "endpoint": "check_event",
+          "turn": 18,
+          "phase": 5,
+          "developmentPoints": 530,
+          "thresholds": [
+            200,
+            500
+          ],
+          "lastGainRightsNum": 2,
+          "events": [
+            {
+              "eventId": 21169,
+              "storyId": 809049032,
+              "rawPlayTiming": 6
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "masterEventTitles": [
+    {
+      "storyId": 400011019,
+      "title": "無人島の大魔王"
+    },
+    {
+      "storyId": 400011105,
+      "title": "発展Ptのヒミツ"
+    },
+    {
+      "storyId": 400011107,
+      "title": "島トレーニングができるぞ！"
+    },
+    {
+      "storyId": 400011108,
+      "title": "夏合宿後も、島トレーニングへ！"
+    },
+    {
+      "storyId": 400011110,
+      "title": "まだまだ強く、島トレーニング！"
+    },
+    {
+      "storyId": 400011111,
+      "title": "タッカーさんからの、ご褒美！"
+    },
+    {
+      "storyId": 501038524,
+      "title": "カワイイライブの後で……♪"
+    }
+  ],
+  "eventWindows": [
+    {
+      "storyId": 400011104,
+      "eventId": 211069,
+      "rawPlayTiming": 1,
+      "observations": 78
+    },
+    {
+      "storyId": 400011104,
+      "eventId": 211078,
+      "rawPlayTiming": 1,
+      "observations": 77
+    },
+    {
+      "storyId": 400011105,
+      "eventId": 211074,
+      "rawPlayTiming": 3,
+      "observations": 911
+    },
+    {
+      "storyId": 400011107,
+      "eventId": 211067,
+      "rawPlayTiming": 6,
+      "observations": 619
+    },
+    {
+      "storyId": 400011107,
+      "eventId": 211076,
+      "rawPlayTiming": 10,
+      "observations": 91
+    },
+    {
+      "storyId": 400011108,
+      "eventId": 211068,
+      "rawPlayTiming": 1,
+      "observations": 72
+    },
+    {
+      "storyId": 400011109,
+      "eventId": 211070,
+      "rawPlayTiming": 1,
+      "observations": 76
+    },
+    {
+      "storyId": 400011110,
+      "eventId": 211023,
+      "rawPlayTiming": 3,
+      "observations": 3
+    },
+    {
+      "storyId": 400011110,
+      "eventId": 211023,
+      "rawPlayTiming": 6,
+      "observations": 76
+    },
+    {
+      "storyId": 400011111,
+      "eventId": 211075,
+      "rawPlayTiming": 6,
+      "observations": 378
+    }
+  ],
+  "storyTurnCounts": {
+    "400011019": {
+      "53": 79
+    },
+    "501038524": {
+      "15": 1
+    }
+  },
+  "associationOnlyCrossings": [
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "beforeRecordId": 6636,
+      "requestRecordId": 6637,
+      "afterRecordId": 6638,
+      "rewardPreviewRequestsBetween": 0,
+      "before": {
+        "turn": 39,
+        "rawPlayingState": 1,
+        "deckId": 3,
+        "developmentPoints": 218,
+        "thresholds": [
+          300,
+          600
+        ],
+        "pendingStoryIds": []
+      },
+      "pointGain": 109,
+      "sourceKind": 0,
+      "crossedThresholds": [
+        300
+      ],
+      "visibleEventsAtPointGain": [
+        501135104
+      ],
+      "evidenceInterruptions": [
+        {
+          "recordId": 6646,
+          "reason": "IntermediateStateOrRunUnavailable"
+        },
+        {
+          "recordId": 6648,
+          "reason": "IntermediateEventArrayUnavailable"
+        }
+      ],
+      "eventRecordId": 6658,
+      "eventTurn": 41,
+      "eventStoryId": 400011108,
+      "eventRawPlayTiming": 1
+    },
+    {
+      "sourceSha256": "058d9ce35589ddc9900e0d6574c469645406ab621ef83c36daaf6f7271181845",
+      "beforeRecordId": 2198,
+      "requestRecordId": 2199,
+      "afterRecordId": 2200,
+      "rewardPreviewRequestsBetween": 0,
+      "before": {
+        "turn": 39,
+        "rawPlayingState": 1,
+        "deckId": 3,
+        "developmentPoints": 226,
+        "thresholds": [
+          300,
+          600
+        ],
+        "pendingStoryIds": []
+      },
+      "pointGain": 117,
+      "sourceKind": 0,
+      "crossedThresholds": [
+        300
+      ],
+      "visibleEventsAtPointGain": [
+        801000003
+      ],
+      "evidenceInterruptions": [
+        {
+          "recordId": 2212,
+          "reason": "IntermediateStateOrRunUnavailable"
+        },
+        {
+          "recordId": 2214,
+          "reason": "IntermediateEventArrayUnavailable"
+        }
+      ],
+      "eventRecordId": 2224,
+      "eventTurn": 41,
+      "eventStoryId": 400011108,
+      "eventRawPlayTiming": 1
+    }
+  ],
+  "unresolvedCrossings": [],
+  "exclusions": {
+    "InterveningRewardPreviewIncomplete": 2,
+    "InterveningMutationRequest": 13,
+    "RequestMissingOrAmbiguous": 1,
+    "PointSourceOrTurnUnproven": 1
+  },
+  "fixtureCount": 769,
+  "researchReportSha256": "d60ff621bd9cdfffdab55abed4047a772967d22438389dc97ba3a7cc4a67403e"
+}

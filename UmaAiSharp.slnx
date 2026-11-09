@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UmaAiSharp.Core/UmaAiSharp.Core.csproj" />
+    <Project Path="src/UmaAiSharp.Pioneer/UmaAiSharp.Pioneer.csproj" />
+    <Project Path="src/UmaAiSharp.Cli/UmaAiSharp.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UmaAiSharp.Tests/UmaAiSharp.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/UmaAiSharp.Benchmarks/UmaAiSharp.Benchmarks.csproj" />
+  </Folder>
+</Solution>

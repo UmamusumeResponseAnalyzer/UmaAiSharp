@@ -1,0 +1,69 @@
+{
+  "scope": "Recorded components only; no independent holdout",
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "inputs": [
+    {
+      "path": "artifacts\\evidence\\local-audit-05\\audit.json",
+      "sha256": "cc8c10b990a050626820b70e68886b63bcafdf6412c6bc43c85ab8a88df362bd"
+    },
+    {
+      "path": "artifacts\\evidence\\local-audit-05\\exchanges.jsonl",
+      "sha256": "1ac415e8068bc33545955b61609d01393c074676af45646f964b23268cb1683e"
+    },
+    {
+      "path": "artifacts\\evidence\\local-audit-05\\pioneer-actions.jsonl",
+      "sha256": "e3e7f61a239efde88f5dc6d024d89cfaec5d56e7a4749f667a21ec77e6672583"
+    },
+    {
+      "path": "artifacts\\evidence\\local-audit-05\\pioneer-observations.jsonl",
+      "sha256": "7563203ca8b9f658ec5c5375db043d28967d5d36e357749627b53af69c4647f9"
+    },
+    {
+      "path": "artifacts\\evidence\\local-audit-05\\master-rows.jsonl",
+      "sha256": "1290127ed5d6f8c9078c38af9609785ec637678001265235643efbf547f32bd6"
+    },
+    {
+      "path": "artifacts\\research\\blockers\\construction-checkpoints\\run-02\\transitions.jsonl",
+      "sha256": "88de6c48feef625855f78c9c38f2a652724129c34ae6241f0d7bf2d91ea057d8"
+    },
+    {
+      "path": "artifacts\\research\\blockers\\construction-checkpoints\\deep-03\\race-labels.json",
+      "sha256": "1817cd6b175e2ac674f2095df4b8c0e85d382793ac57b389a42f0d36f99e1e7c"
+    },
+    {
+      "path": "artifacts\\research\\blockers\\races\\hypotheses-02\\pt-candidate.json",
+      "sha256": "1d606f982dd2adace9df53e3e23ca18fa910841192e29a78ebaaba6823f913b1"
+    },
+    {
+      "path": "artifacts\\research\\blockers\\construction-checkpoints\\run-02\\provenance.json",
+      "sha256": "d88a7055c20c78a6b2e6fb3107156db60b11ba3b1cffae874d4a26ffb85560ec"
+    },
+    {
+      "path": "K:\\repos\\UmaSharpAi\\src\\UmaSharpAi.Pioneer\\Development\\Evidence\\export_component_fixtures.py",
+      "sha256": "81fe74d6455464bef2418a0329f1b5d3a47ce696c5fffa656f1840691e580aa8"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "race-point-observations.jsonl",
+      "count": 902,
+      "sha256": "3ecca812b6ee3f30931a945e6bfd72353941dfc39947e03f7711113966cbaa79"
+    },
+    {
+      "name": "tucker-point-observations.jsonl",
+      "count": 376,
+      "sha256": "5fe3200fc3316575f3fda0e4aa66f97395b74a0d9945ca2c1e6cb11398dfe517"
+    },
+    {
+      "name": "checkpoint-progress-observations.jsonl",
+      "count": 389,
+      "sha256": "39be64e79fb48443c22fdae7fa622fd38b7195709919038401dda50dffa2b7b9"
+    }
+  ],
+  "raceLabels": {
+    "agreed": 902,
+    "constructionOnly": 1,
+    "racesOnlyConditionType3": 2,
+    "unlabelled": 3
+  }
+}

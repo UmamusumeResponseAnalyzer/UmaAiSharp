@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <ProjectReference Include="../UmaAiSharp.Core/UmaAiSharp.Core.csproj" />
+    <ProjectReference Include="../UmaAiSharp.Pioneer/UmaAiSharp.Pioneer.csproj" />
+  </ItemGroup>
+</Project>

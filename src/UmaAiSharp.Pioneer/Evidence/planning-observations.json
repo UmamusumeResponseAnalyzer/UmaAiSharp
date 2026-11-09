@@ -1,0 +1,447 @@
+{
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "purpose": "Construction timing counterexamples; not complete simulation fixtures",
+  "versionBinding": "Unverified",
+  "observations": [
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "recordId": 190,
+      "endpoint": "/umamusume/single_mode_pioneer/planning",
+      "chara_info": {
+        "turn": 3,
+        "playing_state": 1,
+        "state": 0
+      },
+      "pioneer_data_set": {
+        "pioneer_info": {
+          "pioneer_pt": 0,
+          "planning_cost": 400,
+          "gain_shima_training_pt_array": [
+            200,
+            400
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 0,
+          "target_race_gain_pioneer_point": 60
+        },
+        "planning_info_array": [
+          {
+            "priority": 2,
+            "facility_id": 101,
+            "prev_state_id": 10100,
+            "target_state_id": 10110
+          },
+          {
+            "priority": 3,
+            "facility_id": 102,
+            "prev_state_id": 10200,
+            "target_state_id": 10210
+          },
+          {
+            "priority": 1,
+            "facility_id": 106,
+            "prev_state_id": 10600,
+            "target_state_id": 10610
+          }
+        ],
+        "facility_info_array": [
+          {
+            "facility_id": 101,
+            "state_id": 10100
+          },
+          {
+            "facility_id": 102,
+            "state_id": 10200
+          },
+          {
+            "facility_id": 103,
+            "state_id": 10300
+          },
+          {
+            "facility_id": 104,
+            "state_id": 10400
+          },
+          {
+            "facility_id": 105,
+            "state_id": 10500
+          },
+          {
+            "facility_id": 106,
+            "state_id": 10600
+          }
+        ]
+      },
+      "unchecked_event_array": []
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "recordId": 216,
+      "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+      "chara_info": {
+        "turn": 6,
+        "playing_state": 5,
+        "state": 0
+      },
+      "pioneer_data_set": {
+        "pioneer_info": {
+          "pioneer_pt": 258,
+          "planning_cost": 400,
+          "gain_shima_training_pt_array": [
+            200,
+            400
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 60
+        },
+        "planning_info_array": [
+          {
+            "priority": 2,
+            "facility_id": 101,
+            "prev_state_id": 10100,
+            "target_state_id": 10110
+          },
+          {
+            "priority": 3,
+            "facility_id": 102,
+            "prev_state_id": 10200,
+            "target_state_id": 10210
+          },
+          {
+            "priority": 1,
+            "facility_id": 106,
+            "prev_state_id": 10600,
+            "target_state_id": 10610
+          }
+        ],
+        "facility_info_array": [
+          {
+            "facility_id": 101,
+            "state_id": 10100
+          },
+          {
+            "facility_id": 102,
+            "state_id": 10200
+          },
+          {
+            "facility_id": 103,
+            "state_id": 10300
+          },
+          {
+            "facility_id": 104,
+            "state_id": 10400
+          },
+          {
+            "facility_id": 105,
+            "state_id": 10500
+          },
+          {
+            "facility_id": 106,
+            "state_id": 10600
+          }
+        ]
+      },
+      "unchecked_event_array": [
+        {
+          "story_id": 400011107
+        }
+      ]
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "recordId": 218,
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "chara_info": {
+        "turn": 7,
+        "playing_state": 1,
+        "state": 0
+      },
+      "pioneer_data_set": {
+        "pioneer_info": {
+          "pioneer_pt": 258,
+          "planning_cost": 400,
+          "gain_shima_training_pt_array": [
+            200,
+            400
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 60
+        },
+        "planning_info_array": [
+          {
+            "priority": 2,
+            "facility_id": 101,
+            "prev_state_id": 10100,
+            "target_state_id": 10110
+          },
+          {
+            "priority": 3,
+            "facility_id": 102,
+            "prev_state_id": 10200,
+            "target_state_id": 10210
+          },
+          {
+            "priority": 1,
+            "facility_id": 106,
+            "prev_state_id": 10600,
+            "target_state_id": 10610
+          }
+        ],
+        "facility_info_array": [
+          {
+            "facility_id": 101,
+            "state_id": 10100
+          },
+          {
+            "facility_id": 102,
+            "state_id": 10200
+          },
+          {
+            "facility_id": 103,
+            "state_id": 10300
+          },
+          {
+            "facility_id": 104,
+            "state_id": 10400
+          },
+          {
+            "facility_id": 105,
+            "state_id": 10500
+          },
+          {
+            "facility_id": 106,
+            "state_id": 10610
+          }
+        ]
+      },
+      "unchecked_event_array": [
+        {
+          "story_id": 830149001
+        }
+      ]
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "recordId": 222,
+      "endpoint": "/umamusume/single_mode_pioneer/check_event",
+      "chara_info": {
+        "turn": 7,
+        "playing_state": 1,
+        "state": 0
+      },
+      "pioneer_data_set": {
+        "pioneer_info": {
+          "pioneer_pt": 258,
+          "planning_cost": 400,
+          "gain_shima_training_pt_array": [
+            200,
+            400
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 60
+        },
+        "planning_info_array": [
+          {
+            "priority": 2,
+            "facility_id": 101,
+            "prev_state_id": 10100,
+            "target_state_id": 10110
+          },
+          {
+            "priority": 3,
+            "facility_id": 102,
+            "prev_state_id": 10200,
+            "target_state_id": 10210
+          },
+          {
+            "priority": 1,
+            "facility_id": 106,
+            "prev_state_id": 10600,
+            "target_state_id": 10610
+          }
+        ],
+        "facility_info_array": [
+          {
+            "facility_id": 101,
+            "state_id": 10100
+          },
+          {
+            "facility_id": 102,
+            "state_id": 10200
+          },
+          {
+            "facility_id": 103,
+            "state_id": 10300
+          },
+          {
+            "facility_id": 104,
+            "state_id": 10400
+          },
+          {
+            "facility_id": 105,
+            "state_id": 10500
+          },
+          {
+            "facility_id": 106,
+            "state_id": 10610
+          }
+        ]
+      },
+      "unchecked_event_array": []
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "recordId": 226,
+      "endpoint": "/umamusume/single_mode_pioneer/shima_training_exec",
+      "chara_info": {
+        "turn": 8,
+        "playing_state": 1,
+        "state": 0
+      },
+      "pioneer_data_set": {
+        "pioneer_info": {
+          "pioneer_pt": 333,
+          "planning_cost": 400,
+          "gain_shima_training_pt_array": [
+            200,
+            400
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 1,
+          "target_race_gain_pioneer_point": 60
+        },
+        "planning_info_array": [
+          {
+            "priority": 2,
+            "facility_id": 101,
+            "prev_state_id": 10100,
+            "target_state_id": 10110
+          },
+          {
+            "priority": 3,
+            "facility_id": 102,
+            "prev_state_id": 10200,
+            "target_state_id": 10210
+          },
+          {
+            "priority": 1,
+            "facility_id": 106,
+            "prev_state_id": 10600,
+            "target_state_id": 10610
+          }
+        ],
+        "facility_info_array": [
+          {
+            "facility_id": 101,
+            "state_id": 10100
+          },
+          {
+            "facility_id": 102,
+            "state_id": 10200
+          },
+          {
+            "facility_id": 103,
+            "state_id": 10300
+          },
+          {
+            "facility_id": 104,
+            "state_id": 10400
+          },
+          {
+            "facility_id": 105,
+            "state_id": 10500
+          },
+          {
+            "facility_id": 106,
+            "state_id": 10610
+          }
+        ]
+      },
+      "unchecked_event_array": []
+    },
+    {
+      "sourceSha256": "9caf1bdf92e72ec61f6d900ca5f026c1068007611cbf736e33c164625157d0e1",
+      "recordId": 272,
+      "endpoint": "/umamusume/single_mode_pioneer/planning",
+      "chara_info": {
+        "turn": 13,
+        "playing_state": 1,
+        "state": 0
+      },
+      "pioneer_data_set": {
+        "pioneer_info": {
+          "pioneer_pt": 0,
+          "planning_cost": 500,
+          "gain_shima_training_pt_array": [
+            200,
+            500
+          ],
+          "deck_id": 3,
+          "last_gain_rights_num": 2,
+          "target_race_gain_pioneer_point": 61
+        },
+        "planning_info_array": [
+          {
+            "priority": 4,
+            "facility_id": 101,
+            "prev_state_id": 10110,
+            "target_state_id": 10120
+          },
+          {
+            "priority": 5,
+            "facility_id": 102,
+            "prev_state_id": 10210,
+            "target_state_id": 10220
+          },
+          {
+            "priority": 2,
+            "facility_id": 103,
+            "prev_state_id": 10300,
+            "target_state_id": 10310
+          },
+          {
+            "priority": 1,
+            "facility_id": 104,
+            "prev_state_id": 10400,
+            "target_state_id": 10410
+          },
+          {
+            "priority": 3,
+            "facility_id": 105,
+            "prev_state_id": 10500,
+            "target_state_id": 10510
+          }
+        ],
+        "facility_info_array": [
+          {
+            "facility_id": 101,
+            "state_id": 10110
+          },
+          {
+            "facility_id": 102,
+            "state_id": 10210
+          },
+          {
+            "facility_id": 103,
+            "state_id": 10300
+          },
+          {
+            "facility_id": 104,
+            "state_id": 10400
+          },
+          {
+            "facility_id": 105,
+            "state_id": 10500
+          },
+          {
+            "facility_id": 106,
+            "state_id": 10610
+          }
+        ]
+      },
+      "unchecked_event_array": []
+    }
+  ]
+}

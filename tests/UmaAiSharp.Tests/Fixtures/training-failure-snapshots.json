@@ -1,0 +1,273 @@
+{
+  "verificationSha256": "7f8be9889714ad08501c4e64c55cb07e52413cba89935cae48777459cdf69ae6",
+  "decoderSha256": "0695462df2754554f71462e1bd35ea7e9f94833f1476595692d26bc712a4ace8",
+  "generatorSha256": "ae67319f9619beda7631d65becfaff150b7703f908cc4d75b39a383190ceee04",
+  "sourceSha256": [
+    "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b"
+  ],
+  "scope": "Two conditional failure windows; no failure or branch probability; no next-turn event generation.",
+  "windows": [
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "packets": [
+        {
+          "id": 52989,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/check_event",
+          "payloadSha256": "fee89357320ae7153f9dc83afcd8086595ee1750fa08a550d25494196619a2d5"
+        },
+        {
+          "id": 52990,
+          "direction": "request",
+          "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+          "payloadSha256": "399adf1267ca0092bfb5d0e5702153f1df128383b23e3bf78cf6677def5c7372"
+        },
+        {
+          "id": 52991,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+          "payloadSha256": "2e8101db0a16dd3d40d6422aa3b70b8e80dcd5472897fe8b694c8db4d6f2e3fb"
+        },
+        {
+          "id": 52992,
+          "direction": "request",
+          "endpoint": "/umamusume/single_mode_pioneer/get_choice_reward",
+          "payloadSha256": "ee05d53293204d2a066be539d0e31079fac6358bea7039a9cf3caf2184de80b7"
+        },
+        {
+          "id": 52993,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/get_choice_reward",
+          "payloadSha256": "3cb361cce4e7001479e16a7c5b12eec604b05b1e6c990a0d244f8aef4b4031a5"
+        },
+        {
+          "id": 52994,
+          "direction": "request",
+          "endpoint": "/umamusume/single_mode_pioneer/check_event",
+          "payloadSha256": "ed381d4a1399107bbc59ff8f8d81b3f628e7f57792c71c147e3e84abc7652090"
+        },
+        {
+          "id": 52995,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/check_event",
+          "payloadSha256": "68bf3681e131164e1e8267ba912a355bbfe6874080a2afddc930a7beaa411bb2"
+        }
+      ],
+      "commandId": 3602,
+      "choiceNumber": 1,
+      "failureEvent": {
+        "eventId": 211087,
+        "characterId": 0,
+        "storyId": 400011112,
+        "playTiming": 6
+      },
+      "before": {
+        "cardId": 104501,
+        "turn": 37,
+        "motivation": 5,
+        "resources": {
+          "speed": 646,
+          "stamina": 795,
+          "power": 395,
+          "guts": 507,
+          "wisdom": 586,
+          "vital": 80,
+          "skillPoints": 1406
+        },
+        "staminaExecutionCount": 8,
+        "supportBonds": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "playingState": 1,
+        "characterEffects": [
+          12,
+          26
+        ]
+      },
+      "immediateAfter": {
+        "cardId": 104501,
+        "turn": 37,
+        "motivation": 5,
+        "resources": {
+          "speed": 646,
+          "stamina": 795,
+          "power": 395,
+          "guts": 507,
+          "wisdom": 586,
+          "vital": 80,
+          "skillPoints": 1406
+        },
+        "staminaExecutionCount": 9,
+        "supportBonds": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "playingState": 5
+      },
+      "choiceAfter": {
+        "cardId": 104501,
+        "turn": 38,
+        "motivation": 4,
+        "resources": {
+          "speed": 646,
+          "stamina": 790,
+          "power": 395,
+          "guts": 507,
+          "wisdom": 586,
+          "vital": 80,
+          "skillPoints": 1406
+        },
+        "staminaExecutionCount": 9,
+        "supportBonds": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "playingState": 1
+      }
+    },
+    {
+      "sourceSha256": "ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b",
+      "packets": [
+        {
+          "id": 58275,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/check_event",
+          "payloadSha256": "fa8d45f9f1c3bdf0dc13c3782a731bcffd7017ba0bfc74807f0da8aaa1a2efc4"
+        },
+        {
+          "id": 58276,
+          "direction": "request",
+          "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+          "payloadSha256": "352d4282ca09a396e12f3f1795892db314791b8afbddb443c8b650aaadc5056c"
+        },
+        {
+          "id": 58277,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/exec_command",
+          "payloadSha256": "65961c6ab76e473f8a3b64859f8b7d035bc0e6e7aa209f3575bec66506fb5083"
+        },
+        {
+          "id": 58278,
+          "direction": "request",
+          "endpoint": "/umamusume/single_mode_pioneer/get_choice_reward",
+          "payloadSha256": "8e1c2db14ec6ea2a053775f006a3ca2a98d6e2cfa70a057529434d70ca4209bf"
+        },
+        {
+          "id": 58279,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/get_choice_reward",
+          "payloadSha256": "13cf81b14d151b699fd8f56d6f5ec6b5d482fdcda63171651e837ab5aee5d368"
+        },
+        {
+          "id": 58280,
+          "direction": "request",
+          "endpoint": "/umamusume/single_mode_pioneer/check_event",
+          "payloadSha256": "32892ade43ee2fcb0bdddfc5321475fe707127157a74c6690e8c679b570443d7"
+        },
+        {
+          "id": 58281,
+          "direction": "response",
+          "endpoint": "/umamusume/single_mode_pioneer/check_event",
+          "payloadSha256": "6807e08f23617508fe10066bfa1c85ce9fe6c04684ccb92b3e6f4e089a158e4f"
+        }
+      ],
+      "commandId": 105,
+      "choiceNumber": 1,
+      "failureEvent": {
+        "eventId": 7043,
+        "characterId": 1045,
+        "storyId": 501045713,
+        "playTiming": 6
+      },
+      "before": {
+        "cardId": 104503,
+        "turn": 30,
+        "motivation": 5,
+        "resources": {
+          "speed": 572,
+          "stamina": 535,
+          "power": 497,
+          "guts": 242,
+          "wisdom": 377,
+          "vital": 65,
+          "skillPoints": 865
+        },
+        "staminaExecutionCount": 1,
+        "supportBonds": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "playingState": 1,
+        "characterEffects": [
+          12,
+          26
+        ]
+      },
+      "immediateAfter": {
+        "cardId": 104503,
+        "turn": 30,
+        "motivation": 5,
+        "resources": {
+          "speed": 572,
+          "stamina": 535,
+          "power": 497,
+          "guts": 242,
+          "wisdom": 377,
+          "vital": 65,
+          "skillPoints": 865
+        },
+        "staminaExecutionCount": 2,
+        "supportBonds": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "playingState": 5
+      },
+      "choiceAfter": {
+        "cardId": 104503,
+        "turn": 31,
+        "motivation": 4,
+        "resources": {
+          "speed": 572,
+          "stamina": 530,
+          "power": 497,
+          "guts": 242,
+          "wisdom": 377,
+          "vital": 65,
+          "skillPoints": 865
+        },
+        "staminaExecutionCount": 2,
+        "supportBonds": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "playingState": 1
+      }
+    }
+  ]
+}

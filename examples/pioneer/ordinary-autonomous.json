@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "rulesIdentity": "packet-ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b:58275",
+  "mode": "autonomous",
+  "start": {
+    "kind": "failureTraining",
+    "data": {
+      "state": {
+        "cardId": 104503,
+        "turn": 30,
+        "motivation": 5,
+        "resources": {
+          "speed": 572,
+          "stamina": 535,
+          "power": 497,
+          "guts": 242,
+          "wisdom": 377,
+          "vital": 65,
+          "skillPoints": 865
+        },
+        "staminaExecutionCount": 1,
+        "stage": "trainingDecision",
+        "pendingEvent": null
+      },
+      "commandId": 105,
+      "supportBonds": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "characterEffects": [
+        12,
+        26
+      ]
+    }
+  },
+  "outcomes": [],
+  "script": [
+    {
+      "decisionId": {
+        "kind": 1,
+        "ordinal": 0,
+        "key": 128849018985
+      },
+      "action": {
+        "kind": "train",
+        "commandId": 105,
+        "eventId": 0,
+        "characterId": 0,
+        "choiceNumber": 0
+      }
+    }
+  ]
+}

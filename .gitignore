@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+*.user
+.vs/
+
+# 含本地抓包来源标识，不公开。
+docs/event-reward-evidence.md
+tests/UmaAiSharp.Tests/Fixtures/pioneer-camp-turns.json
+tests/UmaAiSharp.Tests/Fixtures/training-condition-panels.json
+tests/UmaAiSharp.Tests/Fixtures/training-construction.json
+tests/UmaAiSharp.Tests/Fixtures/training-level-events.json
+tests/UmaAiSharp.Tests/Fixtures/training-level-triggers.json

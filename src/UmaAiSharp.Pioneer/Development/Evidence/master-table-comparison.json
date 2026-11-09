@@ -1,0 +1,83 @@
+{
+  "leftSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "rightSha256": "a9f5ad407e71e9ac471493d28aac3c79fa4f292fd345e9f953afce634c04d534",
+  "tablesCompared": [
+    {
+      "table": "single_mode_11_check_point_eff",
+      "leftRows": 38,
+      "rightRows": 38,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_effect",
+      "leftRows": 403,
+      "rightRows": 403,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_kind",
+      "leftRows": 6,
+      "rightRows": 6,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_lv_up",
+      "leftRows": 43,
+      "rightRows": 43,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_facility_state",
+      "leftRows": 49,
+      "rightRows": 49,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_gain_training_pt",
+      "leftRows": 40,
+      "rightRows": 40,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_outing_effect",
+      "leftRows": 4,
+      "rightRows": 4,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_pioneer_pt_bonus",
+      "leftRows": 5,
+      "rightRows": 5,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_planning",
+      "leftRows": 20,
+      "rightRows": 20,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_shima_effect",
+      "leftRows": 64,
+      "rightRows": 64,
+      "schemaMatches": true,
+      "rowsMatch": true
+    },
+    {
+      "table": "single_mode_11_training_mini",
+      "leftRows": 6,
+      "rightRows": 6,
+      "schemaMatches": true,
+      "rowsMatch": true
+    }
+  ]
+}

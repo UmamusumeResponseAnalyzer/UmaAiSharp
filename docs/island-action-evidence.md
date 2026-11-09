@@ -1,0 +1,64 @@
+# 岛训练成功分量结算
+
+`IslandActionRules.ApplySuccessCandidate` 使用行动前 `IslandTrainingInput` 生成两层收益，再执行岛训练成功分支的属性、技能 Pt、发展 Pt、羁绊、扣券和临时效果原子结算。`SettleResolvedSuccess` 接受明确的已解析两层收益，用于分离验证结算规则；提供服务端预览给此入口不等于验证了收益生成公式。
+
+输出 `IslandActionSettlement` 是这些数值分量及其来源回合，不是完整的育成后态。它不修改回合、阶段、事件队列、下一回合分配或称号，不生成随机选择。
+
+## 输入与动作后果
+
+`IslandActionState` 保存原请求回合、阶段、命令可用性、明确待事件、属性和上限、发展 Pt、券、已结算评审期与加成、六张支援、行动前设施人员分配、设施状态、角色效果和 Hint 候选。生成式入口核对其与训练公式输入的身份及数值边界。
+
+已实现的即时分量：
+
+- 两层属性与技能 Pt 按已接入的收益候选生成，并以现有预览结算规则应用；岛训练体力增量为 0。
+- 消耗一张岛训练券。后续建设事件的发券不合并进这一步；建设继续使用独立的建设结算规则。
+- 全部普通支援羁绊 +10，当前已核验的 Lv50 Tucker30257 羁绊 +7，爱娇状态8另 +2，限制到100。包括本次未参加的支援。
+- 行动前参加的普通支援产生 type19/value60 原子。所有当前行动都含 Tucker 且其参加，因此规则要求此前提，不能推广成无 Tucker 时也固有 +60。
+- 发展 Pt 为 `floor((60 + 3×人数) × (100 + 评审加成 + 有友情时20) / 100)`。人数来自行动前屋内外支援与非支援先锋队员；友情资格来自行动前设施及支援种类/羁绊。第五期评审结算后的分支为0，使用明确的评审期判断，不以“预览字段缺失”判断。
+- 原行动的 Hint 候选保留为后续选择输入；不在动作本体抽参与者或发奖励。
+
+输入要求六个唯一位置、五张普通支援与一张 Lv50 Tucker，且 Tucker 本次参加。未知支援类型、其它友人/团卡、未覆盖角色效果或设施域明确拒绝。海之家非 Lv1、五项技能路线 Lv5 及其它既有未覆盖域沿用训练模块拒绝边界。
+
+## 临时效果与事件边界
+
+`TemporarySupportGrant` 记录 `SourceTurn`、来源、事件身份、目标位置和数值。它不带猜测的 TTL、生效时刻或叠加方式。+60 的来源回合使用岛训练请求回合，即使响应已显示下一回合，也不会再加一回合。
+
+`GrantTuckerSpecialty` 只处理明确的 809049032 / 时机6 / 选择0 的 +20 原子，目标是全部五张普通支援。它不能复用本次岛训练参加者集合；原包见 `packets-0003` 行动1884、事件响应1886，未参加的位置2仍收到 +20。顶层与 `gain_parameter_info` 内的同一效果数组先核对相等，只消费一次。
+
+此入口**不是完整 Tucker 事件结算**。1032 次事件还包含耐力 +6（935次）、+3（84次）、+9（11次）、+5/+4（各1次），其中11次干劲 +1，287次评价数组变化。这些额外分量及分支解释未由本模块实现，也没有算到岛训练本体中。
+
+队列清空后进入什么阶段属于剧本调度。数值结算不返回伪造的 `AfterTurn` 或 `AfterPlayingState`，也不把空队列作为终局。
+
+## 可复跑核验
+
+```powershell
+dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence island-action --input artifacts/research/blockers/island-training/action-chains-20261108 --frames artifacts/research/blockers/island-training/expansion-20261108/extract-01/frames.jsonl --master G:\DMM\Umamusume\umamusume_Data\Persistent\master\master.mdb --output artifacts/evidence/island-action-audit-new
+```
+
+输入明确指定冻结行动研究与帧文件，帧 SHA-256 必须符合研究选择清单，避免同名包别名跨语料误连。C# 重新核对窗口、身份、请求回合、配对与成功结果；帧按行读取，只保留被行动/事件引用的快照。输出要求新目录，并在结束时再次核对输入指纹。
+
+正式结果为 `artifacts/evidence/island-action-audit-02/island-action-audit.json`：
+
+| 核验项 | 结果 |
+|---|---:|
+| 已解析预览的即时数值结算 | 2157 / 2157 匹配 |
+| 行动前输入生成收益并结算 | 2055 / 2055 匹配 |
+| 仅生成路径缺黄金船历史 | 102，明确排除 |
+| 即时响应已显示下一回合 | 351 |
+| 连续后续链 / 不完整链 | 2154 / 3 |
+| 清空队列后下一回合训练 | 2133 |
+| 清空队列后同回合评审 / 演出 | 15 / 6 |
+| 岛训练扣券后建设另发券 | 222 |
+| Tucker +20 原子匹配 | 1032 |
+| +20 响应已显示下一回合 | 646 |
+| 输入问题 / 数值反例 | 0 / 0 |
+
+即时结算中的发展 Pt：已结算评审期0/1/2/3/4分别309/439/353/319/377次，有明确预览且非零；期5的360次没有该预览且净增为0。实现按评审期分支，缺失的预览只作为观测事实，不作为计算输入。
+
+`island-actions.jsonl` 分开保存 `ResolvedPreviewMatches`、`GeneratedMatches` 和生成排除原因。`island-event-grants.jsonl` 保存后续 +20 的来源回合与响应回合。`island-action-counterexamples.jsonl` 当前为空。后续观测步骤只用于对照，不输入自主模拟来补出未来事件。
+
+夹具 `tests/UmaAiSharp.Tests/Fixtures/island-action-snapshots.json` 包含 handoff 的六组边界及额外一组稀疏参加/Tucker全卡+20反例，共29个真实快照。测试覆盖即时跨回合、建设扣后再发、同回合评审/演出、行动前成员、无券拒绝、跨源请求拒绝和发展 Pt 上下文缺失拒绝。统一构建与全项目234项测试通过；此数是项目测试数，不是岛训练独立样本数。最终 audit-02 与 audit-01 的输入指纹、计数及行动/效果原子逐项结果一致。
+
+证据来自 `artifacts/research/blockers/island-training/action-chains-20261108/REPORT.md`、`chain-04`、`handoff-01` 及对应扩展帧。这是既有语料的新组件复算，不是独立留出样本；2055次生成匹配也不能重新认证 refit-14 为唯一真实算法。
+
+未完成项包括完整事件/阶段调度、海之家精确抽样、Hint参与者及奖励随机选择、七个未覆盖设施状态、无Tucker/多友人/团卡范围、临时效果生效/到期/叠加以及称号生成。已完成数值分量不代表完整岛训练生命周期或完整育成模拟已完成。

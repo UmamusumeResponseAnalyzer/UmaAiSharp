@@ -1,0 +1,76 @@
+{
+  "masterSha256": "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "masterText": "トレーニングで絆ゲージが上がりやすく\\nなる、理事長と一緒だとさらに上がる",
+  "source": "handoff/04_参照实现/umai/Game.cpp:1211-1243",
+  "support": {
+    "cardId": 30207,
+    "level": 50,
+    "position": 6,
+    "trainingCommandId": 0,
+    "bond": 100,
+    "effects": [
+      {
+        "type": 2,
+        "value": 20
+      },
+      {
+        "type": 3,
+        "value": 1
+      },
+      {
+        "type": 8,
+        "value": 10
+      },
+      {
+        "type": 14,
+        "value": 25
+      },
+      {
+        "type": 15,
+        "value": 5
+      },
+      {
+        "type": 16,
+        "value": 10
+      },
+      {
+        "type": 25,
+        "value": 80
+      },
+      {
+        "type": 26,
+        "value": 25
+      },
+      {
+        "type": 27,
+        "value": 20
+      },
+      {
+        "type": 28,
+        "value": 15
+      },
+      {
+        "type": 30,
+        "value": 1
+      }
+    ],
+    "uniqueEffects": [
+      {
+        "type": 121,
+        "value": 1,
+        "parameter1": 2,
+        "parameter2": 0,
+        "parameter3": 0,
+        "parameter4": 0
+      },
+      {
+        "type": 0,
+        "value": 0,
+        "parameter1": 0,
+        "parameter2": 0,
+        "parameter3": 0,
+        "parameter4": 0
+      }
+    ]
+  }
+}
