@@ -95,7 +95,8 @@ public static class SimulationRunner
     internal static (ExecutionMemoryPlan Memory, TrajectoryExecution<TState, TAction, TCursor>[] Workspaces)
         CreateBatchWorkspaces<TState, TDecision, TAction, TOutcome, TCursor>(
         ISimulationScenario<TState, TDecision, TAction, TOutcome> scenario,
-        ITrajectoryPolicy<TDecision, TAction, TCursor> policy, in TState root, int samples, int workerCount)
+        ITrajectoryPolicy<TDecision, TAction, TCursor> policy, in TState root, int samples, int workerCount,
+        int samplesPerWorkspace = LogicalBlockSize)
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
         ExecutionPlatform.EnsureSupported();
@@ -106,8 +107,7 @@ public static class SimulationRunner
         var firstCursor = policy.CreateCursor();
         var memory = GetMemoryPlan(scenario, policy, root, firstCursor);
         memory.Validate();
-        var blocks = (samples - 1) / LogicalBlockSize + 1;
-        var activeWorkers = Math.Min(workerCount, blocks);
+        var activeWorkers = Math.Min(workerCount, (samples - 1) / samplesPerWorkspace + 1);
         var workspaces = new TrajectoryExecution<TState, TAction, TCursor>[activeWorkers];
         for (var i = 0; i < workspaces.Length; i++)
         {

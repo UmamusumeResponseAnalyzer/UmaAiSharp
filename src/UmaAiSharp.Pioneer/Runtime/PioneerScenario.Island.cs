@@ -102,15 +102,21 @@ public sealed partial class PioneerScenario
         ref readonly var header = ref state.Header;
         var start = data.TrainingStart!;
         var facilities = data.TurnRules!.CurrentFacilities(state);
-        var assignments = ImmutableArray.CreateBuilder<IslandTrainingAssignment>(6);
+        ref readonly var board = ref header.IslandBoard;
+        var count = 0;
         for (var i = 0; i < 6; i++)
         {
-            var group = header.IslandBoard[i];
-            if (group.SupportMask == 0 && group.GuestCount == 0) continue;
-            assignments.Add(new(101 + i, [.. start.Deck.Where(card => (group.SupportMask & (1 << (card.Position - 1))) != 0)],
-                group.GuestCount));
+            var group = board[i];
+            if (group.SupportMask != 0 || group.GuestCount != 0) count++;
         }
-        return new(start.Environment, [], data.TurnRules.IslandBase(facilities), facilities, assignments.ToImmutable());
+        var assignments = ImmutableArray.CreateBuilder<IslandTrainingAssignment>(count);
+        for (var i = 0; i < 6; i++)
+        {
+            var group = board[i];
+            if (group.SupportMask == 0 && group.GuestCount == 0) continue;
+            assignments.Add(new(101 + i, data.IslandSupports[group.SupportMask], group.GuestCount));
+        }
+        return new(start.Environment, [], data.TurnRules.IslandBase(facilities), facilities, assignments.MoveToImmutable());
     }
 
     TrainingNumericResult PreviewIsland(PioneerState state, IslandTrainingInput input)
@@ -121,7 +127,7 @@ public sealed partial class PioneerScenario
             GoldShipBoost = header.Turn == header.SourceTurn ? input.Environment.GoldShipBoost : null };
         return data.Model.Island(input, (data.IslandDeck ?? data.TrainingDeck)!, environment,
             state.GetSection(PioneerStateSection.TrainingLevels), state.GetSection(PioneerStateSection.SupportBonds),
-            data.IslandFacilities ?? TrainingNumericKernel.CompileIslandFacilities(input.Facilities));
+            data.IslandFacilities);
     }
 
     TransitionResult ApplyIsland(PioneerState state, ref SimulationRandom random)

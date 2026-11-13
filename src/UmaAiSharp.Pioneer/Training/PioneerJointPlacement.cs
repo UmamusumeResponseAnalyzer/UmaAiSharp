@@ -10,20 +10,35 @@ public sealed class PioneerJointPlacement
 {
     public const string Version = "pioneer-joint-placement-v1";
     public ImmutableArray<PlacementMember> Members { get; }
-    public long SharedMemoryBytes { get; }
+    public long SharedMemoryBytes => checked(96L + 48L * Members.Length
+        + Members.Select(member => member.Distribution).Distinct().Sum(distribution => distribution.SharedMemoryBytes));
 
     public PioneerJointPlacement(ImmutableArray<PlacementMember> members)
     {
-        if (members.IsDefault || members.Any(member => member is null || member.Distribution is null || member.TargetId <= 0)
-            || members.Select(member => member.TargetId).Distinct().Count() != members.Length)
+        if (members.IsDefault)
             throw new InvalidDataException("联合分配需要明确、不重复的参与者身份及分布。");
-        Members = [.. members.OrderBy(member => member.TargetId)];
-        if (Members.Length < 6 || !Members.Take(6).Select(member => member.TargetId).SequenceEqual([1, 2, 3, 4, 5, 6])
-            || Members.Take(6).Any(member => member.Distribution.Kind == PlacementMemberKind.ProjectNpc)
-            || Members.Skip(6).Any(member => member.TargetId < 1000 || member.Distribution.Kind != PlacementMemberKind.ProjectNpc))
+
+        var ordered = true;
+        var previous = 0;
+        foreach (var member in members)
+        {
+            if (member is null || member.Distribution is null || member.TargetId <= 0)
+                throw new InvalidDataException("联合分配需要明确、不重复的参与者身份及分布。");
+            ordered &= member.TargetId > previous;
+            previous = member.TargetId;
+        }
+        Members = ordered ? members : members.Sort(static (left, right) => left.TargetId.CompareTo(right.TargetId));
+        if (Members.Length < 6)
             throw new InvalidDataException("联合分配要求六个支援卡位，以及明确的PJ成员；其他人员类型尚未接入。");
-        SharedMemoryBytes = checked(96L + 48L * Members.Length
-            + Members.Select(member => member.Distribution).Distinct().Sum(distribution => distribution.SharedMemoryBytes));
+        for (var i = 0; i < Members.Length; i++)
+        {
+            var member = Members[i];
+            if (!ordered && i > 0 && member.TargetId == Members[i - 1].TargetId)
+                throw new InvalidDataException("联合分配需要明确、不重复的参与者身份及分布。");
+            var npc = member.Distribution.Kind == PlacementMemberKind.ProjectNpc;
+            if (i < 6 ? member.TargetId != i + 1 || npc : member.TargetId < 1000 || !npc)
+                throw new InvalidDataException("联合分配要求六个支援卡位，以及明确的PJ成员；其他人员类型尚未接入。");
+        }
     }
 
     public TrainingBoard Sample(Span<SupportPlacement> placements, ref SimulationRandom random,

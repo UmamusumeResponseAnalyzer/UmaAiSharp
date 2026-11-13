@@ -58,7 +58,8 @@ public static class RootSearch
             + actions.Length * (64L + Unsafe.SizeOf<RootCandidate<TAction>>()) + retainedResultBytes
             + (paired ? actions.Length * (long)actions.Length * 32 : 0));
         var initialPolicy = new RootPolicy<TDecision, TAction, TCursor>(continuation, inspection.Decision.Id, actions[0].Action, sharedBytes);
-        var (memory, workspaces) = SimulationRunner.CreateBatchWorkspaces(scenario, initialPolicy, root, sampleLimit, workers);
+        var (memory, workspaces) = SimulationRunner.CreateBatchWorkspaces(scenario, initialPolicy, root, sampleLimit, workers,
+            samplesPerWorkspace: 1);
         var results = new CandidateEvaluation<TAction>[actions.Length];
         var active = Enumerable.Range(0, actions.Length).ToList();
         var retired = new List<int>();

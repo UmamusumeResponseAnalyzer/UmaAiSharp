@@ -13,13 +13,14 @@ public sealed class RootSearchTests
     {
         var root = CreateRoot();
         var scenario = new Scenario();
-        var result = RootSearch.Evaluate(scenario, new Policy(), root, Candidates, Goal(), 123, 256, 4);
+        const int samples = 32;
+        var result = RootSearch.Evaluate(scenario, new Policy(), root, Candidates, Goal(), 123, samples, 4);
         Assert.Equal(4, scenario.CreatedWorkspaces);
         Assert.Equal(SearchStatus.Completed, result.Status);
         Assert.Equal(10, result.RecommendedCandidateId);
         Assert.Equal(new[] { 10, 30, 20 }, result.Ranking);
-        Assert.Equal(256, result.Candidates[1].Summary!.SuccessCount);
-        Assert.True(result.Candidates[0].Summary!.SuccessCount < 256);
+        Assert.Equal(samples, result.Candidates[1].Summary!.SuccessCount);
+        Assert.True(result.Candidates[0].Summary!.SuccessCount < samples);
         Assert.Equal(0, root.Step);
         Assert.All(root.History, value => Assert.Equal(0, value));
         Assert.All(result.Candidates, candidate => Assert.All(candidate.Batch.Results, sample =>

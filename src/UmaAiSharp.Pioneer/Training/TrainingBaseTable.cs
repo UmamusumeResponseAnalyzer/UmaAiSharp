@@ -19,20 +19,36 @@ public static class TrainingBaseTable
     public static TrainingValues FromFacilityRows(int command, ImmutableArray<ForecastFacilityBase> bases,
         ImmutableArray<TrainingFacility> facilities)
     {
-        var levels = facilities.ToDictionary(value => value.Id, value => value.Level);
-        var values = new Dictionary<int, int>();
-        foreach (var row in bases.Where(row => row.Command == command))
+        for (var i = 0; i < facilities.Length; i++)
+            for (var j = 0; j < i; j++)
+                if (facilities[i].Id == facilities[j].Id)
+                    throw new ArgumentException($"训练基础设施 {facilities[i].Id} 重复。", nameof(facilities));
+        Span<int> values = stackalloc int[7];
+        values.Clear();
+        var targets = 0;
+        foreach (var row in bases)
         {
-            if (row.RequiredFacility != 0 && levels[row.RequiredFacility] == 0) continue;
-            var target = row.Target;
-            if (target is not (1 or 2 or 3 or 4 or 5 or 10 or 30)) throw new UnknownMechanismException($"未知训练基础target={target}。");
-            if (values.TryGetValue(target, out var previous) && previous != row.Value)
+            if (row.Command != command) continue;
+            if (row.RequiredFacility != 0)
+            {
+                var index = 0;
+                while (index < facilities.Length && facilities[index].Id != row.RequiredFacility) index++;
+                if (index == facilities.Length) throw new KeyNotFoundException($"缺少训练基础设施 {row.RequiredFacility}。");
+                if (facilities[index].Level == 0) continue;
+            }
+            var target = row.Target switch
+            {
+                >= 1 and <= 5 => row.Target - 1, 10 => 5, 30 => 6,
+                _ => throw new UnknownMechanismException($"未知训练基础target={row.Target}。")
+            };
+            var flag = 1 << target;
+            if ((targets & flag) != 0 && values[target] != row.Value)
                 throw new UnknownMechanismException("同一训练基础分量存在冲突master条目。");
+            targets |= flag;
             values[target] = row.Value;
         }
-        if (values.Count == 0) throw new UnknownMechanismException($"command={command}没有训练基础master条目。");
-        return new(values.GetValueOrDefault(1), values.GetValueOrDefault(2), values.GetValueOrDefault(3), values.GetValueOrDefault(4),
-            values.GetValueOrDefault(5), values.GetValueOrDefault(10), values.GetValueOrDefault(30));
+        if (targets == 0) throw new UnknownMechanismException($"command={command}没有训练基础master条目。");
+        return new(values[0], values[1], values[2], values[3], values[4], values[5], values[6]);
     }
 
     // Level 1 agrees with scenario 11 master. Higher levels are packet-derived candidates,

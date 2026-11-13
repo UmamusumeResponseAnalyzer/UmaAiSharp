@@ -419,9 +419,16 @@ public sealed class PioneerTurnRules
     PioneerBoardRules CompileBoard(PioneerState state, bool camp, int conditional, bool projection = false)
     {
         var layout = projection ? ImmutableArray<TrainingFacility>.Empty : CurrentFacilities(state);
-        var effects = layout.SelectMany(facility => facility.Effects).ToArray();
-        var seaHouse = effects.Where(effect => effect is { Type: 205, Condition: 9 }).Sum(effect => effect.Value);
         var scope = camp ? 2 : 0;
+        var seaHouse = 0;
+        var facilityHint = 0;
+        foreach (var facility in layout)
+            foreach (var effect in facility.Effects)
+                checked
+                {
+                    if (effect is { Type: 205, Condition: 9 }) seaHouse += effect.Value;
+                    if (effect is { Type: 204, Condition: 9 }) facilityHint += effect.Value;
+                }
         var turn = state.Header.Turn;
         var mask = projection ? appearedSupportMask | tuckerMask : AppearedMask(state.Header);
         Span<int> conditionalBonuses = stackalloc int[6];
@@ -434,11 +441,11 @@ public sealed class PioneerTurnRules
                 + (effect.Parameter3 == 19 ? effect.Parameter4 : 0);
         }
         var start = state.Data.TrainingStart!;
-        var temporary = new ImmutableArray<TemporarySpecialtyEffect>.Builder?[6];
         var grants = projection ? [] : state.GetSection(PioneerStateSection.TemporaryGrants);
+        var temporary = grants.IsEmpty ? null : new ImmutableArray<TemporarySpecialtyEffect>.Builder?[6];
         for (var i = 0; i < grants.Length; i += 6)
             if (grants[i + 4] == 19)
-                (temporary[grants[i + 3] - 1] ??= ImmutableArray.CreateBuilder<TemporarySpecialtyEffect>())
+                (temporary![grants[i + 3] - 1] ??= ImmutableArray.CreateBuilder<TemporarySpecialtyEffect>())
                     .Add(new(grants[i], grants[i + 5]));
         var hint = 0;
         if (state.Header.CompletedCheckpoint > 0 && state.Data.Checkpoints is { } checkpoints)
@@ -446,24 +453,46 @@ public sealed class PioneerTurnRules
                 .Single(effect => effect is { EffectType: 204, EffectValue1: 9 }).EffectValue2;
         var guests = projection ? 9 : state.Header.ProjectNpcCount;
         var members = ImmutableArray.CreateBuilder<PlacementMember>(6 + guests);
+        members.Count = 6 + guests;
+        PioneerPlacementFrequency? trainingFrequency = null, friendFrequency = null;
         foreach (var card in start.Deck)
         {
-            var friend = card.TrainingCommandId == 0;
+            var command = card.TrainingCommandId;
+            var friend = command == 0;
             var kind = friend ? PlacementMemberKind.Tucker : PlacementMemberKind.Training;
-            var specialty = card.TrainingCommandId;
-            members.Add(new(card.Position, (mask & (1 << (card.Position - 1))) != 0,
-                new(new(kind, friend ? -1 : TrainingFacilityRules.PrimaryTarget(specialty) - 1, camp, seaHouse,
-                    card.Effects.Where(effect => effect.Type == 19).Sum(effect => effect.Value),
-                    card.UniqueEffects.Where(effect => effect.Type == 19).Sum(effect => effect.Value) + conditionalBonuses[card.Position - 1],
-                    effects.Where(effect => effect.Type == 201 && effect.Condition == scope && effect.Target == specialty).Sum(effect => effect.Value),
-                    card.Effects.Where(effect => effect.Type == 18).Sum(effect => effect.Value),
-                    card.UniqueEffects.Where(effect => effect.Type == 18).Sum(effect => effect.Value), hint,
-                    effects.Where(effect => effect is { Type: 204, Condition: 9 }).Sum(effect => effect.Value), false, turn,
-                    temporary[card.Position - 1]?.ToImmutable() ?? []), Frequency(kind))));
+            var specialty = 0;
+            var uniqueSpecialty = 0;
+            var cardHint = 0;
+            var uniqueHint = 0;
+            var facilitySpecialty = 0;
+            checked
+            {
+                foreach (var effect in card.Effects)
+                {
+                    if (effect.Type == 19) specialty += effect.Value;
+                    else if (effect.Type == 18) cardHint += effect.Value;
+                }
+                foreach (var effect in card.UniqueEffects)
+                {
+                    if (effect.Type == 19) uniqueSpecialty += effect.Value;
+                    else if (effect.Type == 18) uniqueHint += effect.Value;
+                }
+                foreach (var facility in layout)
+                    foreach (var effect in facility.Effects)
+                        if (effect.Type == 201 && effect.Condition == scope && effect.Target == command)
+                            facilitySpecialty += effect.Value;
+            }
+            var slot = card.Position - 1;
+            var specialtyIndex = friend ? -1 : TrainingFacilityRules.PrimaryTarget(command) - 1;
+            var frequency = friend ? friendFrequency ??= Frequency(kind) : trainingFrequency ??= Frequency(kind);
+            members[slot] = new(card.Position, (mask & (1 << slot)) != 0,
+                new(new(kind, specialtyIndex, camp, seaHouse, specialty, uniqueSpecialty + conditionalBonuses[slot],
+                    facilitySpecialty, cardHint, uniqueHint, hint, facilityHint, false, turn,
+                    temporary?[slot]?.ToImmutable() ?? []), frequency));
         }
         var distribution = guests == 0 ? null : new PioneerPlacementDistribution(
             new(PlacementMemberKind.ProjectNpc, -1, camp, seaHouse, 0, 0, 0, 0, 0, 0, 0, false, turn, []), Frequency(PlacementMemberKind.ProjectNpc));
-        for (var i = 0; i < guests; i++) members.Add(new(1000 + i, true, distribution!));
+        for (var i = 0; i < guests; i++) members[6 + i] = new(1000 + i, true, distribution!);
         var placement = new PioneerJointPlacement(members.MoveToImmutable());
         return new(placement, !camp ? [] : !WholeRun ? state.Data.CampCommands : [.. Enumerable.Range(3601, 5)
             .Select(command => TrainingNumericKernel.CompileCamp(command, 5, TrainingBaseTable.FromFacilityRows(command, facilityBases, layout), layout))],

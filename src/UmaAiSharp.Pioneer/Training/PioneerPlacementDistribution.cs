@@ -71,14 +71,18 @@ public sealed class PioneerPlacementDistribution
             specialtyNumerator *= 100L + effect.Value;
             specialtyDenominator *= 100;
         }
-        var weights = new BigInteger[6];
-        for (var index = 0; index < 5; index++) weights[index] = 100 * specialtyDenominator * other;
-        if (input.Kind == PlacementMemberKind.Training) weights[input.SpecialtyIndex] = specialtyNumerator * other;
-        weights[5] = scale * absent * specialtyDenominator;
-        var divisor = weights.Aggregate(BigInteger.GreatestCommonDivisor);
-        Weights = [.. weights.Select(weight => checked((ulong)(weight / divisor)))];
+        var ordinaryWeight = 100 * specialtyDenominator * other;
+        var specialtyWeight = input.Kind == PlacementMemberKind.Training ? specialtyNumerator * other : ordinaryWeight;
+        var absentWeight = scale * absent * specialtyDenominator;
+        var divisor = BigInteger.GreatestCommonDivisor(BigInteger.GreatestCommonDivisor(ordinaryWeight, specialtyWeight), absentWeight);
+        Span<ulong> weights = stackalloc ulong[6];
+        weights[..5].Fill(checked((ulong)(ordinaryWeight / divisor)));
+        if (input.Kind == PlacementMemberKind.Training)
+            weights[input.SpecialtyIndex] = checked((ulong)(specialtyWeight / divisor));
+        weights[5] = checked((ulong)(absentWeight / divisor));
+        Weights = ImmutableArray.Create<ulong>(weights);
         var total = 0UL;
-        foreach (var weight in Weights) total = checked(total + weight);
+        foreach (var weight in weights) total = checked(total + weight);
         TotalWeight = total;
 
         var hintNumerator = input.Kind != PlacementMemberKind.Training ? BigInteger.Zero : input.GuaranteedHint ? 20_000_000

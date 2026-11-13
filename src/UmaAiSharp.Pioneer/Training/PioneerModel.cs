@@ -19,7 +19,7 @@ public abstract class PioneerModel
 
     internal abstract TrainingNumericResult Island(IslandTrainingInput input, CompiledTrainingDeck deck,
         in TrainingEnvironment environment, ReadOnlySpan<int> ordinaryLevels, ReadOnlySpan<int> bonds,
-        CompiledIslandFacilities facilities);
+        CompiledIslandFacilities? facilities);
 }
 
 public sealed class PrecisePioneerModel : PioneerModel
@@ -37,7 +37,7 @@ public sealed class PrecisePioneerModel : PioneerModel
 
     internal override TrainingNumericResult Island(IslandTrainingInput input, CompiledTrainingDeck deck,
         in TrainingEnvironment environment, ReadOnlySpan<int> ordinaryLevels, ReadOnlySpan<int> bonds,
-        CompiledIslandFacilities facilities)
+        CompiledIslandFacilities? facilities)
         => TrainingNumericKernel.Island<TrainingFraction>(input, deck, environment, ordinaryLevels, bonds, facilities);
 }
 
@@ -56,7 +56,7 @@ public sealed class FastPioneerModel : PioneerModel
 
     internal override TrainingNumericResult Island(IslandTrainingInput input, CompiledTrainingDeck deck,
         in TrainingEnvironment environment, ReadOnlySpan<int> ordinaryLevels, ReadOnlySpan<int> bonds,
-        CompiledIslandFacilities facilities)
+        CompiledIslandFacilities? facilities)
         => TrainingNumericKernel.Island<Multiplier>(input, deck, environment, ordinaryLevels, bonds, facilities);
 
     readonly struct Multiplier(double value) : ITrainingMultiplier<Multiplier>

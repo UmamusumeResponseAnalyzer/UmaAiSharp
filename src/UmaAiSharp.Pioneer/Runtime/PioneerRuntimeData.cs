@@ -22,6 +22,7 @@ public sealed class PioneerRuntimeData
     internal CompiledTrainingDeck? TrainingDeck { get; }
     internal ImmutableArray<TrainingCommandOption> TrainingCommands { get; } = [];
     internal ImmutableArray<CompiledCampTraining> CampCommands { get; } = [];
+    internal ImmutableArray<ImmutableArray<TrainingSupport>> IslandSupports { get; }
     internal int? TrainingCharacterId { get; }
     internal ImmutableArray<ImmutableArray<DeclaredEventSettlement>> EventRewards { get; } = [];
     internal int EventChoiceMinimum { get; }
@@ -138,6 +139,9 @@ public sealed class PioneerRuntimeData
             RulesIdentity += "/pioneer-training-turn-v12/" + TrainingLevelRules.Version + "/" + RestRules.Version
                 + "/" + TrainingFailureRate.Version;
             TrainingDeck = new(turn.Deck);
+            if (turnRules is not null)
+                IslandSupports = [.. Enumerable.Range(0, 64).Select(mask =>
+                    turn.Deck.Where(card => (mask & (1 << (card.Position - 1))) != 0).ToImmutableArray())];
             TrainingCommands = [.. turn.Commands.OrderBy(command => TrainingFacilityRules.PrimaryTarget(TrainingBaseTable.OrdinaryCommand(command.CommandId)))];
             if (turn.Camp is { } camp)
                 CampCommands = [.. TrainingCommands.Select((command, index) =>
@@ -194,6 +198,7 @@ public sealed class PioneerRuntimeData
             + (planning?.Continuation is { } plannedTraining ? EstimateStart(plannedTraining) : 0)
             + (TrainingDeck?.SharedMemoryBytes ?? 0) + (TurnRules?.SharedMemoryBytes ?? 0) + (TrainingHistory?.SharedMemoryBytes ?? 0)
             + (IslandDeck?.SharedMemoryBytes ?? 0)
+            + (IslandSupports.IsDefault ? 0 : 32L + IslandSupports.Sum(group => 40L + 8L * group.Length))
             + (IslandFacilities is null ? 0 : CompiledIslandFacilities.SharedMemoryBytes)
             + EventRewards.Sum(choice => 32L + choice.Sum(reward => reward.SharedMemoryBytes))
             + CharacterEndingReward.SharedMemoryBytes

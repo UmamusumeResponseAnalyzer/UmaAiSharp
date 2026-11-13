@@ -56,6 +56,7 @@ public struct PioneerStateHeader
 // One owner, one contiguous variable-length buffer. No mutable references are shared by copies.
 public sealed class PioneerState
 {
+    const int GrantSection = (int)PioneerStateSection.TemporaryGrants;
     internal PioneerStateHeader Mutable;
     internal PioneerBoardRules? TurnBoard;
     SectionLengths lengths;
@@ -104,11 +105,12 @@ public sealed class PioneerState
     internal const int StoryOccurrenceSize = 10;
     internal void RecordStory(PioneerStoryOccurrence story)
     {
-        // StoryHistory is the final section, so append without shifting other state.
         EnsureCapacity(checked(used + StoryOccurrenceSize));
+        var end = used - lengths[GrantSection];
+        buffer.AsSpan(end, lengths[GrantSection]).CopyTo(buffer.AsSpan(end + StoryOccurrenceSize));
         Span<int> values = [story.StoryId, story.Turn, story.Phase, story.PlayTiming, story.CharacterId,
             story.SupportCardId, story.PartnerId, story.ChoiceNumber, story.ProgressStage, story.ProgressLength];
-        values.CopyTo(buffer.AsSpan(used));
+        values.CopyTo(buffer.AsSpan(end));
         lengths[(int)PioneerStateSection.StoryHistory] += StoryOccurrenceSize;
         used += StoryOccurrenceSize;
     }
@@ -122,20 +124,11 @@ public sealed class PioneerState
         SetSection(PioneerStateSection.CharacterEffects, effects[..^1]);
     }
 
-    internal void AppendGrants(ReadOnlySpan<int> grants)
-    {
-        var index = (int)PioneerStateSection.TemporaryGrants;
-        var insertion = Offset(index) + lengths[index];
-        EnsureCapacity(checked(used + grants.Length));
-        buffer.AsSpan(insertion, used - insertion).CopyTo(buffer.AsSpan(insertion + grants.Length));
-        grants.CopyTo(buffer.AsSpan(insertion, grants.Length));
-        lengths[index] += grants.Length;
-        used += grants.Length;
-    }
-
     internal void AppendGrants(ReadOnlySpan<TemporarySupportGrant> grants)
     {
-        Span<int> packed = stackalloc int[grants.Length * 6];
+        var count = checked(grants.Length * 6);
+        EnsureCapacity(checked(used + count));
+        var packed = buffer.AsSpan(used, count);
         for (var i = 0; i < grants.Length; i++)
         {
             var grant = grants[i];
@@ -144,7 +137,8 @@ public sealed class PioneerState
             packed[offset + 2] = grant.StoryId ?? 0; packed[offset + 3] = grant.Position;
             packed[offset + 4] = grant.EffectType; packed[offset + 5] = grant.Value;
         }
-        AppendGrants(packed);
+        lengths[GrantSection] += count;
+        used += count;
     }
 
     internal void AddCharacterEffect(int effect)
@@ -164,7 +158,8 @@ public sealed class PioneerState
         while (offset < grants.Length && grants[offset] < turn - 1) offset += 6;
         if (offset == 0) return;
         grants[offset..].CopyTo(grants);
-        SetSection(PioneerStateSection.TemporaryGrants, grants[..(grants.Length - offset)]);
+        lengths[GrantSection] -= offset;
+        used -= offset;
     }
 
     public void CopyInto(PioneerState destination)
@@ -189,9 +184,11 @@ public sealed class PioneerState
 
     int Offset(int index)
     {
+        // Keep temporary grants physically last so they can grow or expire without shifting history.
+        if (index == GrantSection) return used - lengths[GrantSection];
         var offset = 0;
         for (var i = 0; i < index; i++) offset += lengths[i];
-        return offset;
+        return index > GrantSection ? offset - lengths[GrantSection] : offset;
     }
 
     void EnsureCapacity(int required)

@@ -47,7 +47,7 @@ var result = SimulationRunner.Continue(scenario, policy, ref execution);
 
 `SimulationRandom` 是只含 `ulong` 状态的值类型，调用链始终按 `ref` 传递。算法保持 `splitmix64-v1`，样本派生保持 `sample-domain-mix-v1`；`NextInt` 的拒绝采样和上界为1时的抽数行为保持原样。策略随机消耗不能影响规则流。
 
-`RunBatch` 同步执行固定数量样本。固定批次按每块 64 个逻辑样本分配工作区。分批根搜索可复用为后续大批准备的工作区，并把较小的新增区间拆给多个 worker。编号、种子及结果位置由逻辑样本决定。每个 worker 复用一个独占状态和策略游标，结果写入原始 `sampleIndex` 槽。每个结果保存两条 RNG 的末态。
+`RunBatch` 同步执行固定数量样本，按每块 64 个逻辑样本分配工作区。根搜索可按单个样本分配工作区，初始批和新增区间都可用足请求的 worker。编号、种子及结果位置由逻辑样本决定。每个 worker 复用一个独占状态和策略游标，结果写入原始 `sampleIndex` 槽。每个结果保存两条 RNG 的末态。
 
 ```csharp
 var batch = SimulationRunner.RunBatch(scenario, policy, root, seed, samples, workerCount);

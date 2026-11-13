@@ -92,6 +92,7 @@ public sealed class PioneerJointPlacementTests
         members.Add(new(6, false, new(Input(PlacementMemberKind.Tucker, -1))));
         var npc = new PioneerPlacementDistribution(Input(PlacementMemberKind.ProjectNpc, -1));
         members.AddRange(Enumerable.Range(1001, 12).Select(id => new PlacementMember(id, true, npc)));
+        members.Reverse();
         return new([.. members]);
     }
 }
