@@ -7,14 +7,14 @@ using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Runtime;
 
-internal readonly record struct CompiledConstructionStep(int StateOffset, int PreviousStateId, int TargetStateId, int CumulativeCost);
-
 public sealed class PioneerRuntimeData
 {
+    public bool IsWholeRun => TurnRules?.WholeRun == true;
+    internal PioneerModel Model { get; }
     internal PioneerStart Start { get; }
+    internal PioneerStart.TrainingTurn? TrainingStart { get; }
     internal ImmutableArray<PioneerConditionalOutcome> Outcomes { get; }
     internal PioneerConstructionRules? Construction { get; }
-    internal ImmutableArray<CompiledConstructionStep> ConstructionSteps { get; } = [];
     internal CheckpointSettlement? Checkpoints { get; }
     internal CompiledTrainingDeck? IslandDeck { get; }
     internal CompiledIslandFacilities? IslandFacilities { get; }
@@ -22,12 +22,16 @@ public sealed class PioneerRuntimeData
     internal CompiledTrainingDeck? TrainingDeck { get; }
     internal ImmutableArray<TrainingCommandOption> TrainingCommands { get; } = [];
     internal ImmutableArray<CompiledCampTraining> CampCommands { get; } = [];
-    internal int TrainingFailureBias { get; }
     internal int? TrainingCharacterId { get; }
     internal ImmutableArray<ImmutableArray<DeclaredEventSettlement>> EventRewards { get; } = [];
     internal int EventChoiceMinimum { get; }
     internal int EventChoiceMaximum { get; }
-    internal DeclaredEventRewards? CharacterEndingReward { get; }
+    internal static readonly DeclaredEventRewards CharacterEndingReward = new(new([
+        new(1, 1, 5, 0), new(1, 2, 5, 0), new(1, 3, 5, 0), new(1, 4, 5, 0), new(1, 5, 5, 0), new(1, 30, 20, 0),
+    ]));
+    internal PioneerTurnRules? TurnRules { get; }
+    internal PioneerTrainingHistoryDistribution? TrainingHistory { get; }
+    internal bool UsesStoryDecisions { get; }
     readonly PioneerState initial;
 
     public string RulesIdentity { get; }
@@ -38,15 +42,35 @@ public sealed class PioneerRuntimeData
 
     public static PioneerRuntimeData Compile(PioneerStart start,
         ImmutableArray<PioneerConditionalOutcome> conditionalOutcomes, string rulesIdentity,
-        PioneerMasterData? constructionMaster = null, CheckpointMasterData? checkpointMaster = null)
-        => new(start, conditionalOutcomes, rulesIdentity, constructionMaster, checkpointMaster);
+        PioneerMasterData? constructionMaster = null, CheckpointMasterData? checkpointMaster = null, PioneerTurnRules? turnRules = null,
+        bool usesStoryDecisions = false, PioneerTrainingHistoryDistribution? trainingHistory = null, PioneerModel? model = null)
+        => new(start, conditionalOutcomes, rulesIdentity, constructionMaster, checkpointMaster, turnRules, usesStoryDecisions,
+            trainingHistory, model ?? PrecisePioneerModel.Instance);
 
     PioneerRuntimeData(PioneerStart start, ImmutableArray<PioneerConditionalOutcome> outcomes,
-        string rulesIdentity, PioneerMasterData? constructionMaster, CheckpointMasterData? checkpointMaster)
+        string rulesIdentity, PioneerMasterData? constructionMaster, CheckpointMasterData? checkpointMaster, PioneerTurnRules? turnRules,
+        bool usesStoryDecisions, PioneerTrainingHistoryDistribution? trainingHistory, PioneerModel model)
     {
+        Model = model;
         ArgumentNullException.ThrowIfNull(start);
         ArgumentException.ThrowIfNullOrWhiteSpace(rulesIdentity);
         if (outcomes.IsDefault) throw new InvalidDataException("条件结果数组必须明确提供，未知概率时可显式为空。");
+        var planning = start as PioneerStart.Planning;
+        TrainingStart = start as PioneerStart.TrainingTurn;
+        if (planning?.Continuation is { } continuation)
+        {
+            var firstTurn = planning.State.Turn == 3 ? 3 : checked(planning.State.Turn + 1);
+            if (turnRules?.WholeRun != true || continuation.Turn != firstTurn || continuation.RawPlayingState != 1
+                || continuation.Development is not null || !continuation.PendingStoryIds.IsEmpty)
+                throw new InvalidDataException("建设规划续步须使用本期提交后的回合和整局规则。");
+            TrainingStart = continuation with { Development = planning.State with { Turn = firstTurn, RawPlayingState = 1 } };
+        }
+        if (trainingHistory is not null && (!outcomes.IsEmpty || TrainingStart is not
+            { SuccessfulOrdinaryTrainingCounts: null, PendingStoryIds.IsEmpty: true }))
+            throw new InvalidDataException("训练历史估计仅用于未给定完整历史的自主训练面板。");
+        if (turnRules?.WholeRun == true && (constructionMaster is null || checkpointMaster is null
+            || TrainingStart is not { Development: not null, CheckpointResults: not null, DirectorBond: not null }))
+            throw new InvalidDataException("整局训练起点缺少设施、评审历史、理事长羁绊或相应规则。");
         var previous = -1;
         foreach (var outcome in outcomes)
         {
@@ -55,22 +79,34 @@ public sealed class PioneerRuntimeData
             if (outcome is PioneerConditionalOutcome.ProjectNpcSelection npc && npc.NpcIds.IsDefault)
                 throw new InvalidDataException("NPC条件结果必须显式提供身份数组。");
             if (outcome is not (PioneerConditionalOutcome.TrainingResult or PioneerConditionalOutcome.RestEvent or PioneerConditionalOutcome.TrainingFailure or PioneerConditionalOutcome.FailurePenalty
-                or PioneerConditionalOutcome.HintAttributeGroup or PioneerConditionalOutcome.ProjectNpcSelection or PioneerConditionalOutcome.EventRewardResult))
+                or PioneerConditionalOutcome.HintAttributeGroup or PioneerConditionalOutcome.ProjectNpcSelection or PioneerConditionalOutcome.EventRewardResult
+                or PioneerConditionalOutcome.TurnArrival))
                 throw new InvalidDataException("未实现的条件结果类型不能进入Pioneer执行器。");
+            if (outcome is PioneerConditionalOutcome.TurnArrival arrival && (turnRules is null || !Enum.IsDefined(arrival.Arrival)
+                || (arrival.Arrival == PioneerArrival.Ready ? !ValidObservedBoard(arrival) : arrival.Board is not null
+                    || arrival.AvailableTrainingCommands is not null || arrival.AvailableRestCommands is not null || arrival.IslandBoard is not null)
+                || arrival.Event is { } current && (arrival.Arrival is not (PioneerArrival.TurnConfirmation or PioneerArrival.SameTurnEvent
+                    or PioneerArrival.NextTurnEvent) || current is not { EventId: > 0, StoryId: > 0, CharacterId: >= 0, PlayTiming: > 0 })))
+                throw new InvalidDataException("续步条件结果须提供与阶段匹配的合法面板或已揭示故事及协议身份。");
             previous = outcome.ActionOrdinal;
         }
         Start = start;
         Outcomes = outcomes;
-        RulesIdentity = rulesIdentity + "/pioneer-runtime-components-v13/" + TrainingFormulaCandidate.Version;
+        TurnRules = turnRules;
+        TrainingHistory = trainingHistory;
+        UsesStoryDecisions = usesStoryDecisions;
+        if (!usesStoryDecisions && TrainingStart is { ObservedStoryHistory: not null })
+            throw new InvalidDataException("已观测故事历史需要按故事标识决策的规则资源。");
+        RulesIdentity = rulesIdentity + "/pioneer-runtime-components-v14";
+        if (turnRules is not null) RulesIdentity += "/pioneer-fitted-turn-arrival-v1";
+        if (trainingHistory is not null) RulesIdentity += "/pioneer-estimated-training-history-v1";
         if (start is PioneerStart.CharacterEnding ending)
         {
             DeclaredEventRewards.Validate(ending.Resources, ending.Limits, ending.Motivation);
-            if (ending.Turn != 78 || ending.RawPlayingState != 5 || ending.CharacterState != 3 || ending.Event.EventId != 6
+            if (ending.Turn != 78 || ending.RawPlayingState != 5 || ending.CharacterState != 3
                 || ending.Event.CharacterId <= 0 || ending.Event.StoryId != 500000000L + ending.Event.CharacterId * 1000L + 111
                 || ending.Event.PlayTiming != 3)
-                throw new InvalidDataException("角色结局起点要求回合78、角色状态3、阶段5和事件6/角色结局111/时机3。");
-            CharacterEndingReward = new(new([new(1, 1, 5, 0), new(1, 2, 5, 0), new(1, 3, 5, 0),
-                new(1, 4, 5, 0), new(1, 5, 5, 0), new(1, 30, 20, 0)]));
+                throw new InvalidDataException("角色结局起点要求回合78、角色状态3、阶段5和角色结局故事111/时机3。");
             RulesIdentity += "/pioneer-character-ending-v1";
         }
         if (start is PioneerStart.DeclaredEvent revealed)
@@ -94,8 +130,8 @@ public sealed class PioneerRuntimeData
             EventChoiceMaximum = revealed.Choices.Max(choice => choice.ChoiceNumber);
             RulesIdentity += "/" + DeclaredEventRewards.Version + "/" + DeclaredEventSettlement.Version;
         }
-        if (start is PioneerStart.Planning) RulesIdentity += "/" + PioneerConstructionRules.PlanningVersion;
-        if (start is PioneerStart.TrainingTurn turn)
+        if (planning is not null) RulesIdentity += "/" + PioneerConstructionRules.PlanningVersion;
+        if (TrainingStart is { } turn)
         {
             ValidateTrainingTurn(turn);
             TrainingCharacterId = turn.CharacterId;
@@ -106,33 +142,25 @@ public sealed class PioneerRuntimeData
             if (turn.Camp is { } camp)
                 CampCommands = [.. TrainingCommands.Select((command, index) =>
                     TrainingNumericKernel.CompileCamp(command.CommandId, command.Level, camp.Bases[index], camp.Facilities))];
-            TrainingFailureBias = TrainingFailureRate.StatusBias(turn.CharacterEffects);
+            _ = TrainingFailureRate.StatusBias(turn.CharacterEffects);
         }
         Construction = constructionMaster is null ? null : new(constructionMaster);
         Checkpoints = checkpointMaster is null ? null : new(checkpointMaster);
-        var currentDevelopment = start switch
+        if (planning?.Continuation is not null)
         {
-            PioneerStart.Construction building => building.State,
-            PioneerStart.TrainingTurn currentTraining => currentTraining.Development,
-            _ => null,
-        };
+            Construction!.ValidatePlanningState(planning.State);
+            RulesIdentity += "/pioneer-planning-to-terminal-v1";
+        }
+        var currentDevelopment = TrainingStart?.Development ?? (start as PioneerStart.Construction)?.State;
         if (currentDevelopment is not null)
         {
             if (Construction is null) throw new InvalidDataException("当前建设状态缺少master规则。");
-            var analysis = Construction.ValidateCurrentPlan(currentDevelopment);
-            if (start is PioneerStart.TrainingTurn training)
+            Construction.ValidateCurrentPlan(currentDevelopment);
+            if (TrainingStart is { } training)
             {
                 ValidateTrainingDevelopment(training, currentDevelopment, Construction);
                 RulesIdentity += "/" + ConstructionTriggerRules.Version;
             }
-            var steps = ImmutableArray.CreateBuilder<CompiledConstructionStep>(analysis.Steps.Length);
-            foreach (var entry in analysis.Steps)
-            {
-                var facilityIndex = 0;
-                while (currentDevelopment.Facilities[facilityIndex].FacilityId != entry.Step.FacilityId) facilityIndex++;
-                steps.Add(new(2 * facilityIndex + 1, entry.Step.PreviousStateId, entry.Step.TargetStateId, entry.CumulativeCost));
-            }
-            ConstructionSteps = steps.MoveToImmutable();
             RulesIdentity += "/" + Construction.Data.SourceSha256;
         }
         if (start is PioneerStart.IslandTraining island)
@@ -162,18 +190,31 @@ public sealed class PioneerRuntimeData
                 + checkpointMaster.Effects.Sum(pair => pair.Value.Length);
         var outcomeValues = outcomes.Sum(outcome => outcome is PioneerConditionalOutcome.ProjectNpcSelection selection ? selection.NpcIds.Length : 0);
         SharedMemoryBytes = checked(1024 + 256 * sourceRows + 128L * outcomes.Length + 4L * outcomeValues
-            + (currentDevelopment is null ? 0 : 128L + 160L * ConstructionSteps.Length)
             + 2L * RulesIdentity.Length + initial.WorkspaceBytes + EstimateStart(start)
-            + (TrainingDeck?.SharedMemoryBytes ?? 0)
+            + (planning?.Continuation is { } plannedTraining ? EstimateStart(plannedTraining) : 0)
+            + (TrainingDeck?.SharedMemoryBytes ?? 0) + (TurnRules?.SharedMemoryBytes ?? 0) + (TrainingHistory?.SharedMemoryBytes ?? 0)
             + (IslandDeck?.SharedMemoryBytes ?? 0)
             + (IslandFacilities is null ? 0 : CompiledIslandFacilities.SharedMemoryBytes)
             + EventRewards.Sum(choice => 32L + choice.Sum(reward => reward.SharedMemoryBytes))
-            + (CharacterEndingReward?.SharedMemoryBytes ?? 0)
+            + CharacterEndingReward.SharedMemoryBytes
             + (start is PioneerStart.IslandTraining islandStart
                 ? 4 * SupportStorage(islandStart.Training.Assignments.SelectMany(group => group.Supports)) : 0));
     }
 
     public PioneerState CreateInitialState() => initial.Clone();
+
+    static bool ValidObservedBoard(PioneerConditionalOutcome.TurnArrival arrival)
+    {
+        if (arrival.Board is not { } board || arrival.AvailableTrainingCommands is not (>= 0 and <= 31)
+            || arrival.AvailableRestCommands is not (0 or 1 or 2)) return false;
+        for (var index = 0; index < 5; index++)
+        {
+            var placement = board[index];
+            if ((placement.SupportMask & ~63) != 0 || (placement.HintMask & ~placement.SupportMask) != 0
+                || placement.SupportCount + placement.GuestCount > 5) return false;
+        }
+        return arrival.IslandBoard is not { } island || ValidIslandBoard(island);
+    }
 
     internal PioneerConditionalOutcome? OutcomeAt(int ordinal)
     {
@@ -187,13 +228,16 @@ public sealed class PioneerRuntimeData
 
     PioneerState Import(PioneerStart start)
     {
-        var capacity = start switch
+        var capacity = (TrainingStart ?? start) switch
         {
             PioneerStart.DeclaredEvent entry => checked(entry.CharacterEffects.Length + 2 * (entry.Partners?.Length ?? 0)),
             PioneerStart.TrainingTurn turn => checked(22 + turn.CharacterEffects.Length + Math.Max(1, turn.PendingStoryIds.Length)
                 + (turn.Development is { } development ? 2 * development.Facilities.Length
-                    + development.IslandTrainingThresholds.Length + 4 * development.Plan.Steps.Length : turn.Camp is null ? 0 : 12)
-                + (turn.SuccessfulOrdinaryTrainingCounts.HasValue ? 5 : 0)),
+                    + (TurnRules?.WholeRun == true ? 26 : development.IslandTrainingThresholds.Length + 4 * development.Plan.Steps.Length)
+                    : turn.Camp is null ? 0 : 12)
+                + (turn.SuccessfulOrdinaryTrainingCounts.HasValue || TrainingHistory is not null ? 5 : 0)
+                + (turn.CheckpointResults.HasValue ? 5 : 0)
+                + (TurnRules?.WholeRun == true ? 72 : 0) + 6 * (turn.ObservedGrants?.Length ?? 0)),
             PioneerStart.FailureTraining entry => checked(6 + entry.CharacterEffects.Length),
             PioneerStart.IslandTraining island => checked(29 + island.State.CharacterEffects.Length
                 + island.State.HintCandidates.Length + island.State.PendingStoryIds.Length + 30),
@@ -206,8 +250,20 @@ public sealed class PioneerRuntimeData
             PioneerStart.Checkpoint => 5,
             _ => 0,
         };
+        if (UsesStoryDecisions)
+            capacity = checked(capacity + PioneerState.StoryOccurrenceSize * (TrainingStart is { } training
+                ? (training.ObservedStoryHistory?.Length ?? 0) + 80 - training.Turn : 1));
+        var aptitudes = TurnRules?.Inheritance;
+        var hintRules = TurnRules?.Hints;
+        capacity = checked(capacity + (aptitudes is null ? 0 : UmaAiSharp.Pioneer.Inheritance.PioneerInheritanceRules.AptitudeTargets.Length)
+            + (hintRules?.StateCapacity ?? 0) + (TurnRules?.CareerGoals.Length ?? 0));
         var state = new PioneerState(this, capacity);
+        if (aptitudes is not null) state.SetSection(PioneerStateSection.InheritanceAptitudes, aptitudes.InitialAptitudes);
+        if (hintRules is not null) state.SetSection(PioneerStateSection.HintLevels, hintRules.InitialLevels);
+        if (TurnRules is { } turnRules) state.SetSection(PioneerStateSection.CareerRaceCounts, turnRules.InitialCareerCounts.AsSpan());
         ref var header = ref state.Mutable;
+        header.OrdinaryStories = TurnRules?.InitialStories ?? default;
+        header.RaceGrade = TurnRules?.InitialGrade ?? 3;
         switch (start)
         {
             case PioneerStart.CharacterEnding entry:
@@ -232,9 +288,12 @@ public sealed class PioneerRuntimeData
                     header.KnownParts |= PioneerKnownParts.PartnerEvaluations;
                 }
                 break;
-            case PioneerStart.TrainingTurn entry:
+            case PioneerStart.TrainingTurn:
+            case PioneerStart.Planning { Continuation: not null }:
+            {
+                var entry = TrainingStart!;
                 header.Stage = PioneerStage.TrainingTurn;
-                header.PendingTrainingLevelEventId = 0;
+                header.PendingTrainingLevelCommandId = 0;
                 header.AvailableRestCommands = entry.AvailableRestCommands;
                 for (var i = 0; i < TrainingCommands.Length; i++)
                 {
@@ -243,7 +302,8 @@ public sealed class PioneerRuntimeData
                     var hints = 0;
                     foreach (var position in command.SupportPositions) supports |= 1 << (position - 1);
                     foreach (var position in command.HintPositions) hints |= 1 << (position - 1);
-                    header.TrainingBoard = header.TrainingBoard.With(i, new((byte)supports, (byte)hints, (byte)command.GuestCount));
+                    header.TrainingBoard = header.TrainingBoard.With(i,
+                        new((byte)supports, (byte)hints, (byte)command.GuestCount) { Director = command.Director });
                     if (command.Enabled) header.AvailableTrainingCommands |= 1 << i;
                 }
                 header.KnownParts = PioneerKnownParts.Resources | PioneerKnownParts.Limits | PioneerKnownParts.Motivation
@@ -253,7 +313,34 @@ public sealed class PioneerRuntimeData
                 header.Turn = entry.Turn; header.RawPlayingState = entry.RawPlayingState; header.CardId = entry.CardId;
                 header.Resources = entry.Environment.Current; header.Limits = entry.Environment.Limits;
                 header.Motivation = entry.Environment.Motivation; header.Fans = entry.Environment.Fans;
+                if (entry.HomeActions is { } home)
+                {
+                    header.UnseenFriendMask = home.UnseenFriendMask;
+                    foreach (var friend in home.Friends)
+                    {
+                        if (friend.OutingUnlocked) header.UnlockedFriendMask |= 1 << (friend.Position - 1);
+                        header.FriendOutings |= friend.Outings << ((friend.Position - 1) * 3);
+                    }
+                }
                 header.DevelopmentPoints = entry.DevelopmentPoints; header.CompletedCheckpoint = entry.CompletedCheckpoint;
+                header.ProjectNpcCount = TurnRules?.InitialProjectNpcCount ?? 0;
+                header.EvaluationTrainingPercent = TrainingCommands[0].EvaluationTrainingPercent;
+                header.PioneerCompleted = entry.Turn >= 73;
+                header.CompletedUraRaces = entry.Turn >= 73 ? (entry.Turn - 73) / 2 : 0;
+                header.DirectorBond = entry.DirectorBond.GetValueOrDefault();
+                header.HasAttention = entry.CharacterEffects.Contains(9);
+                if (entry.CheckpointResults is { } checkpoints)
+                {
+                    Span<int> results = stackalloc int[5];
+                    results.Clear();
+                    checkpoints.AsSpan().CopyTo(results);
+                    state.SetSection(PioneerStateSection.CheckpointResults, results);
+                    if (!checkpoints.IsEmpty)
+                    {
+                        header.CheckpointResult = checkpoints[^1];
+                        header.KnownParts |= PioneerKnownParts.CheckpointResult;
+                    }
+                }
                 header.DeckId = entry.PlanningPeriods[0].DeckId; header.KnownParts |= PioneerKnownParts.DeckId;
                 header.HasCheckpointBonus = entry.CheckpointBonusPercent.HasValue;
                 header.CheckpointBonusPercent = entry.CheckpointBonusPercent.GetValueOrDefault();
@@ -279,7 +366,7 @@ public sealed class PioneerRuntimeData
                 {
                     header.Stage = PioneerStage.TrainingLevelConfirmation;
                     header.Event = trainingLevel;
-                    header.PendingTrainingLevelEventId = trainingLevel.EventId;
+                    header.PendingTrainingLevelCommandId = TrainingLevelRules.ObservedCommand(trainingLevel);
                     header.KnownParts |= PioneerKnownParts.EventIdentity;
                 }
                 if (entry.PendingRestEvent is { } restEvent)
@@ -290,7 +377,31 @@ public sealed class PioneerRuntimeData
                     header.KnownParts |= PioneerKnownParts.EventIdentity;
                 }
                 if (entry.Development is { } development) ImportDevelopment(state, development);
+                if (entry.ObservedIsland is { } island)
+                {
+                    header.IslandBoard = island;
+                    header.KnownParts |= PioneerKnownParts.IslandAssignments;
+                }
+                if (entry.ObservedStoryHistory is { } history)
+                    foreach (var story in history) state.RecordStory(story);
+                if (entry.ObservedGrants is { } grants)
+                {
+                    if (grants.IsDefault || grants.Length > 60 || grants.Any(grant => grant.Position is < 1 or > 6 || grant.EffectType != 19
+                        || grant.Value <= 0 || grant.SourceTurn < Math.Max(1, entry.Turn - 2) || grant.SourceTurn > entry.Turn))
+                        throw new InvalidDataException("训练面板的临时得意率来源回合或支援位置无效。");
+                    state.AppendGrants(grants.AsSpan());
+                }
+                if (start is PioneerStart.Planning planning)
+                {
+                    header.Turn = planning.State.Turn;
+                    header.RawPlayingState = planning.State.RawPlayingState;
+                    header.Stage = PioneerStage.ConstructionPlanning;
+                    header.KnownParts &= ~PioneerKnownParts.TrainingBoard;
+                    header.AvailableTrainingCommands = 0;
+                    header.AvailableRestCommands = null;
+                }
                 break;
+            }
             case PioneerStart.FailureTraining entry:
                 if (entry.State.Stage != TrainingFailureStage.TrainingDecision || entry.State.PendingEvent is not null
                     || entry.CommandId is not (105 or 3602) || entry.SupportBonds.IsDefault || entry.SupportBonds.Length != 6
@@ -298,7 +409,7 @@ public sealed class PioneerRuntimeData
                     throw new InvalidDataException("失败片段起点必须是明确的普通/合宿耐力决策及六张支援羁绊，不接受未来失败事件。");
                 _ = TrainingFailureRate.StatusBias(entry.CharacterEffects);
                 header.Stage = PioneerStage.FailureTraining;
-                header.PendingTrainingLevelEventId = 0;
+                header.PendingTrainingLevelCommandId = 0;
                 header.KnownParts = PioneerKnownParts.Resources | PioneerKnownParts.Motivation | PioneerKnownParts.SupportBonds
                     | PioneerKnownParts.StaminaExecutionCount | PioneerKnownParts.CharacterEffects;
                 header.Turn = entry.State.Turn;
@@ -373,8 +484,8 @@ public sealed class PioneerRuntimeData
                 header.Stage = PioneerStage.ConstructionPlanning;
                 break;
             case PioneerStart.Construction entry:
-                if (entry.Event.CharacterId != 0 || (entry.Event.EventId, entry.Event.StoryId, entry.Event.PlayTiming) is not
-                    ((211067, 400011107, 6) or (211076, 400011107, 10) or (211068, 400011108, 1)))
+                if (entry.Event.CharacterId != 0 || (entry.Event.StoryId, entry.Event.PlayTiming) is not
+                    ((400011107, 6 or 10) or (400011108, 1)))
                     throw new InvalidDataException("建设事件身份必须是107/时机6、107/时机10或108/时机1的已识别事件，角色为0。");
                 ImportDevelopment(state, entry.State);
                 header.Stage = PioneerStage.ConstructionEvent;
@@ -466,6 +577,18 @@ public sealed class PioneerRuntimeData
 
     static void ValidateTrainingTurn(PioneerStart.TrainingTurn entry)
     {
+        if (entry.ObservedIsland is { } island)
+        {
+            if (entry.RawPlayingState != 1 || !entry.PendingStoryIds.IsEmpty || entry.Development?.IslandTrainingTickets is not (> 0 and <= 3))
+                throw new InvalidDataException("当前岛训练需要阶段1、空待处理事件和1..3张明确岛训练券。");
+            if (!ValidIslandBoard(island))
+                throw new InvalidDataException("岛训练人员不能重复，Hint必须属于同一设施的参加支援。");
+        }
+        if (entry.ObservedStoryHistory is { } storyHistory && (storyHistory.IsDefault || storyHistory.Any(story => story.StoryId <= 0
+            || story.Turn < 1 || story.Turn > entry.Turn || story.Phase < 1 || story.PlayTiming < 0
+            || story.CharacterId < 0 || story.SupportCardId < 0 || story.PartnerId < 0 || story.ChoiceNumber < 0
+            || story.ProgressStage < 0 || story.ProgressLength < story.ProgressStage)))
+            throw new InvalidDataException("已观测故事历史包含无效故事或回合上下文。");
         if (entry.CharacterId is <= 0) throw new InvalidDataException("明确角色身份必须为正整数。");
         if (entry.CardId <= 0 || entry.Turn is < 1 or > 78 || entry.PendingStoryIds.IsDefault
             || entry.CharacterEffects.IsDefault || entry.CharacterEffects.Distinct().Count() != entry.CharacterEffects.Length || entry.DevelopmentPoints < 0)
@@ -487,7 +610,7 @@ public sealed class PioneerRuntimeData
             if (entry.RawPlayingState != 5 || levelEvent.CharacterId != 0 || levelEvent.StoryId != 400000005 || levelEvent.PlayTiming != 6
                 || entry.PendingStoryIds.Length != 1 || entry.PendingStoryIds[0] != levelEvent.StoryId || entry.Camp is not null)
                 throw new InvalidDataException("单项训练升级要求阶段5、角色0、故事400000005、时机6和该唯一待确认事件，训练模式为普通训练。");
-            _ = TrainingLevelRules.TargetIndex(levelEvent.EventId);
+            _ = TrainingLevelRules.ObservedCommand(levelEvent);
         }
         else if (entry.RawPlayingState != 1 || !entry.PendingStoryIds.IsEmpty)
             throw new InvalidDataException("训练选择要求阶段1和明确空事件队列。");
@@ -497,10 +620,23 @@ public sealed class PioneerRuntimeData
             || entry.Deck.Any(card => card.Position is < 1 or > 6 || card.Bond is < 0 or > 100 || card.Effects.IsDefault || card.UniqueEffects.IsDefault
                 || card.TrainingCommandId is not (0 or 101 or 105 or 102 or 103 or 106)))
             throw new InvalidDataException("训练需要位置1..6的完整编成、羁绊和静态面板。");
+        if (entry.HomeActions is { } home && (home.Friends.IsDefault || home.Races.IsDefault || home.ScheduledRaces.IsDefault
+            || home.Friends.Any(friend => friend.Position is < 1 or > 6 || friend.Outings is < 0 or > 5 || friend.CharacterId <= 0
+                || entry.Deck[friend.Position - 1].Position != friend.Position || entry.Deck[friend.Position - 1].TrainingCommandId != 0)
+            || home.Friends.Select(friend => friend.Position).Distinct().Count() != home.Friends.Length
+            || (home.UnseenFriendMask & ~home.Friends.Sum(friend => 1 << (friend.Position - 1))) != 0
+            || home.Races.Any(race => race.ProgramId <= 0 || race.Grade <= 0 || race.FirstPlaceFans < 0)
+            || home.ScheduledRaces.Any(race => race.Turn < entry.Turn || race.Turn > 72
+                || race.Race.ProgramId <= 0 || race.Race.Grade <= 0 || race.Race.FirstPlaceFans < 0)
+            || home.Races.Select(race => race.ProgramId).Distinct().Count() != home.Races.Length))
+            throw new InvalidDataException("行动面板的友人卡位、外出进度或比赛奖励无效。");
         if (entry.Commands.IsDefault || entry.Commands.Length != 5 || entry.Commands.Select(command => command.CommandId).Distinct().Count() != 5)
             throw new InvalidDataException("训练需要五项明确指令，禁用项保留enabled=false。");
         if (entry.SuccessfulOrdinaryTrainingCounts is { } successful && (successful.IsDefault || successful.Length != 5 || successful.Any(count => count < 0)))
             throw new InvalidDataException("已知成功普通训练历史要求按五属性顺序提供五项非负次数；未知历史使用null。");
+        if (entry.CheckpointResults is { } results && (results.IsDefault || results.Length != entry.CompletedCheckpoint
+            || results.Any(result => result is not (1 or 2))) || entry.DirectorBond is < 0 or > 100)
+            throw new InvalidDataException("已完成评审需要逐期结果 1 或 2，理事长羁绊须为 0..100。");
         if (entry.Camp is { } camp && (camp.OrdinaryLevels.IsDefault || camp.OrdinaryLevels.Length != 5
             || camp.OrdinaryLevels.Any(level => level is < 1 or > 5) || camp.Bases.IsDefault || camp.Bases.Length != 5
             || camp.Facilities.IsDefault))
@@ -531,7 +667,7 @@ public sealed class PioneerRuntimeData
             var index = TrainingFacilityRules.PrimaryTarget(ordinaryCommand) - 1;
             if (entry.SuccessfulOrdinaryTrainingCounts is { } history && history[index] > command.ExecutionCount)
                 throw new InvalidDataException($"训练{command.CommandId}的成功普通次数大于全部执行次数。");
-            if (entry.PendingTrainingLevelEvent is { } pending && TrainingLevelRules.TargetIndex(pending.EventId) == index
+            if (entry.PendingTrainingLevelEvent is { } pending && TrainingLevelRules.ObservedCommand(pending) == ordinaryCommand
                 && (command.Level >= 5 || entry.SuccessfulOrdinaryTrainingCounts is { } known && (known[index] == 0 || known[index] % 4 != 0)))
                 throw new InvalidDataException("单项训练升级的当前等级必须小于5；已知成功普通次数必须是正的4倍数。");
             if ((entry.Camp is null) != (ordinaryCommand == command.CommandId))
@@ -561,6 +697,19 @@ public sealed class PioneerRuntimeData
                     entry.Environment.Fans, command.GuestCount, entry.Environment.Current, entry.Environment.Limits,
                     entry.Environment.GrowthPercent, supports, command.EvaluationTrainingPercent, entry.Environment.GoldShipBoost));
         }
+    }
+
+    static bool ValidIslandBoard(PioneerIslandBoard island)
+    {
+        var seen = 0;
+        for (var index = 0; index < 6; index++)
+        {
+            var group = island[index];
+            if ((group.SupportMask & (seen | ~63)) != 0 || (group.HintMask & ~group.SupportMask) != 0)
+                return false;
+            seen |= group.SupportMask;
+        }
+        return true;
     }
 
     static void ValidateIslandInputs(PioneerStart.IslandTraining entry)
@@ -631,10 +780,14 @@ public sealed class PioneerRuntimeData
         PioneerStart.DeclaredEvent entry => 1056L + 32L * (entry.Partners?.Length ?? 0) + 4L * entry.CharacterEffects.Length + entry.Choices.Sum(choice => 64L
             + choice.Branches.Sum(branch => 64L + 64L * branch.Effects.Length)),
         PioneerStart.TrainingTurn turn => 2048L + 5 * SupportStorage(turn.Deck)
+            + 4L * PioneerState.StoryOccurrenceSize * (turn.ObservedStoryHistory?.Length ?? 0)
             + (turn.Camp is { } camp ? 512L + FacilityStorage(camp.Facilities) : 0)
-            + 64L * turn.PlanningPeriods.Length
+            + 64L * turn.PlanningPeriods.Length + 4L * (turn.CheckpointResults?.Length ?? 0)
             + turn.Commands.Sum(command => 256L + 4L * (command.SupportPositions.Length + command.HintPositions.Length))
             + 4L * (turn.CharacterEffects.Length + turn.PendingStoryIds.Length)
+            + (turn.HomeActions is { } home ? 96L + 24L * home.Friends.Length
+                + home.Races.Sum(race => 64L + 2L * (race.Name?.Length ?? 0))
+                + home.ScheduledRaces.Sum(item => 64L + 2L * (item.Race.Name?.Length ?? 0)) : 0)
             + (turn.SuccessfulOrdinaryTrainingCounts.HasValue ? 52 : 0)
             + (turn.Development is { } development ? 1024L + 64L * development.Plan.Steps.Length
                 + 2L * development.Plan.SemanticId.Length + 32L * development.Facilities.Length

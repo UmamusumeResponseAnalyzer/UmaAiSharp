@@ -1,4 +1,6 @@
 using UmaAiSharp.Core;
+using System.Collections.Immutable;
+using UmaAiSharp.Pioneer.Runtime;
 
 namespace UmaAiSharp.Pioneer.Training;
 
@@ -6,12 +8,32 @@ public static class TrainingBaseTable
 {
     public const string Version = "jp-ordinary-training-base-inference-v1";
 
-    public static int OrdinaryCommand(int command) => command switch
+    static ReadOnlySpan<int> OrdinaryCommands => [101, 105, 102, 103, 106];
+
+    public static int CommandIndex(int command) => command is >= 3601 and <= 3605
+        ? command - 3601 : OrdinaryCommands.IndexOf(command);
+
+    public static int OrdinaryCommand(int command) => CommandIndex(command) is >= 0 and var index
+        ? OrdinaryCommands[index] : throw new UnknownMechanismException($"未实现的训练指令{command}。");
+
+    public static TrainingValues FromFacilityRows(int command, ImmutableArray<ForecastFacilityBase> bases,
+        ImmutableArray<TrainingFacility> facilities)
     {
-        3601 => 101, 3602 => 105, 3603 => 102, 3604 => 103, 3605 => 106,
-        101 or 105 or 102 or 103 or 106 => command,
-        _ => throw new UnknownMechanismException($"未实现的训练指令{command}。")
-    };
+        var levels = facilities.ToDictionary(value => value.Id, value => value.Level);
+        var values = new Dictionary<int, int>();
+        foreach (var row in bases.Where(row => row.Command == command))
+        {
+            if (row.RequiredFacility != 0 && levels[row.RequiredFacility] == 0) continue;
+            var target = row.Target;
+            if (target is not (1 or 2 or 3 or 4 or 5 or 10 or 30)) throw new UnknownMechanismException($"未知训练基础target={target}。");
+            if (values.TryGetValue(target, out var previous) && previous != row.Value)
+                throw new UnknownMechanismException("同一训练基础分量存在冲突master条目。");
+            values[target] = row.Value;
+        }
+        if (values.Count == 0) throw new UnknownMechanismException($"command={command}没有训练基础master条目。");
+        return new(values.GetValueOrDefault(1), values.GetValueOrDefault(2), values.GetValueOrDefault(3), values.GetValueOrDefault(4),
+            values.GetValueOrDefault(5), values.GetValueOrDefault(10), values.GetValueOrDefault(30));
+    }
 
     // Level 1 agrees with scenario 11 master. Higher levels are packet-derived candidates,
     // including explicit counterexamples to the handoff MujintoStore table; see the audit report.

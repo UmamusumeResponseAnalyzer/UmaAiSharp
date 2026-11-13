@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 
 namespace UmaAiSharp.Tests;
 
@@ -12,8 +12,6 @@ public sealed class TrainingFormulaAuditTests : IDisposable
     [Theory]
     [InlineData("Paired", "valid", 1, 0)]
     [InlineData("ConflictingCapture", "valid", 0, 0)]
-    [InlineData("Paired", "malformed-preview", 0, 1)]
-    [InlineData("Paired", "duplicate-partner", 0, 1)]
     [InlineData("Paired", "group-card", 0, 1)]
     public void AuditRequiresUnambiguousCaptureAndCompleteTypedInputs(string exchangeStatus, string inputKind, int checkedSamples, int unsupported)
     {

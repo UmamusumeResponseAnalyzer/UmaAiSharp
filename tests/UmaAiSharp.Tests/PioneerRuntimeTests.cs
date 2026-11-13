@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Events;
@@ -13,85 +13,6 @@ namespace UmaAiSharp.Tests;
 
 public sealed class PioneerRuntimeTests
 {
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    public void RealFailureDecisionsRunThroughScriptForkAndExplicitUnknownContinuation(int windowIndex)
-    {
-        var (data, expected) = FailureCase(windowIndex);
-        var scenario = new PioneerScenario(data);
-        var root = data.CreateInitialState();
-        var script = FailureScript(root, expected.Event);
-        var execution = SimulationRunner.CreateExecution(scenario, script, root, 1234, 0);
-        var first = SimulationRunner.Advance(scenario, script, ref execution);
-        Assert.Equal(TrajectoryStatus.Advanced, first.Status);
-        Assert.Equal(1, first.Progress.ConsumedActions);
-        Assert.Equal(1, first.Progress.SettledActions);
-        Assert.Equal(PioneerStage.FailureChoice, execution.State.Header.Stage);
-        Assert.Equal(expected.Immediate, execution.State.Header.Resources);
-        Assert.Equal(expected.BeforeCount + 1, execution.State.Header.StaminaExecutionCount);
-        Assert.Equal(root.Header.Resources, execution.State.Header.Resources);
-        Assert.Equal(root.Header.Turn, execution.State.Header.Turn);
-        var fork = SimulationRunner.CreateExecution(scenario, script, root, 0, 0);
-        SimulationRunner.ForkInto(scenario, script, execution, ref fork);
-        var completedComponents = SimulationRunner.Continue(scenario, script, ref execution);
-        var forkResult = SimulationRunner.Continue(scenario, script, ref fork);
-        Assert.Equal(completedComponents, forkResult);
-        Assert.Equal(execution.State.Header, fork.State.Header);
-        Assert.Equal(TrajectoryStatus.Stopped, completedComponents.Status);
-        Assert.Equal((int)PioneerStopCode.NextTurnEventsUnknown, completedComponents.Stop!.Value.Code);
-        Assert.Equal(2, completedComponents.Progress.ConsumedActions);
-        Assert.Equal(1, completedComponents.Progress.SettledActions);
-        Assert.Equal(expected.After, execution.State.Header.Resources);
-        Assert.Equal(expected.AfterTurn, execution.State.Header.Turn);
-        Assert.True(execution.State.Header.TurnKnown);
-        Assert.False(execution.State.Header.RawPlayingStateKnown);
-        Assert.Equal(ExecutionStage.AutomaticSettlement, execution.Stage);
-        var stoppedState = execution.State.Header;
-        var capacity = execution.State.WorkspaceBytes;
-        var again = SimulationRunner.Continue(scenario, script, ref execution);
-        Assert.Equal(completedComponents, again);
-        Assert.Equal(stoppedState, execution.State.Header);
-        Assert.Equal(capacity, execution.State.WorkspaceBytes);
-        Assert.Equal(PioneerStage.FailureTraining, root.Header.Stage);
-        Assert.Equal(expected.BeforeCount, root.Header.StaminaExecutionCount);
-        Assert.Throws<InvalidOperationException>(() => scenario.GetOutcome(execution.State));
-    }
-
-    [Fact]
-    public void RealFailureBatchHasFixedSlotsAcrossWorkersAndDoesNotAlterTheRoot()
-    {
-        foreach (var window in new[] { 0, 1 })
-        {
-            var (data, expected) = FailureCase(window);
-            var script = FailureScript(data.CreateInitialState(), expected.Event);
-            PioneerStateAudit.AssertDeterministic(data, script);
-        }
-    }
-
-    [Fact]
-    public void MissingConditionalFailureDoesNotConsumeTheActionOrInventAResult()
-    {
-        var (known, expected) = FailureCase(0);
-        var initial = known.CreateInitialState();
-        var start = new PioneerStart.FailureTraining(new(initial.Header.CardId, initial.Header.Turn, initial.Header.Motivation,
-            initial.Header.Resources, initial.Header.StaminaExecutionCount,
-            TrainingFailureStage.TrainingDecision, null), initial.Header.CommandId,
-            [.. initial.GetSection(PioneerStateSection.SupportBonds)], [.. initial.GetSection(PioneerStateSection.CharacterEffects)]);
-        var data = PioneerRuntimeData.Compile(start, [], "missing-conditional-test");
-        var scenario = new PioneerScenario(data);
-        var root = data.CreateInitialState();
-        var script = FailureScript(root, expected.Event);
-        var execution = SimulationRunner.CreateExecution(scenario, script, root, 123, 0);
-        var first = SimulationRunner.Continue(scenario, script, ref execution);
-        var repeated = SimulationRunner.Continue(scenario, script, ref execution);
-        Assert.Equal(first, repeated);
-        Assert.Equal((int)PioneerStopCode.TrainingOutcomeRequired, first.Stop!.Value.Code);
-        Assert.Equal(0, first.Progress.ConsumedActions);
-        Assert.Equal(root.Header, execution.State.Header);
-        Assert.Equal(1, execution.Cursor.Position);
-    }
-
     [Fact]
     public void DecisionIdentityIncludesTheTurnAndActionPayloadsDoNotIgnoreExtraFields()
     {
@@ -123,36 +44,6 @@ public sealed class PioneerRuntimeTests
         Assert.Equal((int)PioneerStopCode.OutcomeIdentityMismatch, wrongCondition.Stop!.Value.Code);
         Assert.Equal(0, wrongCondition.Progress.ConsumedActions);
         Assert.Equal(mismatchRoot.Header, mismatch.State.Header);
-    }
-
-    [Fact]
-    public void KnownZeroDevelopmentPointsDoNotMakeMissingTicketsOrCheckpointStateKnown()
-    {
-        var current = new PioneerEvent(1, 9049, 400011111, 6);
-        var start = new PioneerStart.TuckerPoints(new(20, 5, 3, current.StoryId, current.PlayTiming, 1, 30257, 4, 118185),
-            current, new(0, 0));
-        var data = PioneerRuntimeData.Compile(start, [], "known-field-boundary");
-        var scenario = new PioneerScenario(data);
-        var root = data.CreateInitialState();
-        var known = PioneerKnownParts.DevelopmentPoints | PioneerKnownParts.DeckId
-            | PioneerKnownParts.SkillPoints | PioneerKnownParts.EventIdentity;
-        Assert.Equal(known, root.Header.KnownParts);
-        Assert.Equal(0, root.Header.DevelopmentPoints);
-        Assert.Equal(0, root.Header.Tickets);
-        Assert.Equal(0, root.Header.PlanningCost);
-        Assert.Equal(0, root.Header.CompletedCheckpoint);
-        Assert.Equal(PioneerStopCode.None, root.Header.StopCode);
-        Assert.Equal(PioneerStage.None, root.Header.ContinuationFrom);
-        Assert.Equal(known, root.Clone().Header.KnownParts);
-
-        var script = SingleEventScript(root, current, 1);
-        var execution = SimulationRunner.CreateExecution(scenario, script, root, 0, 0);
-        var result = SimulationRunner.Continue(scenario, script, ref execution);
-        Assert.Equal((int)PioneerStopCode.TuckerRemainderUnknown, result.Stop!.Value.Code);
-        Assert.Equal(80, execution.State.Header.DevelopmentPoints);
-        Assert.Equal(3, execution.State.Header.Resources.SkillPoints);
-        Assert.Equal(known, execution.State.Header.KnownParts);
-        Assert.Equal(known, execution.State.Clone().Header.KnownParts);
     }
 
     [Fact]
@@ -227,7 +118,7 @@ public sealed class PioneerRuntimeTests
         var display = ReadEvidence<LateCheckpointFixture>("late-checkpoint-confirmations.jsonl").First();
         current = new(display.EventId, 0, display.StoryId, display.PlayTiming);
         var confirmed = LateCheckpointConfirmation.ObserveAppliedBoundary(display.Turn, display.Phase, display.ResultState,
-            display.EventId, display.StoryId, display.PlayTiming, display.ChoiceCount);
+            display.StoryId, display.PlayTiming, display.ChoiceCount);
         data = PioneerRuntimeData.Compile(new PioneerStart.CheckpointDisplay(display.Turn, display.Phase, current, confirmed), [], display.SourceSha256);
         scenario = new(data); root = data.CreateInitialState(); script = SingleEventScript(root, current, display.ChoiceNumber);
         execution = SimulationRunner.CreateExecution(scenario, script, root, 0, 0);

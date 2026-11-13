@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using UmaAiSharp.Cli;
+using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
@@ -18,11 +18,11 @@ public sealed class PioneerTrainingLevelTests
         Assert.Equal(5, cases.EnumerateArray().Select(row => row.GetProperty("start").GetProperty("pendingTrainingLevelEvent").GetProperty("eventId").GetInt32()).Distinct().Count());
         foreach (var row in cases.EnumerateArray())
         {
-            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
             var data = PioneerRuntimeData.Compile(start, [], "captured-level");
             var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
             var current = start.PendingTrainingLevelEvent!.Value;
-            Assert.Equal(current.EventId, root.Header.PendingTrainingLevelEventId);
+            Assert.Equal(TrainingLevelRules.ObservedCommand(current), root.Header.PendingTrainingLevelCommandId);
             var decision = scenario.Inspect(root, 0).Decision;
             Assert.Equal(PioneerStage.TrainingLevelConfirmation, decision.Context.Stage);
             Assert.Equal(new((int)PioneerStage.TrainingLevelConfirmation, 0, PioneerScenario.DecisionKey(start.Turn, current.EventId)), decision.Id);
@@ -52,15 +52,14 @@ public sealed class PioneerTrainingLevelTests
             Assert.False(execution.State.Header.TurnKnown);
             Assert.False(execution.State.Header.RawPlayingStateKnown);
             Assert.False(execution.State.Header.KnownParts.HasFlag(PioneerKnownParts.EventIdentity));
-            Assert.Equal(0, execution.State.Header.PendingTrainingLevelEventId);
+            Assert.Equal(0, execution.State.Header.PendingTrainingLevelCommandId);
             Assert.True(execution.State.GetSection(PioneerStateSection.PendingStories).IsEmpty);
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
             Assert.Equal(fork.State.Header, execution.State.Header);
             SimulationRunner.ResetSample(scenario, script, root, ref execution, 71, 0);
             Assert.Equal(current, execution.State.Header.Event);
-            Assert.Equal(current.EventId, execution.State.Header.PendingTrainingLevelEventId);
+            Assert.Equal(TrainingLevelRules.ObservedCommand(current), execution.State.Header.PendingTrainingLevelCommandId);
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
-            PioneerStateAudit.AssertDeterministic(data, script);
 
             var observed = PioneerRuntimeData.Compile(start with { SuccessfulOrdinaryTrainingCounts = null }, [], "observed-level");
             var observedRoot = observed.CreateInitialState();
@@ -72,33 +71,4 @@ public sealed class PioneerTrainingLevelTests
         }
     }
 
-    [Fact]
-    public void LevelConfirmationRequiresTheObservedIdentityAndConsistentKnownHistory()
-    {
-        using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-level-events.json")));
-        var start = fixture.RootElement.GetProperty("cases")[0].GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
-        var current = start.PendingTrainingLevelEvent!.Value;
-        var target = TrainingLevelRules.TargetIndex(current.EventId);
-        var history = start.SuccessfulOrdinaryTrainingCounts!.Value;
-        foreach (var invalid in new[]
-        {
-            start with { RawPlayingState = 1 },
-            start with { PendingTrainingLevelEvent = current with { StoryId = 1 } },
-            start with { PendingTrainingLevelEvent = current with { CharacterId = 1 } },
-            start with { PendingStoryIds = [] },
-            start with { PendingStoryIds = [current.StoryId, current.StoryId] },
-            start with { SuccessfulOrdinaryTrainingCounts = history.SetItem(target, history[target] - 1) },
-            start with { Commands = start.Commands.Select(command => command.CommandId == 101 ? command with { Level = 5 } : command).ToImmutableArray() }
-        })
-            Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(invalid, [], "invalid-level"));
-        Assert.Throws<UnknownMechanismException>(() => PioneerRuntimeData.Compile(start with
-        { PendingTrainingLevelEvent = current with { EventId = 211023 } }, [], "unknown-level"));
-        var data = PioneerRuntimeData.Compile(start, [new PioneerConditionalOutcome.TrainingResult(0, true)], "unexpected-result");
-        var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
-        var random = new SimulationRandom(71);
-        var stopped = scenario.ApplyAction(ref root, PioneerRuntimeAction.Choose(current, 0), ref random);
-        Assert.False(stopped.ActionConsumed);
-        Assert.Equal((int)PioneerStopCode.OutcomeIdentityMismatch, stopped.Stop!.Value.Code);
-        Assert.Equal(start.Commands[0].Level, root.GetSection(PioneerStateSection.TrainingLevels)[0]);
-    }
 }

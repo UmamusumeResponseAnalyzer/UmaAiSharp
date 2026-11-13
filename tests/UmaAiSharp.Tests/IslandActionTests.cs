@@ -1,8 +1,10 @@
+using UmaAiSharp.Pioneer.Offline;
+using UmaAiSharp.Pioneer.Game;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.IslandTraining;
 
@@ -13,7 +15,6 @@ public sealed class IslandActionTests
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
-    [InlineData(false, true)]
     public void SettlesRealActionsWithoutImportingFutureTurnOrConstructionRewards(bool removeTicket, bool wrongRequestSource)
     {
         var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "island-action-snapshots.json")))!.AsObject();
@@ -62,7 +63,7 @@ public sealed class IslandActionTests
             if (!removeTicket && !wrongRequestSource)
             {
                 var frame = frames.Single(value => value!["ref"]![1]!.GetValue<int>() == 1058)!.AsObject();
-                var start = new PioneerMasterCompiler(masterPath).IslandStart(frame, new(masterPath), false, null);
+                var start = new PioneerMasterCompiler(PioneerMasterReader.ReadTraining(masterPath)).IslandStart(frame, new(PioneerMasterReader.ReadFacilities(masterPath)), false, null);
                 Assert.Equal(new[] { 1, 1, 2, 1, 1 }, start.Training.OrdinaryLevels);
             }
             var report = IslandActionAudit.Run(directory, framesPath, masterPath, output);

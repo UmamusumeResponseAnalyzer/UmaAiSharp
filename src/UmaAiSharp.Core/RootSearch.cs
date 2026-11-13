@@ -18,7 +18,7 @@ public static class RootSearch
         ITrajectoryPolicy<TDecision, TAction, TCursor> continuation, in TState root,
         ReadOnlySpan<RootCandidate<TAction>> candidates, CompiledGoal goal,
         ulong seed, int samplesPerCandidate, int workers, CancellationToken cancellationToken = default,
-        long? ownedActionPayloadBytes = null)
+        long? ownedActionPayloadBytes = null, bool rankByAttributeRating = false)
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
         ExecutionPlatform.EnsureSupported();
@@ -42,8 +42,10 @@ public static class RootSearch
                 throw new ArgumentException($"候选{candidate.Id}校验失败：{invalid.Reason}，代码{invalid.Code}，位置{invalid.Position}。", nameof(candidates));
         }
         var results = new CandidateEvaluation<TAction>[actions.Length];
+        var retainedResultBytes = checked((long)actions.Length * samplesPerCandidate
+            * (Unsafe.SizeOf<TrajectoryResult<TerminalMetrics>>() + 128L));
         var sharedBytes = checked(goal.SharedMemoryBytes + (ownedActionPayloadBytes ?? 0) + 128L
-            + actions.Length * (64L + Unsafe.SizeOf<RootCandidate<TAction>>()));
+            + actions.Length * (64L + Unsafe.SizeOf<RootCandidate<TAction>>()) + retainedResultBytes);
         var initialPolicy = new RootPolicy<TDecision, TAction, TCursor>(continuation, inspection.Decision.Id, actions[0].Action, sharedBytes);
         var (memory, workspaces) = SimulationRunner.CreateBatchWorkspaces(scenario, initialPolicy, root, samplesPerCandidate, workers);
         var status = SearchStatus.Completed;
@@ -53,7 +55,11 @@ public static class RootSearch
             var batch = SimulationRunner.RunBatch(scenario, policy, root, seed, samplesPerCandidate, memory, workspaces, cancellationToken);
             GoalSummary? summary = null;
             if (Array.TrueForAll(batch.Results, sample => sample.Status == TrajectoryStatus.Completed))
+            {
                 summary = GoalEvaluator.Summarize(goal, batch);
+                if (rankByAttributeRating && summary.SuccessCount != 0 && summary.MeanSuccessfulAttributeRating is null)
+                    throw new InvalidDataException($"候选{actions[index].Id}的达标轨迹缺少终局属性评分。");
+            }
             else if (Array.Exists(batch.Results, sample => sample.Stop?.Reason == SimulationStopReason.Cancelled))
                 status = SearchStatus.Cancelled;
             else if (status != SearchStatus.Cancelled)
@@ -65,7 +71,7 @@ public static class RootSearch
         var ranking = Enumerable.Range(0, results.Length).ToArray();
         Array.Sort(ranking, (left, right) =>
         {
-            var comparison = GoalEvaluator.Compare(results[right].Summary!, results[left].Summary!);
+            var comparison = GoalEvaluator.Compare(results[right].Summary!, results[left].Summary!, rankByAttributeRating);
             return comparison != 0 ? comparison : results[left].Candidate.Id.CompareTo(results[right].Candidate.Id);
         });
         return new(inspection.Decision.Id, status, results[ranking[0]].Candidate.Id,

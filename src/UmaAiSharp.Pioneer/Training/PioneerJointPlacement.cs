@@ -26,13 +26,15 @@ public sealed class PioneerJointPlacement
             + Members.Select(member => member.Distribution).Distinct().Sum(distribution => distribution.SharedMemoryBytes));
     }
 
-    public TrainingBoard Sample(Span<SupportPlacement> placements, ref SimulationRandom random)
+    public TrainingBoard Sample(Span<SupportPlacement> placements, ref SimulationRandom random,
+        ReadOnlySpan<int> facilityHintPercent = default)
     {
         if (placements.Length != Members.Length)
             throw new ArgumentException("联合分配结果缓冲区必须与按target_id排序的成员数一致。", nameof(placements));
         var hints = 0;
-        for (var index = 0; index < 6; index++)
-            if (Members[index].Appeared && Members[index].Distribution.SampleHint(ref random)) hints |= 1 << index;
+        if (facilityHintPercent.IsEmpty)
+            for (var index = 0; index < 6; index++)
+                if (Members[index].Appeared && Members[index].Distribution.SampleHint(ref random)) hints |= 1 << index;
         Span<int> counts = stackalloc int[5];
         while (true)
         {
@@ -53,7 +55,16 @@ public sealed class PioneerJointPlacement
                     ? cell with { SupportMask = (byte)(cell.SupportMask | (1 << index)), HintMask = (byte)(cell.HintMask | (hint ? 1 << index : 0)) }
                     : cell with { GuestCount = (byte)(cell.GuestCount + 1) });
             }
-            if (counts[0] <= 5 && counts[1] <= 5 && counts[2] <= 5 && counts[3] <= 5 && counts[4] <= 5) return board;
+            if (counts[0] > 5 || counts[1] > 5 || counts[2] > 5 || counts[3] > 5 || counts[4] > 5) continue;
+            if (!facilityHintPercent.IsEmpty)
+                for (var index = 0; index < 6; index++)
+                {
+                    var training = placements[index].TrainingIndex;
+                    if (training < 0 || !Members[index].Distribution.SampleHint(ref random, facilityHintPercent[training])) continue;
+                    placements[index] = placements[index] with { HasHint = true };
+                    board = board.With(training, board[training] with { HintMask = (byte)(board[training].HintMask | (1 << index)) });
+                }
+            return board;
         }
     }
 }

@@ -28,7 +28,7 @@ public sealed class CompiledTrainingDeck
                 throw new ArgumentException("编成位置必须为1..6。", nameof(definitions));
             foreach (var effect in definition.UniqueEffects)
             {
-                if (effect.Type is >= 100 and not (101 or 104 or 105 or 111 or 121 or 122))
+                if (effect.Type is >= 100 and not (101 or 104 or 105 or 111 or 113 or 121 or 122))
                     throw new UnknownMechanismException($"支援卡{definition.CardId}的固有type={effect.Type}尚未实现，不能编译该编成。");
                 if (effect.Type != 121) continue;
                 if (effect.Value < 0 || effect.Parameter1 < 0 || effect.Parameter2 != 0 || effect.Parameter3 != 0 || effect.Parameter4 != 0)
@@ -83,11 +83,13 @@ public sealed class CompiledTrainingDeck
         {
             Definition = definition;
             while (dynamicStart < definition.UniqueEffects.Length
-                && (definition.UniqueEffects[dynamicStart].Type < 100 || definition.UniqueEffects[dynamicStart].Type is 105 or 121 or 122))
+                && (definition.UniqueEffects[dynamicStart].Type < 100 || definition.UniqueEffects[dynamicStart].Type is 105 or 113 or 121 or 122))
                 dynamicStart++;
             // Only the static prefix is moved: checked additions and atom order remain identical to the reference.
             var prefix = definition with { Bond = 0, UniqueEffects = definition.UniqueEffects[..dynamicStart] };
             ordinary = TrainingSupportEffects.Resolve(prefix, definition.TrainingCommandId, 1, 0);
+            if (dynamicStart != definition.UniqueEffects.Length)
+                ordinary = ordinary with { FriendshipTrainingEffects = TrainingSupportEffects.ReadFriendshipTrainingEffects(definition) };
             friendly = ordinary with { FriendshipEligible = true };
             bondThresholds = new int[definition.UniqueEffects.Length + 1];
             bondThresholds[0] = int.MinValue;
@@ -182,7 +184,7 @@ public sealed class CompiledTrainingDeck
                         values.Add(8, Math.Min(fans / effect.Value, effect.Parameter1));
                         break;
                     case 111: values.Add(effect.Value, checked(level * effect.Parameter1)); break;
-                    case 105 or 121 or 122: break;
+                    case 105 or 113 or 121 or 122: break;
                     default: throw new UnknownMechanismException($"支援卡{Definition.CardId}的固有type={effect.Type}尚未实现。");
                 }
             }
@@ -216,7 +218,7 @@ public sealed class CompiledTrainingDeck
                 case 8: trainingValue = checked(trainingValue + value); break;
                 case 30: bonuses = bonuses with { SkillPoints = checked(bonuses.SkillPoints + value) }; break;
                 case 31: wisdomRecovery = checked(wisdomRecovery + value); break;
-                case 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 25 or 26: return;
+                case 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 25 or 26 or 32 or 33: return;
                 default: throw new UnknownMechanismException($"支援卡{seed.CardId}的训练效果type={type}尚未实现。");
             }
             changed = true;
@@ -228,6 +230,7 @@ public sealed class CompiledTrainingDeck
             failure?.ToImmutable() ?? seed.FailureReductions,
             vital?.ToImmutable() ?? seed.VitalReductions,
             training?.ToImmutable() ?? seed.TrainingEffectParts,
-            motivation?.ToImmutable() ?? seed.MotivationEffectParts);
+            motivation?.ToImmutable() ?? seed.MotivationEffectParts)
+        { FriendshipTrainingEffects = seed.FriendshipTrainingEffects };
     }
 }

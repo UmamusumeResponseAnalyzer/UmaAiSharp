@@ -36,8 +36,15 @@ E = floor(L × 追加百分比 / 100)
 
 ## 可复跑核验
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence training-modes --input artifacts/research/blockers/island-training/expansion-20261108/audit --master G:\DMM\Umamusume\umamusume_Data\Persistent\master\master.mdb --output artifacts/evidence/training-modes-audit-new
+```json
+{
+  "name": "evidence_training_modes",
+  "arguments": {
+    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "artifacts/evidence/training-modes-audit-new"
+  }
+}
 ```
 
 输出目录必须为空。核验对 observations 按行处理，固定观测、动作、交换关联和 master 的 SHA-256，结束时再次比对。输出 `training-modes-audit.json`、`training-modes-samples.jsonl`、`training-modes-counterexamples.jsonl`。反例保留具体类型化输入、预测和观测；不通过改变常数隐藏差异。

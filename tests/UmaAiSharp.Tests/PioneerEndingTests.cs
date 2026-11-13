@@ -33,7 +33,7 @@ public sealed class PioneerEndingTests
     {
         var before = new TrainingValues(1146, 1200, 1201, 100, 100, 50, 100);
         var caps = new TrainingLimits(1500, 1500, 1500, 1500, 1500, 100);
-        Assert.Throws<UnknownMechanismException>(() => PioneerEndingSettlement.ApplyCandidate(Context with { EventId = 211041 }, before, caps));
+        Assert.Throws<UnknownMechanismException>(() => PioneerEndingSettlement.ApplyCandidate(Context with { StoryId = 400011028 }, before, caps));
         Assert.Throws<UnknownMechanismException>(() => PioneerEndingSettlement.ApplyCandidate(Context with { CheckpointResults = [2, 2, 2, 2, 1] }, before, caps));
         Assert.Throws<UnknownMechanismException>(() => PioneerEndingSettlement.ApplyCandidate(Context with { HasEndingHint = true }, before, caps));
         Assert.Throws<ArgumentException>(() => PioneerEndingSettlement.ApplyCandidate(Context, before with { Speed = 1501 }, caps));

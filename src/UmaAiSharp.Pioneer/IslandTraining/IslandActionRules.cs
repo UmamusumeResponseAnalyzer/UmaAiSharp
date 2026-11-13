@@ -10,7 +10,7 @@ public sealed record IslandActionState(int ActionTurn, int RawPlayingState, bool
     int Tickets, int CompletedCheckpoint, int? CheckpointBonusPercent, ImmutableArray<IslandActionSupport> Deck,
     ImmutableArray<IslandTrainingAssignment> Assignments, ImmutableArray<TrainingFacility> Facilities, ImmutableArray<int> CharacterEffects,
     ImmutableArray<int> HintCandidates);
-public enum TemporarySupportGrantSource { IslandTraining, TuckerEvent }
+public enum TemporarySupportGrantSource { IslandTraining, TuckerEvent, TuckerTraining }
 public readonly record struct TemporarySupportGrant(int SourceTurn, TemporarySupportGrantSource Source,
     int? StoryId, int Position, int EffectType, int Value);
 public sealed record IslandActionSettlement(int SourceTurn, TrainingValues ValuesAfter, int DevelopmentPointsAfter,

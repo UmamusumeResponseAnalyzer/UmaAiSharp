@@ -8,7 +8,7 @@
 
 ## 两个原包窗口
 
-完整`PioneerStart.TrainingTurn`通过同一正式训练动作接入这两条路径：`trainingFailure`条件结果提供该动作的失败事件，`failurePenalty`对应下一次选择。普通与合宿示例由52989和58275原始前态重新导入；五项协议次数和耐力计数同步增加一次。`PioneerTrainingFlowTests`在失败选择处精确分叉，再核对选择后实包投影、重复继续、RNG和1/2/4/8/16/32 worker结果。来源指纹见[本次输入](../artifacts/implementation/training-transition-01/inputs.json)，CLI示例见[执行说明](pioneer-cli.md#失败条件回放)。
+完整`PioneerStart.TrainingTurn`通过同一正式训练动作接入这两条路径：`trainingFailure`条件结果提供该动作的失败事件，`failurePenalty`对应下一次选择。普通与合宿示例由52989和58275原始前态重新导入；五项协议次数和耐力计数同步增加一次。`PioneerTrainingFlowTests`在失败选择处精确分叉，再核对选择后实包投影、重复继续、RNG和1/2/4/8/16/32 worker结果。来源指纹见[本次输入](../artifacts/implementation/training-transition-01/inputs.json)，CLI示例见[执行说明](pioneer-mcp.md#失败条件回放)。
 
 [mechanisms-15/REPORT.md](../artifacts/research/blockers/training-settlement/mechanisms-15/REPORT.md)的两例来源于同一已冻结库。两次选项展示均为选项1两组、选项2三组，没有分支概率；本模块只接受已经明确的分支身份。
 

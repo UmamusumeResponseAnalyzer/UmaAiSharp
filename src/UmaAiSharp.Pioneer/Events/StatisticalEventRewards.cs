@@ -9,7 +9,7 @@ public readonly record struct EventRewardFamily(int OwnerKind, int TrainingComma
     int Year, int Progress, int Choice);
 public sealed record EventRewardSample(string Run, int StoryId, EventRewardFamily Family,
     ImmutableArray<DeclaredEventEffect> BaseEffects, ImmutableArray<DeclaredEventEffect> RemainingEffects);
-public sealed record EventRewardEstimate(int StoryId, EventRewardFamily Family, bool UsesFamilyEstimate,
+public sealed record EventRewardEstimate(int StoryId, EventRewardFamily Family,
     int SampleCount, int RunCount, ImmutableArray<WeightedEventReward> Outcomes);
 public sealed record WeightedEventReward(int Count, ImmutableArray<DeclaredEventEffect> BaseEffects,
     ImmutableArray<DeclaredEventEffect> RemainingEffects);
@@ -18,9 +18,8 @@ public sealed record SampledEventRewards(DeclaredEventBranch Resources, Immutabl
 // Calibration data contains neutral reward atoms, never a donor's post-state or clipped delta.
 public sealed class StatisticalEventRewards
 {
-    public const string Version = "pioneer-neutral-event-rewards-v1";
+    public const string Version = "pioneer-neutral-event-rewards-v2";
     readonly FrozenDictionary<(int Story, int Choice), ImmutableArray<EventRewardSample>> stories;
-    readonly FrozenDictionary<EventRewardFamily, ImmutableArray<EventRewardSample>> families;
 
     public StatisticalEventRewards(ImmutableArray<EventRewardSample> samples)
     {
@@ -36,18 +35,16 @@ public sealed class StatisticalEventRewards
         }
         stories = samples.GroupBy(sample => (sample.StoryId, sample.Family.Choice))
             .ToFrozenDictionary(group => group.Key, group => group.ToImmutableArray());
-        families = samples.GroupBy(sample => sample.Family).ToFrozenDictionary(group => group.Key, group => group.ToImmutableArray());
     }
 
     public EventRewardEstimate Estimate(int storyId, EventRewardFamily family, string excludedRun)
     {
-        var exact = stories.TryGetValue((storyId, family.Choice), out var rows)
-            ? rows.Where(row => row.Run != excludedRun && row.Family == family).ToArray() : [];
-        var pooled = exact.Length == 0;
-        var selected = pooled && families.TryGetValue(family, out var alternatives)
-            ? alternatives.Where(row => row.Run != excludedRun).ToArray() : exact;
+        // Legacy model files carry the observed protocol number alongside the reward context.
+        var key = family with { EventId = 0 };
+        var selected = stories.TryGetValue((storyId, family.Choice), out var rows)
+            ? rows.Where(row => row.Run != excludedRun && (row.Family with { EventId = 0 }) == key).ToArray() : [];
         if (selected.Length == 0)
-            throw new UnknownMechanismException($"事件{storyId}、选项{family.Choice}及同类事件{family}均无可用基础奖励样本；排除输入局后不能估计。");
+            throw new UnknownMechanismException($"故事{storyId}、选项{family.Choice}缺少与当前上下文匹配的基础奖励样本。");
         var outcomes = new List<WeightedEventReward>();
         foreach (var sample in selected)
         {
@@ -56,7 +53,7 @@ public sealed class StatisticalEventRewards
             if (index < 0) outcomes.Add(new(1, sample.BaseEffects, sample.RemainingEffects));
             else outcomes[index] = outcomes[index] with { Count = outcomes[index].Count + 1 };
         }
-        return new(storyId, family, pooled, selected.Length, selected.Select(row => row.Run).Distinct().Count(), [.. outcomes]);
+        return new(storyId, family, selected.Length, selected.Select(row => row.Run).Distinct().Count(), [.. outcomes]);
     }
 
 }

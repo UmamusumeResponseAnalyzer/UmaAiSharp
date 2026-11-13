@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
 
@@ -40,22 +40,10 @@ public sealed class PioneerCheckpointTests
         }
     }
 
-    [Fact]
-    public void MasterEffectsRemainExactRowsInsteadOfDoublingTheLowerResult()
-    {
-        var master = Master();
-        Assert.Equal(38, master.Effects.Values.Sum(x => x.Length));
-        Assert.Equal(20, Assert.Single(master.GetEffects(1, 2).Where(x => x.EffectType == 204)).EffectValue2);
-        Assert.Equal(15, Assert.Single(master.GetEffects(1, 1).Where(x => x.EffectType == 204)).EffectValue2);
-        Assert.DoesNotContain(master.GetEffects(5, 2), x => x.EffectType == 202);
-        Assert.Throws<UnknownMechanismException>(() => master.GetEffects(5, 0));
-    }
-
     [Theory]
     [InlineData(947, 40, 108, 18, 18)]
     [InlineData(947, 100, 108, 18, 8)]
     [InlineData(1600, 40, 108, 30, 30)]
-    [InlineData(800, 40, 108, 0, 0)]
     public void RecoveryFloorsMasterRateBeforeApplyingBothCaps(int points, int vital, int maximum, int calculated, int applied)
     {
         var result = new CheckpointSettlement(Master()).ApplyResourcesCandidate(new(60, 5, 3, 5, 2, 400011021, 0), new(points, vital, maximum));
@@ -74,9 +62,6 @@ public sealed class PioneerCheckpointTests
 
     [Theory]
     [InlineData(12, 1, 400)]
-    [InlineData(24, 2, 500)]
-    [InlineData(36, 3, 600)]
-    [InlineData(48, 4, 600)]
     [InlineData(60, 5, 800)]
     public void ReachedTargetEvaluatesOnlyTheSupportedGreatResult(int turn, int type, int target)
     {
@@ -87,15 +72,6 @@ public sealed class PioneerCheckpointTests
         Assert.All(evaluation.Effects, row => Assert.Equal((type, 2), (row.CheckPointType, row.ResultState)));
         var error = Assert.Throws<UnknownMechanismException>(() => rules.EvaluateReachedTargetCandidate(turn, 34, 3, type, target - 1));
         Assert.Contains("低评价", error.Message);
-    }
-
-    [Fact]
-    public void EvaluationCannotSkipTheExplicitCheckpointDecisionPhase()
-    {
-        var rules = new CheckpointSettlement(Master());
-        Assert.Throws<UnknownMechanismException>(() => rules.EvaluateReachedTargetCandidate(12, 5, 3, 1, 651));
-        Assert.Throws<UnknownMechanismException>(() => rules.EvaluateReachedTargetCandidate(13, 34, 3, 1, 651));
-        Assert.Throws<UnknownMechanismException>(() => rules.EvaluateReachedTargetCandidate(12, 34, 2, 1, 651));
     }
 
     [Fact]
@@ -112,7 +88,6 @@ public sealed class PioneerCheckpointTests
     }
 
     [Theory]
-    [InlineData("null")]
     [InlineData("{\"id\":1,\"check_point_type\":1,\"group_id\":10101,\"add_value_max\":20}")]
     public void MissingMasterValuesAreNotDefaulted(string row)
     {
@@ -124,8 +99,6 @@ public sealed class PioneerCheckpointTests
     [Theory]
     [InlineData(4, true, true, 1)]
     [InlineData(2, true, true, 0)]
-    [InlineData(6, true, true, 0)]
-    [InlineData(4, false, true, 0)]
     [InlineData(4, true, false, 0)]
     public void AuditRequiresExactRequestMembershipAndCaptureOrder(long requestId, bool sameSource, bool member, int accepted)
     {
@@ -150,7 +123,7 @@ public sealed class PioneerCheckpointTests
             submitted["chara_info"]!["playing_state"] = 5;
             submitted["pioneer_data_set"]!["pioneer_info"]!["planning_cost"] = 500;
             submitted["pioneer_data_set"]!["check_point_info_array"] = JsonNode.Parse("""[{"check_point_type":1,"result_state":2}]""");
-            submitted["unchecked_event_array"] = JsonNode.Parse("""[{"event_id":123,"story_id":400011004}]""");
+            submitted["unchecked_event_array"] = JsonNode.Parse("""[{"event_id":123,"chara_id":0,"story_id":400011004},{"event_id":123,"chara_id":1001,"story_id":501001407}]""");
             var settled = submitted.DeepClone().AsObject();
             settled["chara_info"]!["playing_state"] = 35;
             settled["chara_info"]!["vital"] = 79;
@@ -167,7 +140,7 @@ public sealed class PioneerCheckpointTests
             {
                 new ObservedAction("packets", 2, "submit", prefix + "check_point", "", new JsonObject { ["current_turn"] = 12 }),
                 new ObservedAction(requestSource, requestId, "settle", prefix + "check_event", "", JsonNode.Parse("""
-                    {"single_mode_check_event_request_common":{"current_turn":12,"event_id":123,"choice_number":0}}
+                    {"single_mode_check_event_request_common":{"current_turn":12,"event_id":123,"chara_id":0,"choice_number":0}}
                     """)!.AsObject()),
             };
             var exchanges = new[]

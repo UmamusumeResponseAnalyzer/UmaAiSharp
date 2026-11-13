@@ -31,8 +31,16 @@
 
 ## 可复跑核验
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence island-action --input artifacts/research/blockers/island-training/action-chains-20261108 --frames artifacts/research/blockers/island-training/expansion-20261108/extract-01/frames.jsonl --master G:\DMM\Umamusume\umamusume_Data\Persistent\master\master.mdb --output artifacts/evidence/island-action-audit-new
+```json
+{
+  "name": "evidence_island_action",
+  "arguments": {
+    "researchDirectory": "artifacts/research/blockers/island-training/action-chains-20261108",
+    "framesPath": "artifacts/research/blockers/island-training/expansion-20261108/extract-01/frames.jsonl",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "artifacts/evidence/island-action-audit-new"
+  }
+}
 ```
 
 输入明确指定冻结行动研究与帧文件，帧 SHA-256 必须符合研究选择清单，避免同名包别名跨语料误连。C# 重新核对窗口、身份、请求回合、配对与成功结果；帧按行读取，只保留被行动/事件引用的快照。输出要求新目录，并在结束时再次核对输入指纹。

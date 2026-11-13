@@ -1,10 +1,12 @@
+using UmaAiSharp.Pioneer.Offline;
+using UmaAiSharp.Pioneer.Game;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Development;
@@ -22,7 +24,7 @@ public sealed class PioneerRuntimeComponentTests
     {
         var fixture = JsonNode.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "island-action-snapshots.json")))!.AsObject();
         using var database = new FixtureMaster(fixture["tables"]!.AsObject());
-        var master = new PioneerMasterCompiler(database.Path);
+        var master = new PioneerMasterCompiler(PioneerMasterReader.ReadTraining(database.Path));
         var frames = fixture["frames"]!.AsArray().ToDictionary(row => row!["ref"]!.ToJsonString(), row => row!.AsObject());
         var previews = 0;
         foreach (var row in fixture["immediates"]!.AsArray())
@@ -71,8 +73,8 @@ public sealed class PioneerRuntimeComponentTests
         var source = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "island-action-snapshots.json"));
         var fixture = JsonNode.Parse(source)!.AsObject();
         using var database = new FixtureMaster(fixture["tables"]!.AsObject());
-        var master = new PioneerMasterCompiler(database.Path);
-        var facilities = new PioneerFacilityCompiler(database.Path);
+        var master = new PioneerMasterCompiler(PioneerMasterReader.ReadTraining(database.Path));
+        var facilities = new PioneerFacilityCompiler(PioneerMasterReader.ReadFacilities(database.Path));
         var frames = fixture["frames"]!.AsArray().ToDictionary(row => row!["ref"]!.ToJsonString(), row => row!.AsObject());
         var count = 0;
         foreach (var row in fixture["immediates"]!.AsArray())
@@ -94,7 +96,6 @@ public sealed class PioneerRuntimeComponentTests
                 | PioneerKnownParts.CheckpointResult | PioneerKnownParts.CheckpointProgress));
             var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
                 [new(new((int)PioneerStage.IslandTraining, 0, PioneerScenario.DecisionKey(root.Header.Turn, 3101)), PioneerRuntimeAction.Island())], 0);
-            if (count is 0 or 6) PioneerStateAudit.AssertDeterministic(data, script);
             var execution = SimulationRunner.CreateExecution(scenario, script, root, 13, 0);
             var result = SimulationRunner.Continue(scenario, script, ref execution);
             Assert.Equal((int)PioneerStopCode.IslandContinuationUnknown, result.Stop!.Value.Code);

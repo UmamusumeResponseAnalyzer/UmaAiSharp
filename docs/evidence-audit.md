@@ -1,13 +1,28 @@
 # 本地证据审计
 
-`evidence audit` 读取 DebugSaveAllPackets SQLite 和游戏 master，生成来源指纹、请求响应配对、Pioneer 可见观测、动作正文及机制字段取值清单。它不认证完整游戏规则，也不生成完整育成模拟器。
+`evidence_audit` 读取 DebugSaveAllPackets SQLite 和游戏 master，生成来源指纹、请求响应配对、Pioneer 可见观测、动作正文及机制字段取值清单。它不认证完整游戏规则，也不生成完整育成模拟器。
 
-```powershell
-dotnet run --project src/UmaAiSharp.Cli -- evidence audit --packets <包库文件或目录> --master <master.mdb> --output <新目录>
-dotnet run --project src/UmaAiSharp.Cli -- evidence validate --report <新目录>/audit.json
+```json
+{
+  "name": "evidence_audit",
+  "arguments": {
+    "packetsPath": "<包库文件或目录>",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "<新目录>"
+  }
+}
 ```
 
-输出目录必须为空。审计完成但规则验证受阻时退出码为 `3`；输入错误为 `2`。源码通过独立 MessagePack 和 Microsoft.Data.Sqlite 读取数据，不依赖 Host runtime。
+```json
+{
+  "name": "evidence_validate",
+  "arguments": {
+    "reportPath": "<新目录>/audit.json"
+  }
+}
+```
+
+输出目录须为新目录或空目录。审计完成时检查 `summary.validation`，输入错误由 MCP 工具错误返回。源码通过独立 MessagePack 和 Microsoft.Data.Sqlite 读取数据，不依赖 Host runtime。
 
 ## 适用口径
 

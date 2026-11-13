@@ -48,7 +48,7 @@ Remove-Item Env:DOTNET_TieredCompilation
 
 runtime v10／training-turn v10增加普通训练跨阈值到建设107的第二次决策。状态头保持264 B，设施、阈值与计划存入独占缓冲，master只在加载时读取。十个当前配置的共享加32工作区账本最大145,370 B。固定分层编译关闭、预热10,000次后的完整两动作片段分配2,320～2,632 B／次；未过线及失败片段为768 B／次。新增决策与结算增加了执行工作量，本轮未做前后吞吐比较或稳定BDN。原生／AVX2的245,880条轨迹及60对批次哈希一致。[当前输入与证据](training-construction.md)、[原生观测](../artifacts/implementation/training-construction-01/probe-native.json)、[AVX2观测](../artifacts/implementation/training-construction-01/probe-avx2.json)。
 
-本轮交付紧凑状态、可复用工作区、精确分叉、固定任务批次及 Pioneer 已确认片段的执行入口。完整 Pioneer 开局到终局仍未闭合；本文所有“片段”均不等于一次完整育成。机制覆盖见 [Pioneer 执行边界](pioneer-runtime.md)，输入格式见 [CLI](pioneer-cli.md)。
+本轮交付紧凑状态、可复用工作区、精确分叉、固定任务批次及 Pioneer 已确认片段的执行入口。完整 Pioneer 开局到终局仍未闭合；本文所有“片段”均不等于一次完整育成。机制覆盖见 [Pioneer 执行边界](pioneer-runtime.md)，输入格式见 [MCP 执行](pioneer-mcp.md)。
 
 ## 训练升级待结算状态（runtime v9）
 

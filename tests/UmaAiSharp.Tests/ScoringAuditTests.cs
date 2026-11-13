@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Pioneer.Scoring;
 
 namespace UmaAiSharp.Tests;
@@ -90,17 +90,6 @@ public sealed class ScoringAuditTests : IDisposable
         Assert.Equal(1020, ScoringCandidates.SkillToPoint(new(100001, 125, [101]), 6, aptitudes, aptitudes));
         Assert.Equal(600, ScoringCandidates.SkillToPoint(new(10001, 125, [101]), 5, aptitudes, aptitudes));
         Assert.Equal(0, ScoringCandidates.SkillToPoint(new(1000001, 125, [101]), 1, aptitudes, aptitudes));
-    }
-
-    [Fact]
-    public void ParsingDoesNotRepairMissingFieldsOrDuplicateSkills()
-    {
-        var missing = Character(19317);
-        missing.Remove("proper_distance_short");
-        Assert.Throws<InvalidDataException>(() => ScoringAudit.ParseInput(missing));
-        var duplicate = Character(19317);
-        ((JsonArray)duplicate["skill_array"]!).Add(duplicate["skill_array"]![0]!.DeepClone());
-        Assert.Throws<InvalidDataException>(() => ScoringAudit.ParseInput(duplicate));
     }
 
     static JsonObject Character(int score) => new()

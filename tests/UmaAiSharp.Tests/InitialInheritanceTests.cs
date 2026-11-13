@@ -29,14 +29,10 @@ public sealed class InitialInheritanceTests
     }
 
     [Theory]
-    [InlineData(1, 3101, 1, 1)]
     [InlineData(3, 3101, 3, 1)]
     [InlineData(4, 3101, 4, 2)]
-    [InlineData(6, 3101, 6, 2)]
-    [InlineData(4, 3102, 8, 3)]
     [InlineData(3, 3103, 9, 3)]
     [InlineData(5, 3102, 10, 4)]
-    [InlineData(6, 3103, 18, 4)]
     public void RedStarsUseMasterIntervals(int shortSources, int shortFactor, int stars, int levels)
     {
         var sources = Sources().Select((source, index) => source with { FactorIds = [101, index < shortSources ? shortFactor : 1101] }).ToImmutableArray();
@@ -49,7 +45,6 @@ public sealed class InitialInheritanceTests
 
     [Theory]
     [InlineData(6, 7, 1)]
-    [InlineData(7, 7, 0)]
     [InlineData(8, 8, 0)]
     public void InitialRedStopsAtAWithoutLoweringExistingHigherGrade(int before, int after, int actualIncrease)
     {

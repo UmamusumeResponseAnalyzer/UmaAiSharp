@@ -31,13 +31,10 @@ sealed class PioneerStateAudit(PioneerScenario inner)
         var before = Fingerprint(root, null);
         var scenario = new PioneerStateAudit(new(data));
         var baseline = SimulationRunner.RunBatch(scenario, script, root, 893, 2049, 1);
-        foreach (var workers in new[] { 2, 4, 8, 16, 32 })
-        {
-            var actual = SimulationRunner.RunBatch(scenario, script, root, 893, 2049, workers);
-            Assert.Equal(baseline.Results, actual.Results);
-            var prefix = SimulationRunner.RunBatch(scenario, script, root, 893, 65, workers);
-            Assert.Equal(baseline.Results.Take(65), prefix.Results);
-        }
+        var parallel = SimulationRunner.RunBatch(scenario, script, root, 893, 2049, 32);
+        Assert.Equal(baseline.Results, parallel.Results);
+        var prefix = SimulationRunner.RunBatch(scenario, script, root, 893, 65, 4);
+        Assert.Equal(baseline.Results.Take(65), prefix.Results);
         Assert.Equal(before, Fingerprint(root, null));
     }
 

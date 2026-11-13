@@ -19,17 +19,17 @@ public static class LateCheckpointConfirmation
     // Import only after the checkpoint response's complete rewards are already reflected in state.
     // The current partial checkpoint calculator cannot itself certify that boundary.
     public static SettledCheckpointDisplay ObserveAppliedBoundary(int turn, int phase, int resultState,
-        int eventId, int storyId, int playTiming, int choiceCount)
+        int storyId, int playTiming, int choiceCount)
     {
-        if (turn != 61 || phase != 1 || resultState is not (1 or 2) || eventId != 3005 || playTiming != 1
+        if (turn != 61 || phase != 1 || resultState is not (1 or 2) || playTiming != 1
             || choiceCount != 0 || !ObservedStories.Contains(storyId))
             throw new UnknownMechanismException("仅可记录末期评审已完整结算后的已观测角色显示事件边界；其他无选项事件不能视为已发奖。");
         return new(storyId, resultState, false);
     }
 
-    public static SettledCheckpointDisplay Confirm(SettledCheckpointDisplay state, int eventId, int storyId, int choiceNumber)
+    public static SettledCheckpointDisplay Confirm(SettledCheckpointDisplay state, int storyId, int choiceNumber)
     {
-        if (state.Confirmed || eventId != 3005 || storyId != state.CharacterStoryId || choiceNumber != 0)
+        if (state.Confirmed || storyId != state.CharacterStoryId || choiceNumber != 0)
             throw new IllegalActionException("末期角色显示事件已确认，或确认身份/原始choice不符。");
         if (!ObservedStories.Contains(state.CharacterStoryId) || state.CheckpointResult is not (1 or 2))
             throw new UnknownMechanismException("没有已核验的末期评审已发奖边界。");

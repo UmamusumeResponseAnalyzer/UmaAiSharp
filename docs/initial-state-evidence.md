@@ -42,13 +42,17 @@
 
 ## 实包核验
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence initial-state `
-  --study artifacts/research/blockers/inheritance/expansion-20261108/frozen-01 `
-  --input artifacts/research/blockers/island-training/expansion-20261108/audit `
-  --packets C:\Users\micro\AppData\Local\UmamusumeResponseAnalyzer\PluginData\DebugSaveAllPackets `
-  --master G:\DMM\Umamusume\umamusume_Data\Persistent\master\master.mdb `
-  --output artifacts/evidence/initial-state-audit-03
+```json
+{
+  "name": "evidence_initial_state",
+  "arguments": {
+    "studyDirectory": "artifacts/research/blockers/inheritance/expansion-20261108/frozen-01",
+    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
+    "captureDirectory": "<本地抓包目录>",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "artifacts/evidence/initial-state-audit-03"
+  }
+}
 ```
 
 研究 `starts.jsonl` 只提供 start 定位。核验器重新解码原始请求，再按请求选择的殿堂 ID，在同来源已捕获的 load/index、pre_single_mode/index、trained_chara/load 及 finish 自有快照中独立选择开局前最新记录。研究亲本位置仅用于对照；原包中更新的记录不会被旧定位覆盖。借用或活动亲本选择未核验，明确拒绝。
@@ -57,7 +61,7 @@ dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence initial-
 
 源库可以比旧研究多出后续捕获，但会记录当前指纹与旧指纹不一致，再核对定位记录。所有本次输入读取前后 SHA-256 必须一致；SQLite 只读打开。报告仅输出匿名来源、原始记录 ID 和游戏数值，不输出捕获文件的账号名或原始 payload。
 
-`initial-state-audit.json` 汇总七组分量、无法评价的输入与不匹配；`initial-state-samples.jsonl` 保存预测分量、实包对应值和实际使用的原始快照位置。`CompleteFactorInput` 只表示六来源因子输入已完整解析，`ListedComponentsMatched` 只指参与比较的字段；它们均不能代替整局或完整开局验证。没有输入问题时 CLI 返回 3 表示这一证据边界；存在报告问题时返回 1。
+`initial-state-audit.json` 汇总七组分量、无法评价的输入与不匹配；`initial-state-samples.jsonl` 保存预测分量、实包对应值和实际使用的原始快照位置。`CompleteFactorInput` 只表示六来源因子输入已完整解析，`ListedComponentsMatched` 只指参与比较的字段；它们均不能代替整局或完整开局验证。工具摘要分别返回核验状态和问题数。
 
 2026-11-08 的 [initial-state-audit-03](../artifacts/evidence/initial-state-audit-03/initial-state-audit.json)重新读取了 221 份 start 请求/响应和 442 个开局前最新自有亲本：
 
@@ -77,4 +81,6 @@ dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence initial-
 
 测试覆盖顶层扩展的代际映射与冲突拒绝、绿因子 selector 与途中 bundle 分离、105 编成计数、技能/羁绊投影、相性同角色与鞍点组去重，以及原始 SQLite 最新快照选择、缺字段、数值反例、错配、坏时间和重复捕获。本轮最终集中测试 234/234 通过，记录位于 [integration.trx](../artifacts/validation/research-followup-20261108-03/integration.trx)；测试数量不代替原包或完整育成验收。
 
-途中继承的 383/440 联合相容解没有接入生成器：正反顺序均相容，不能据此确定执行顺序或档位权重。剩余 57 个满 Hint 相关窗口、动态上限顺序、addon、非空扩展实际效果仍未闭合。没有以固定均值、任意概率或观察后态补齐这些规则。
+自主模拟在第 31、55 回合训练面板前按六来源逐因子抽样，每项取 master 的完整效果档，记录显示属性、上限、适性、技能 Pt 和 Hint。蓝档权重由拟合局可独立分离的样本求得，其他档位用拟合局的联合相容解作经验先验，并保留未观测档位。满级 Hint 的 1–5 点转化、档位顺序和候选独立性属于经验假设。附加因子按 master 的同批触发组条件计算，待实包验证。
+
+有 Uma Plan 时各回合从同一前态生成两项，按五维原始增量之和加两倍技能 Pt 增量选高者。字段缺失时按有 Uma Plan 处理。实盘已揭示候选按相同口径排序。谱系使用本局开局冻结的两份亲本资料，租借亲本可由开局响应补全。同一位置和基础因子的强化取最后一次登记的替换，新增因子独立保留。还有未来继承且缺少冻结谱系时，导入报告标为 `missingPedigree`，自主运行与推荐会报告缺失输入并停止。

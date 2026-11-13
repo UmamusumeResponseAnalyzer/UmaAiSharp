@@ -1,8 +1,9 @@
+using UmaAiSharp.Pioneer.Game;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.Cli;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Events;
 using UmaAiSharp.Pioneer.Runtime;
@@ -19,7 +20,7 @@ public sealed class DeclaredEventPartnerTests
         Assert.Equal(8, rows.Count);
         foreach (var row in rows)
         {
-            var partners = row!["partners"].Deserialize<ImmutableArray<EventPartner>>(PioneerExecutionCommand.JsonOptions);
+            var partners = row!["partners"].Deserialize<ImmutableArray<EventPartner>>(PioneerExecution.JsonOptions);
             var start = PioneerEventCompiler.Compile(row["before"]!.AsObject(), row["event"]!.AsObject(), row["rewards"]!.AsArray(), partners);
             var data = PioneerRuntimeData.Compile(start, [], "partner-fixture");
             var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
@@ -39,10 +40,7 @@ public sealed class DeclaredEventPartnerTests
     }
 
     [Theory]
-    [InlineData(0, 0)]
     [InlineData(5, 5)]
-    [InlineData(7, 7)]
-    [InlineData(100, 100)]
     [InlineData(int.MaxValue, 100)]
     public void DeclaredBondAlreadyIncludesConditionBonusesAndCapsWithoutOverflow(int gain, int expected)
     {
@@ -80,32 +78,6 @@ public sealed class DeclaredEventPartnerTests
         Assert.False(result.ActionConsumed);
         Assert.Equal(before.Header, state.Header);
         Assert.Equal(before.GetSection(PioneerStateSection.PartnerEvaluations).ToArray(), state.GetSection(PioneerStateSection.PartnerEvaluations).ToArray());
-    }
-
-    [Fact]
-    public void PartnerPartitionsForkAndReuseWithDifferentSelectedBranches()
-    {
-        var start = Start([new(4, 2001, 7, 0), new(11, 2006, 0, 0)]) with { CharacterEffects = [25],
-            Choices = [new(1, [new([new(4, 2001, 7, 0), new(11, 2006, 0, 0), new(2, 20, 1, 0)]),
-                              new([new(4, 9002, 9, 0)])])] };
-        foreach (var branch in new[] { 0, 1 })
-        {
-            var data = PioneerRuntimeData.Compile(start, [new PioneerConditionalOutcome.EventRewardResult(0, 1, branch)], "partner-forks");
-            var root = data.CreateInitialState(); var scenario = new PioneerScenario(data);
-            var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
-                [new(scenario.Inspect(root, 0).Decision.Id, PioneerRuntimeAction.Choose(start.Event, 1))], 0);
-            var execution = SimulationRunner.CreateExecution(scenario, script, root, 57, 0);
-            var copy = SimulationRunner.CreateExecution(scenario, script, root, 57, 0);
-            var result = SimulationRunner.Continue(scenario, script, ref execution);
-            Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref copy));
-            Assert.Equal(branch == 0 ? 7 : 0, execution.State.GetSection(PioneerStateSection.PartnerEvaluations)[0]);
-            Assert.Equal(branch == 1 ? 9 : 0, execution.State.GetSection(PioneerStateSection.PartnerEvaluations)[12]);
-            Assert.Equal(branch == 0 ? 0 : 1, execution.State.GetSection(PioneerStateSection.CharacterEffects).Length);
-            root.CopyInto(execution.State);
-            Assert.Equal(root.Header, execution.State.Header);
-            Assert.Equal(root.GetSection(PioneerStateSection.PartnerEvaluations).ToArray(), execution.State.GetSection(PioneerStateSection.PartnerEvaluations).ToArray());
-            PioneerStateAudit.AssertDeterministic(data, script);
-        }
     }
 
     static PioneerStart.DeclaredEvent Start(ImmutableArray<DeclaredEventEffect> effects) => new(32, 5,

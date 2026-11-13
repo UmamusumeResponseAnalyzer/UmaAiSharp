@@ -10,7 +10,7 @@ public enum AttributeComparison { LessThan, AtMost, Equal, AtLeast, GreaterThan 
 
 public sealed record AttributeConstraint(TrainingAttribute Attribute, AttributeComparison Comparison, int Value)
 {
-    internal long Violation(AttributeValues attributes)
+    public long Violation(AttributeValues attributes)
     {
         var actual = (long)attributes[Attribute];
         return Comparison switch

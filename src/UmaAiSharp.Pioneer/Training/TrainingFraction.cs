@@ -4,8 +4,9 @@ namespace UmaAiSharp.Pioneer.Training;
 
 // Arithmetic needs the fraction's value, not canonical numerator/denominator diagnostics.
 // Omitting GCD is exact; quantization replaces the product denominator with a decimal power.
-internal readonly struct TrainingFraction(BigInteger numerator, BigInteger denominator)
+internal readonly struct TrainingFraction(BigInteger numerator, BigInteger denominator) : ITrainingMultiplier<TrainingFraction>
 {
+    public static TrainingFraction Ratio(long numerator, long denominator) => new(numerator, denominator);
     public static implicit operator TrainingFraction(int value) => new(value, 1);
     public static TrainingFraction operator *(TrainingFraction left, TrainingFraction right)
         => new(left.numerator * right.numerator, left.denominator * right.denominator);

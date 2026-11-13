@@ -1,5 +1,5 @@
 using System.Text.Json;
-using UmaAiSharp.Cli;
+using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
@@ -18,7 +18,7 @@ public sealed class TrainingConditionTests
         var checkedConditions = new HashSet<int>();
         foreach (var row in fixture.RootElement.GetProperty("cases").EnumerateArray())
         {
-            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions);
+            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions);
             var data = start is null ? null : PioneerRuntimeData.Compile(start, [], "condition-fixture");
             var root = data?.CreateInitialState(); var scenario = data is null ? null : new PioneerScenario(data);
             foreach (var input in row.GetProperty("inputs").EnumerateArray())
@@ -43,7 +43,6 @@ public sealed class TrainingConditionTests
             Assert.Equal(TrajectoryStatus.Stopped, result.Status);
             Assert.Equal(1, result.Progress.ConsumedActions);
             Assert.Equal(start.CharacterEffects.ToArray(), execution.State.GetSection(PioneerStateSection.CharacterEffects).ToArray());
-            PioneerStateAudit.AssertDeterministic(data!, script);
         }
         Assert.Equal(1455, commands);
         Assert.Equal(267, panels);

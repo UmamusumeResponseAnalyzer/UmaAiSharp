@@ -20,6 +20,13 @@ public sealed class PioneerConstructionPlan
         SemanticId = "plan:" + string.Join(';', Steps.Select(x =>
             FormattableString.Invariant($"{x.Priority}:{x.FacilityId}:{x.PreviousStateId}:{x.TargetStateId}")));
     }
+
+    internal static PioneerConstructionPlan FromUpgrades(ReadOnlySpan<FacilityUpgrade> upgrades)
+    {
+        var steps = ImmutableArray.CreateBuilder<PlannedUpgrade>(upgrades.Length);
+        foreach (var edge in upgrades) steps.Add(new(steps.Count + 1, edge.FacilityId, edge.CurrentStateId, edge.TargetStateId));
+        return new(steps.MoveToImmutable());
+    }
 }
 
 public abstract record PioneerAction
@@ -43,6 +50,8 @@ public sealed record ConstructionComponentSettlement(PioneerDevelopmentState Aft
 
 public sealed class PioneerConstructionRules(PioneerMasterData data)
 {
+    internal delegate double ConstructionScore(ReadOnlySpan<FacilityUpgrade> upgrades);
+
     public const string PlanningVersion = "pioneer-ordered-planning-v1";
     public const string ObservedMasterSha256 = "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886";
     public PioneerMasterData Data { get; } = data;
@@ -153,24 +162,54 @@ public sealed class PioneerConstructionRules(PioneerMasterData data)
 
     public IEnumerable<PioneerConstructionPlan> EnumeratePlans(PioneerDevelopmentState state)
     {
-        var period = ValidatePlanningState(state);
+        var plans = new List<PioneerConstructionPlan>();
+        VisitPlans(state, upgrades => plans.Add(PioneerConstructionPlan.FromUpgrades(upgrades)));
+        foreach (var plan in plans) yield return plan;
+    }
+
+    internal PioneerConstructionPlan BestPlan(PioneerDevelopmentState state, ConstructionScore score)
+    {
+        var bestSteps = new FacilityUpgrade[Data.FacilityKinds.Length];
+        var bestCount = 0;
+        var bestScore = double.NegativeInfinity;
+        VisitPlans(state, upgrades =>
+        {
+            var value = score(upgrades);
+            if (value <= bestScore) return;
+            bestScore = value;
+            bestCount = upgrades.Length;
+            upgrades.CopyTo(bestSteps);
+        });
+        return PioneerConstructionPlan.FromUpgrades(bestSteps.AsSpan(0, bestCount));
+    }
+
+    delegate void VisitPlan(ReadOnlySpan<FacilityUpgrade> upgrades);
+
+    void VisitPlans(PioneerDevelopmentState state, VisitPlan visit)
+    {
+        var budget = ValidatePlanningState(state).TargetPt;
         var facilities = state.Facilities.ToDictionary(value => value.FacilityId, value => value.StateId);
         var edges = Data.FacilityUpgrades.Where(edge => facilities[edge.FacilityId] == edge.CurrentStateId)
             .OrderBy(edge => edge.FacilityId).ThenBy(edge => edge.TargetStateId).ToArray();
+        var steps = new FacilityUpgrade[facilities.Count];
         var selected = new HashSet<int>();
-        var steps = new List<PlannedUpgrade>(facilities.Count);
-        foreach (var plan in Visit(period.TargetPt)) yield return plan;
+        Visit(budget, 0);
 
-        IEnumerable<PioneerConstructionPlan> Visit(int remaining)
+        void Visit(int remaining, int count)
         {
-            if (!HasRequiredExtension(facilities, selected, remaining)) yield return new(steps);
+            var required = false;
+            foreach (var edge in edges)
+                if (RequiredExtension(edge, remaining) && !selected.Contains(edge.FacilityId))
+                {
+                    required = true;
+                    break;
+                }
+            if (!required) visit(steps.AsSpan(0, count));
             foreach (var edge in edges)
             {
-                if (selected.Contains(edge.FacilityId) || edge.Cost > remaining) continue;
-                selected.Add(edge.FacilityId);
-                steps.Add(new(steps.Count + 1, edge.FacilityId, edge.CurrentStateId, edge.TargetStateId));
-                foreach (var plan in Visit(remaining - edge.Cost)) yield return plan;
-                steps.RemoveAt(steps.Count - 1);
+                if (edge.Cost > remaining || !selected.Add(edge.FacilityId)) continue;
+                steps[count] = edge;
+                Visit(remaining - edge.Cost, count + 1);
                 selected.Remove(edge.FacilityId);
             }
         }
@@ -196,8 +235,9 @@ public sealed class PioneerConstructionRules(PioneerMasterData data)
         return period;
     }
 
+    static bool RequiredExtension(FacilityUpgrade edge, int remaining) => edge.Cost <= remaining && edge.TargetStateId % 10 != 2;
+
     bool HasRequiredExtension(Dictionary<int, int> facilities, HashSet<int> selected, int remaining)
         => Data.FacilityUpgrades.Any(edge => !selected.Contains(edge.FacilityId)
-            && edge.CurrentStateId == facilities[edge.FacilityId] && edge.Cost <= remaining
-            && edge.TargetStateId % 10 != 2);
+            && edge.CurrentStateId == facilities[edge.FacilityId] && RequiredExtension(edge, remaining));
 }

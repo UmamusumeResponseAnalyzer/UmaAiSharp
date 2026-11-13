@@ -7,6 +7,8 @@ namespace UmaAiSharp.Pioneer.Training;
 public enum PlacementMemberKind { Training, Tucker, ProjectNpc }
 public readonly record struct SupportPlacement(int TrainingIndex, bool HasHint);
 public readonly record struct TemporarySpecialtyEffect(int SourceActionTurn, int Value);
+public readonly record struct PioneerPlacementFrequency(PlacementMemberKind Kind, bool Camp, int SeaHousePercent,
+    int Absent, int Other);
 public sealed record PlacementInput(PlacementMemberKind Kind, int SpecialtyIndex, bool Camp, int SeaHousePercent,
     int SpecialtyPercent, int UniqueSpecialtyPercent, int FacilitySpecialtyPercent,
     int HintPercent, int UniqueHintPercent, int CheckpointHintPercent, int FacilityHintPercent, bool GuaranteedHint,
@@ -15,15 +17,16 @@ public sealed record PlacementInput(PlacementMemberKind Kind, int SpecialtyIndex
 // Tables are compiled for a card and its current effects, then shared by trajectory workers.
 public sealed class PioneerPlacementDistribution
 {
-    public const string Version = "pioneer-placement-20261108-v2";
+    public const string Version = "pioneer-placement-20261108-v3";
     public PlacementMemberKind Kind { get; }
     public ImmutableArray<ulong> Weights { get; }
     public ulong TotalWeight { get; }
     public ulong HintNumerator { get; }
     public ulong HintDenominator { get; }
+    readonly int facilityHintPercent;
     public long SharedMemoryBytes => 160;
 
-    public PioneerPlacementDistribution(PlacementInput input)
+    public PioneerPlacementDistribution(PlacementInput input, PioneerPlacementFrequency? frequency = null)
     {
         Kind = input.Kind;
         if (!Enum.IsDefined(input.Kind) || input.Turn < 1 || input.TemporaryEffects.IsDefault
@@ -38,7 +41,9 @@ public sealed class PioneerPlacementDistribution
             throw new ArgumentException("PJ成员位置分布不接受支援固有、Hint或临时得意率效果。", nameof(input));
 
         // Exact conditional-frequency estimates: 400*absent/non-specialty, or 500*absent/present for Tucker.
-        var (absent, other, scale) = (input.Kind, input.Camp, input.SeaHousePercent) switch
+        var (absent, other, scale) = frequency is { } measured
+            ? (measured.Absent, measured.Other, input.Kind == PlacementMemberKind.Training ? 400 : 500)
+            : (input.Kind, input.Camp, input.SeaHousePercent) switch
         {
             (PlacementMemberKind.Training, false, 0) => (571, 3998, 400),
             (PlacementMemberKind.Training, false, 10) => (3547, 28099, 400),
@@ -51,6 +56,9 @@ public sealed class PioneerPlacementDistribution
             (PlacementMemberKind.ProjectNpc, true, 10) => (1584, 24255, 500),
             _ => throw new UnknownMechanismException($"人员分布参数表缺少{input.Kind}、合宿={input.Camp}、海之家={input.SeaHousePercent}的分层。")
         };
+        if (frequency is { } row && (row.Kind != input.Kind || row.Camp != input.Camp
+            || row.SeaHousePercent != input.SeaHousePercent || absent < 0 || other <= 0))
+            throw new InvalidDataException("人员分布频数与当前角色类型、模式或海之家效果不一致。");
         BigInteger specialtyNumerator = (100L + input.SpecialtyPercent) * (100L + input.UniqueSpecialtyPercent);
         BigInteger specialtyDenominator = 100;
         specialtyNumerator *= 100L + input.FacilitySpecialtyPercent;
@@ -76,6 +84,7 @@ public sealed class PioneerPlacementDistribution
         var hintNumerator = input.Kind != PlacementMemberKind.Training ? BigInteger.Zero : input.GuaranteedHint ? 20_000_000
             : (5000 + (BigInteger)(100L + input.HintPercent) * (100L + input.UniqueHintPercent))
                 * (100L + input.CheckpointHintPercent + input.FacilityHintPercent);
+        facilityHintPercent = input.CheckpointHintPercent + input.FacilityHintPercent;
         BigInteger hintDenominator = 20_000_000;
         hintNumerator = BigInteger.Min(hintNumerator, hintDenominator);
         var hintDivisor = BigInteger.GreatestCommonDivisor(hintNumerator, hintDenominator);
@@ -98,6 +107,18 @@ public sealed class PioneerPlacementDistribution
         return index == 5 ? -1 : index;
     }
 
-    internal bool SampleHint(ref SimulationRandom random) => HintNumerator == HintDenominator
-        || HintNumerator > 0 && random.NextUInt64(HintDenominator) < HintNumerator;
+    internal bool SampleHint(ref SimulationRandom random, int extraFacilityPercent = 0)
+    {
+        if (HintNumerator == 0) return false;
+        if (HintNumerator == HintDenominator) return true;
+        if (extraFacilityPercent == 0) return random.NextUInt64(HintDenominator) < HintNumerator;
+        var basis = (ulong)(100 + facilityHintPercent);
+        return random.NextUInt64(HintDenominator * basis) < HintNumerator * (basis + (ulong)extraFacilityPercent);
+    }
+
+    internal bool SampleExtraHint(int percent, ref SimulationRandom random)
+    {
+        var remaining = (HintDenominator - HintNumerator) * (ulong)(100 + facilityHintPercent);
+        return remaining != 0 && random.NextUInt64(remaining) < HintNumerator * (ulong)percent;
+    }
 }

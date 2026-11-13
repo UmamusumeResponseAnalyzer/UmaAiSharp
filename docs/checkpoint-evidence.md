@@ -61,11 +61,20 @@ after.Pt = 0
 ## 复跑与验证
 
 ```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence checkpoint --input artifacts/evidence/local-audit-05 --output <新目录>
 dotnet test tests/UmaAiSharp.Tests/UmaAiSharp.Tests.csproj --no-restore --filter FullyQualifiedName~PioneerCheckpointTests -p:WarningsNotAsErrors=NU1900 -m:1 -nr:false
 ```
 
-核验状态为 `CandidateOnly`，退出码为 3，不表示整局模拟通过。原有 15 个定向测试覆盖 391 条实包资源夹具、倍率取整及两层上限、已知低结果、未知分支、缺 master 字段、提交与结算分离、请求来源/成员关系/捕获顺序，结果位于 `artifacts/validation/checkpoint-tests/checkpoint-tests.trx`。本轮另加 6 个评价用例，覆盖五期目标等号、低于目标停止及阶段限制，由统一集成运行确认。在线 NuGet 漏洞索引不可达产生的 NU1900 不属于本次机制验证。
+```json
+{
+  "name": "evidence_checkpoint",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "outputDirectory": "<新目录>"
+  }
+}
+```
+
+核验状态为 `CandidateOnly`，覆盖评审分量。原有 15 个定向测试覆盖 391 条实包资源夹具、倍率取整及两层上限、已知低结果、未知分支、缺 master 字段、提交与结算分离、请求来源/成员关系/捕获顺序，结果位于 `artifacts/validation/checkpoint-tests/checkpoint-tests.trx`。本轮另加 6 个评价用例，覆盖五期目标等号、低于目标停止及阶段限制，由统一集成运行确认。在线 NuGet 漏洞索引不可达产生的 NU1900 不属于本次机制验证。
 
 ## 高评价进度分量补充
 

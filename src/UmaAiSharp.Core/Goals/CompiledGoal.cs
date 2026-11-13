@@ -85,7 +85,7 @@ public sealed class CompiledGoal
         if (utilities.Length != PriorityCount)
             throw new ArgumentException("效用缓冲区长度必须等于目标优先级数量。", nameof(utilities));
         Validate(result);
-        if (!Feasible(result.Attributes)) return false;
+        if (result.FailedCareerGoalId.HasValue || !Feasible(result.Attributes)) return false;
         for (var priority = 0; priority < PriorityCount; priority++) utilities[priority] = Utility(priority, result);
         return true;
     }
@@ -97,13 +97,14 @@ public sealed class CompiledGoal
         var violation = 0m;
         foreach (var constraint in constraints) violation += constraint.Violation(result.Attributes);
         violationTotal += violation;
+        var feasible = violation == 0 && !result.FailedCareerGoalId.HasValue;
         for (var priority = 0; priority < PriorityCount; priority++)
         {
             var utility = Utility(priority, result);
             unconditionalTotals[priority] += utility;
-            if (violation == 0) conditionalTotals[priority] += utility;
+            if (feasible) conditionalTotals[priority] += utility;
         }
-        return violation == 0;
+        return feasible;
     }
 
     bool Feasible(AttributeValues attributes)
@@ -152,6 +153,6 @@ public sealed class CompiledGoal
                 throw new ArgumentException($"终局属性 {attribute} 超过已声明的目标预计算范围。", nameof(result));
         }
         if (result.FutureGainedSkillPoints < 0 || result.VerifiedAttributeRating < 0)
-            throw new ArgumentException("获得的技能Pt或属性评价分不能为负数。", nameof(result));
+            throw new ArgumentException("获得的技能Pt或评价分不能为负数。", nameof(result));
     }
 }

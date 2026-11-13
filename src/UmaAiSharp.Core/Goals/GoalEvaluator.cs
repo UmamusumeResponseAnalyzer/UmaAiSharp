@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace UmaAiSharp.Core.Goals;
 
@@ -9,7 +10,9 @@ public sealed record GoalSummary(
     int SuccessCount,
     ImmutableArray<decimal>? ConditionalUtilities,
     decimal MeanConstraintViolation,
-    ImmutableArray<decimal> UnconditionalUtilities)
+    ImmutableArray<decimal> UnconditionalUtilities,
+    decimal? MeanSuccessfulAttributeRating = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int FailedCareerSampleCount = 0)
 {
     public decimal SuccessRate => (decimal)SuccessCount / SampleCount;
     // Exact one-sided binomial bound: P(0 successes | p) = (1-p)^n = 0.05.
@@ -35,15 +38,22 @@ public static class GoalEvaluator
     {
         var count = 0;
         var successes = 0;
+        var failedCareer = 0;
         var totals = new decimal[goal.PriorityCount];
         var unconditionalTotals = new decimal[goal.PriorityCount];
         var violationTotal = 0m;
+        long? ratingTotal = 0;
         foreach (var result in results)
         {
-            if (goal.Accumulate(result, totals, unconditionalTotals, ref violationTotal)) successes = checked(successes + 1);
+            if (goal.Accumulate(result, totals, unconditionalTotals, ref violationTotal))
+            {
+                successes = checked(successes + 1);
+                ratingTotal += result.VerifiedAttributeRating;
+            }
+            if (result.FailedCareerGoalId.HasValue) failedCareer++;
             count = checked(count + 1);
         }
-        return SummarizeTotals(goal, count, successes, totals, unconditionalTotals, violationTotal);
+        return SummarizeTotals(goal, count, successes, totals, unconditionalTotals, violationTotal, ratingTotal, failedCareer);
     }
 
     public static GoalSummary Summarize(CompiledGoal goal, SimulationBatch<TerminalMetrics> batch)
@@ -53,16 +63,25 @@ public static class GoalEvaluator
             if (batch.Results[index].Status != TrajectoryStatus.Completed || batch.Results[index].SampleIndex != index)
                 throw new ArgumentException("目标评价要求全部固定样本完成且保留原始编号，不能筛除停止样本。", nameof(batch));
         var successes = 0;
+        var failedCareer = 0;
         var totals = new decimal[goal.PriorityCount];
         var unconditionalTotals = new decimal[goal.PriorityCount];
         var violationTotal = 0m;
+        long? ratingTotal = 0;
         foreach (ref readonly var sample in batch.Results.AsSpan())
-            if (goal.Accumulate(sample.Outcome, totals, unconditionalTotals, ref violationTotal)) successes = checked(successes + 1);
-        return SummarizeTotals(goal, batch.Results.Length, successes, totals, unconditionalTotals, violationTotal);
+        {
+            if (goal.Accumulate(sample.Outcome, totals, unconditionalTotals, ref violationTotal))
+            {
+                successes = checked(successes + 1);
+                ratingTotal += sample.Outcome.VerifiedAttributeRating;
+            }
+            if (sample.Outcome.FailedCareerGoalId.HasValue) failedCareer++;
+        }
+        return SummarizeTotals(goal, batch.Results.Length, successes, totals, unconditionalTotals, violationTotal, ratingTotal, failedCareer);
     }
 
     static GoalSummary SummarizeTotals(CompiledGoal goal, int count, int successes, decimal[] totals,
-        decimal[] unconditionalTotals, decimal violationTotal)
+        decimal[] unconditionalTotals, decimal violationTotal, long? ratingTotal, int failedCareer)
     {
         if (count == 0) throw new ArgumentException("没有完整轨迹，无法形成达标率和条件效用。");
         for (var index = 0; index < totals.Length; index++)
@@ -71,18 +90,27 @@ public static class GoalEvaluator
             unconditionalTotals[index] /= count;
         }
         return new(goal.Identity, count, successes, successes == 0 ? null : totals.ToImmutableArray(),
-            violationTotal / count, unconditionalTotals.ToImmutableArray());
+            violationTotal / count, unconditionalTotals.ToImmutableArray(), successes == 0 ? null : ratingTotal / (decimal)successes, failedCareer);
     }
 
-    public static int Compare(GoalSummary left, GoalSummary right)
+    public static int Compare(GoalSummary left, GoalSummary right, bool rankByAttributeRating = false)
     {
         if (left.GoalIdentity != right.GoalIdentity)
             throw new ArgumentException("不同目标的结果不能直接比较。");
         var feasibility = ((long)left.SuccessCount * right.SampleCount)
             .CompareTo((long)right.SuccessCount * left.SampleCount);
         if (feasibility != 0) return feasibility;
+        if (rankByAttributeRating && left.SuccessCount != 0)
+        {
+            if (left.MeanSuccessfulAttributeRating is not { } leftRating || right.MeanSuccessfulAttributeRating is not { } rightRating)
+                throw new ArgumentException("达标轨迹缺少终局属性评分。");
+            return leftRating.CompareTo(rightRating);
+        }
         if (left.SuccessCount == 0)
         {
+            var career = ((long)right.FailedCareerSampleCount * left.SampleCount)
+                .CompareTo((long)left.FailedCareerSampleCount * right.SampleCount);
+            if (career != 0) return career;
             var proximity = right.MeanConstraintViolation.CompareTo(left.MeanConstraintViolation);
             if (proximity != 0) return proximity;
         }

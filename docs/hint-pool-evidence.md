@@ -28,8 +28,15 @@
 
 ## 运行
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence hint-pool --research artifacts/research/blockers/support-placement-hint/cloud-20261108-01 --master G:/DMM/Umamusume/umamusume_Data/Persistent/master/master.mdb --output <新目录>
+```json
+{
+  "name": "evidence_hint_pool",
+  "arguments": {
+    "researchDirectory": "artifacts/research/blockers/support-placement-hint/cloud-20261108-01",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "<新目录>"
+  }
+}
 ```
 
 命令返回 `3`，表示完成限定分量核验。测试覆盖奖池去重、缺失记录、Lv5／已学排除、空池、1200／上限、原始导出配对与非法中奖反例；抽取概率不在这组测试范围内。

@@ -46,7 +46,7 @@ public static class TrainingNumericKernel
             throw new ArgumentException("训练人数和评估会加成不能为负数。");
         var basis = TrainingBaseTable.GetOrdinary(input.CommandId, input.Level);
         var supports = Resolve(input.Supports, input.CommandId, input.Level, input.Fans, deck);
-        return Ordinary(environment, basis, supports, input.GuestCount,
+        return Ordinary<TrainingFraction>(environment, basis, supports, input.GuestCount,
             input.GoldShipBoost?.CommandId == input.CommandId ? 20 : 0, 0, input.EvaluationTrainingPercent, false);
     }
 
@@ -69,7 +69,7 @@ public static class TrainingNumericKernel
         var supports = Resolve(input.Supports, command, input.Level, input.Environment.Fans, deck);
         var friends = 0;
         foreach (var support in supports) if (support.FriendshipEligible) friends++;
-        return Ordinary(input.Environment, compiled.Base, supports, input.GuestCount,
+        return Ordinary<TrainingFraction>(input.Environment, compiled.Base, supports, input.GuestCount,
             0, (long)friends * compiled.HouseBonus, compiled.ScenarioPercent, true);
     }
 
@@ -121,6 +121,11 @@ public static class TrainingNumericKernel
     internal static TrainingActionPreview Preview(in TrainingEnvironment environment, int command, int level, int guests,
         int percent, int failureCoefficient, int failureBias, ReadOnlySpan<int> positions, ReadOnlySpan<int> bonds,
         CompiledTrainingDeck deck, CompiledCampTraining? camp)
+        => Preview<TrainingFraction>(environment, command, level, guests, percent, failureCoefficient, failureBias, positions, bonds, deck, camp);
+
+    internal static TrainingActionPreview Preview<T>(in TrainingEnvironment environment, int command, int level, int guests,
+        int percent, int failureCoefficient, int failureBias, ReadOnlySpan<int> positions, ReadOnlySpan<int> bonds,
+        CompiledTrainingDeck deck, CompiledCampTraining? camp) where T : struct, ITrainingMultiplier<T>
     {
         var storage = new TrainingMembers();
         var supports = ((Span<ResolvedTrainingSupport>)storage)[..positions.Length];
@@ -132,14 +137,14 @@ public static class TrainingNumericKernel
             if (supports[i].FriendshipEligible) friends++;
         }
         var failure = TrainingFailureRate.CalculateForSupports(failureCoefficient, environment.Current.Vital, supports, failureBias);
-        var gains = Ordinary(environment, camp?.Base ?? TrainingBaseTable.GetOrdinary(command, level), supports, guests,
+        var gains = Ordinary<T>(environment, camp?.Base ?? TrainingBaseTable.GetOrdinary(command, level), supports, guests,
             environment.GoldShipBoost?.CommandId == command ? 20 : 0, (long)friends * (camp?.HouseBonus ?? 0),
             camp?.ScenarioPercent ?? percent, camp.HasValue);
         return new(gains, failure, friends != 0);
     }
 
     static TrainingNumericResult Island(IslandTrainingInput input, CompiledTrainingDeck? deck)
-        => Island(input, deck, input.Environment, input.OrdinaryLevels.AsSpan(), []);
+        => Island<TrainingFraction>(input, deck, input.Environment, input.OrdinaryLevels.AsSpan(), []);
 
     internal static CompiledIslandFacilities CompileIslandFacilities(ImmutableArray<TrainingFacility> facilities)
     {
@@ -178,9 +183,9 @@ public static class TrainingNumericKernel
         return new(Values(extras, 0), house, rows);
     }
 
-    internal static TrainingNumericResult Island(IslandTrainingInput input, CompiledTrainingDeck? deck,
+    internal static TrainingNumericResult Island<T>(IslandTrainingInput input, CompiledTrainingDeck? deck,
         in TrainingEnvironment environment, ReadOnlySpan<int> ordinaryLevels, ReadOnlySpan<int> bonds,
-        CompiledIslandFacilities? compiledFacilities = null)
+        CompiledIslandFacilities? compiledFacilities = null) where T : struct, ITrainingMultiplier<T>
     {
         Validate(environment);
         if (compiledFacilities is null) TrainingFacilityRules.Validate(input.Facilities);
@@ -234,8 +239,8 @@ public static class TrainingNumericKernel
             foreach (var facility in input.Facilities)
                 foreach (var effect in facility.Effects)
                     if (effect.Type == 103) houseBonus = checked(houseBonus + effect.Value);
-        var heads = new TrainingFraction(100 + weightedHeads, 100);
-        var house = new TrainingFraction(10000L + (long)friendCount * houseBonus, 10000);
+        var heads = T.Ratio(100 + weightedHeads, 100);
+        var house = T.Ratio(10000L + (long)friendCount * houseBonus, 10000);
         Span<int> common = stackalloc int[6];
         Span<int> scenario = stackalloc int[6];
         Span<int> uncappedCommon = stackalloc int[6];
@@ -259,7 +264,7 @@ public static class TrainingNumericKernel
                     percent = checked(percent + facilityPercent);
                 }
             var cardBase = 0;
-            TrainingFraction friendship = 1;
+            T friendship = 1;
             var training = 0L;
             var motivation = 0L;
             foreach (var member in members)
@@ -269,27 +274,34 @@ public static class TrainingNumericKernel
                 var scale = TrainingFacilityRules.EffectPercent(member.Facility, i);
                 if (support.FriendshipEligible)
                     foreach (var bonus in support.FriendshipBonuses)
-                        friendship *= new TrainingFraction(100L + (long)bonus * scale / 100, 100);
+                        friendship *= T.Ratio(100L + (long)bonus * scale / 100, 100);
                 foreach (var value in support.TrainingEffectParts) training = checked(training + (long)value * scale / 100);
                 foreach (var value in support.MotivationEffectParts) motivation = checked(motivation + (long)value * scale / 100);
+                if (friendCount != 0 && !support.FriendshipTrainingEffects.IsEmpty)
+                {
+                    training = checked(training + support.FriendshipTrainingBonus(8, scale));
+                    motivation = checked(motivation + support.FriendshipTrainingBonus(2, scale));
+                }
             }
             if (environment.GoldShipBoost is { } boost && TrainingFacilityRules.PrimaryTarget(boost.CommandId) == target)
                 training += 20;
             var basis = checked(Attribute(input.Base, i) + baseExtra + cardBase);
-            var integer = Compute(basis, new(100L + Attribute(environment.GrowthPercent, i), 100), friendship,
-                new(100 + training, 100), heads, house, Motivation(environment.Motivation, motivation));
+            var integer = Compute(basis, T.Ratio(100L + Attribute(environment.GrowthPercent, i), 100), friendship,
+                T.Ratio(100 + training, 100), heads, house, Motivation<T>(environment.Motivation, motivation));
             Convert(environment, i, integer, percent, true, common, scenario, uncappedCommon, uncappedScenario);
         }
         return new(Values(common, 0), Values(scenario, 0), Values(uncappedCommon, 0), Values(uncappedScenario, 0));
     }
 
-    static TrainingNumericResult Ordinary(TrainingEnvironment environment, TrainingValues basis,
+    static TrainingNumericResult Ordinary<T>(TrainingEnvironment environment, TrainingValues basis,
         ReadOnlySpan<ResolvedTrainingSupport> supports, int guests, int extraTraining, long houseBonus, int percent, bool capExtra)
+        where T : struct, ITrainingMultiplier<T>
     {
-        TrainingFraction friendship = 1;
+        T friendship = 1;
         var training = 0;
         var motivation = 0;
         var recovery = 0;
+        var friendshipTraining = false;
         TrainingFraction vitalFactor = 1;
         foreach (var support in supports)
         {
@@ -297,17 +309,27 @@ public static class TrainingNumericKernel
             motivation = checked(motivation + support.MotivationEffect);
             if (support.FriendshipEligible)
             {
-                foreach (var bonus in support.FriendshipBonuses) friendship *= new TrainingFraction(100L + bonus, 100);
+                friendshipTraining = true;
+                foreach (var bonus in support.FriendshipBonuses) friendship *= T.Ratio(100L + bonus, 100);
                 if (basis.Vital > 0) recovery = checked(recovery + support.WisdomRecovery);
             }
             if (basis.Vital <= 0)
                 foreach (var reduction in support.VitalReductions) vitalFactor *= new TrainingFraction(100 - reduction, 100);
         }
+        if (friendshipTraining)
+            foreach (var support in supports)
+                foreach (var effect in support.FriendshipTrainingEffects)
+                    switch (effect.Type)
+                    {
+                        case 2: motivation = checked(motivation + effect.Value); break;
+                        case 8: training = checked(training + effect.Value); break;
+                        case 28 when basis.Vital <= 0: vitalFactor *= new TrainingFraction(100 - effect.Value, 100); break;
+                    }
         var vital = basis.Vital > 0 ? checked(basis.Vital + recovery) : (basis.Vital * vitalFactor).Truncate();
-        var train = new TrainingFraction(100L + training + extraTraining, 100);
-        var heads = new TrainingFraction(100L + 5L * ((long)guests + supports.Length), 100);
-        var house = new TrainingFraction(10000 + houseBonus, 10000);
-        var mood = Motivation(environment.Motivation, motivation);
+        var train = T.Ratio(100L + training + extraTraining, 100);
+        var heads = T.Ratio(100L + 5L * ((long)guests + supports.Length), 100);
+        var house = T.Ratio(10000 + houseBonus, 10000);
+        var mood = Motivation<T>(environment.Motivation, motivation);
         Span<int> common = stackalloc int[6];
         Span<int> scenario = stackalloc int[6];
         Span<int> uncappedCommon = stackalloc int[6];
@@ -321,17 +343,17 @@ public static class TrainingNumericKernel
                 foreach (var support in supports) bonus = checked(bonus + Attribute(support.BaseBonuses, i));
                 currentBase = checked(currentBase + bonus);
             }
-            var integer = Compute(currentBase, new(100L + Attribute(environment.GrowthPercent, i), 100),
+            var integer = Compute(currentBase, T.Ratio(100L + Attribute(environment.GrowthPercent, i), 100),
                 friendship, train, heads, house, mood);
             Convert(environment, i, integer, percent, capExtra, common, scenario, uncappedCommon, uncappedScenario);
         }
         return new(Values(common, vital), Values(scenario, 0), Values(uncappedCommon, vital), Values(uncappedScenario, 0));
     }
 
-    static int Compute(int basis, TrainingFraction growth, TrainingFraction friendship, TrainingFraction training,
-        TrainingFraction heads, TrainingFraction house, TrainingFraction motivation)
+    static int Compute<T>(int basis, T growth, T friendship, T training, T heads, T house, T motivation)
+        where T : struct, ITrainingMultiplier<T>
     {
-        var value = (basis * growth * friendship * training).Quantize(6, false);
+        var value = ((T)basis * growth * friendship * training).Quantize(6, false);
         value = (value * heads).Quantize(6, false);
         value = (value * house).Quantize(6, false);
         return (value * motivation).Quantize(5, true).Truncate();
@@ -377,7 +399,8 @@ public static class TrainingNumericKernel
         if (environment.GoldShipBoost is { } boost) _ = TrainingFacilityRules.PrimaryTarget(boost.CommandId);
     }
 
-    static TrainingFraction Motivation(int motivation, long bonus) => new(checked(1000 + (motivation - 3) * (100 + bonus)), 1000);
+    static T Motivation<T>(int motivation, long bonus) where T : struct, ITrainingMultiplier<T>
+        => T.Ratio(checked(1000 + (motivation - 3) * (100 + bonus)), 1000);
     static int ConvertAttribute(int before, int gain)
     {
         var below = Math.Min(gain, Math.Max(0, 1200 - before));

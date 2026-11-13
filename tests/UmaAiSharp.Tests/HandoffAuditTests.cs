@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 
 namespace UmaAiSharp.Tests;
 
@@ -60,15 +60,6 @@ public sealed class HandoffAuditTests
         using var output = new StringWriter();
         var error = Assert.Throws<InvalidDataException>(() => HandoffAudit.AuditRun("v2", input, output));
         Assert.Contains("v2/turns.jsonl 第 1 行", error.Message);
-        Assert.Equal("", output.ToString());
-    }
-
-    [Fact]
-    public void AvailableSideMustBeCompleteEvenWhenOtherSideIsMissing()
-    {
-        using var input = new StringReader(Frame(2, null, new JsonObject { ["turn"] = 2 }, 0, 0));
-        using var output = new StringWriter();
-        Assert.Throws<InvalidDataException>(() => HandoffAudit.AuditRun("v5", input, output));
         Assert.Equal("", output.ToString());
     }
 

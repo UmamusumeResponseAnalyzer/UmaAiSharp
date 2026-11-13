@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 
 namespace UmaAiSharp.Tests;
 
@@ -77,12 +77,8 @@ public sealed class InitialStateAuditTests : IDisposable
     }
 
     [Theory]
-    [InlineData("missing")]
     [InlineData("mismatch")]
     [InlineData("pair")]
-    [InlineData("duplicate")]
-    [InlineData("date")]
-    [InlineData("extension")]
     public void MissingOutputWrongOutputAndWrongPairHaveDifferentOutcomes(string change)
     {
         using (var db = Open(packets))

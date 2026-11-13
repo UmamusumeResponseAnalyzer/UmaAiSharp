@@ -11,7 +11,7 @@ var root = data.CreateInitialState();
 var scenario = new PioneerScenario(data);
 ```
 
-`start` 是明确的当前边界：普通／合宿训练与休息面板、已揭示休息确认、耐力失败前训练、岛训练、建设事件、Hint 属性事件、Tucker 分量、PJ 追加、评审分量或已发奖显示确认。建设和评审入口分别需要已加载的对应 master。Runtime 不引用 CLI，不读取 SQLite，也不接收未来资源、未来人员或未来事件队列。
+`start` 是明确的当前边界：普通／合宿训练与休息面板、已揭示休息确认、耐力失败前训练、岛训练、建设事件、Hint 属性事件、Tucker 分量、PJ 追加、评审分量或已发奖显示确认。建设和评审入口分别需要已加载的对应 master。Runtime 不引用 MCP，不读取 SQLite，也不接收未来资源、未来人员或未来事件队列。
 
 `PioneerRuntimeAction` 描述训练命令、岛训练、当前事件选择或完整有序建设计划。建设规划起点为 `PioneerStart.Planning`，决策视图提供当前规划状态，提交动作携带不可变 `PioneerConstructionPlan`。条件结果独立于策略动作，按从导入起点开始的 `ActionOrdinal` 编号，支持：
 
@@ -25,15 +25,21 @@ var scenario = new PioneerScenario(data);
 
 条件结果仅用于回放，决策视图不暴露它们。普通／合宿训练回合在未提供条件结果时按显示失败率抽样；其余条件组件缺少结果时保持未消费状态。错误事件身份由动作验证拒绝。数值候选身份随 `RulesIdentity` 保留。
 
-决策身份为 `Kind = PioneerStage`、轨迹局部 `Ordinal` 和 `Key = ((long)Turn << 32) | (uint)EventOrCommandId`。岛训练使用命令3101，事件使用event_id。不同回合的相同命令不能消费同一脚本项；同回合多个选择由Ordinal区分。动作联合字段必须与类型一致，例如训练动作不能暗带事件或choice。当前序号上条件类型错误与缺少结果分别报告；终局若有遗留条件结果，以 `ScriptMismatch/OutcomeIdentityMismatch` 停止并记录消费数与总数。
+决策身份包含 `PioneerStage`、轨迹内 `Ordinal` 和回合键。规则资源执行的事件回合键使用 `storyId`，版本 1 组件脚本使用 `eventId`。动作校验继续核对已揭示的 `eventId` 和 `characterId`。同回合重复故事由动作序号和当时的阶段、参与者区分。当前序号上条件类型错误与缺少结果分别报告。终局若有遗留条件结果，以 `ScriptMismatch/OutcomeIdentityMismatch` 停止并记录消费数与总数。
+
+轨迹 `StoryHistory` 按顺序存储十项整数，依次为故事、回合、阶段、时机、角色、支援卡、目标参与者、选项、连续事件阶段和总段数。阶段读取 `show_progress_1`。已接通结算的已揭示故事按轨迹顺序追加。
+
+自主整局按新回合抽取普通剧情，并按里程碑结算训练升级。建设后按更新的设施状态生成下一面板。回合推进结算首期规划、五期评审、合宿切换、已选路线、已识别预约和固定 URA 决赛。普通自选赛进入自主候选。待处理事件及协议确认用于条件回放。
+
+续步的训练估值使用同一数值模型对当前卡组预计算的逐级普通训练收益。代表板面使用独立固定种子、成熟羁绊和基准设施。轨迹内按当前五维、上限、普通训练成功次数、剩余赛历及预计评审调整估值。每跨一个可达的普通训练升级门槛，计入提前一次使用高一级训练的净收益。合宿使用其自身的 Lv5 预览。代表板面仅用于续步估值，整局执行继续由规则随机流生成面板。
 
 ## 状态与复制
 
 普通／合宿面板的支援、Hint掩码和PJ人数保存在主状态的`TrainingBoard`中，可用指令掩码也由轨迹独占。查询通过`PioneerDecisionView.TrainingBoard`返回值副本；预览、发展Pt、羁绊和Hint候选读取此状态。位置生成与验证见[人员联合分配](joint-placement.md)。
 
-`PioneerState` 独占一个标量主状态和一个连续整数缓冲区。缓冲按有界组件分段保存支援羁绊、岛训练分配、设施、训练等级、五项协议执行次数、角色效果、Hint 候选、当前故事、阈值、有序建设计划、临时效果原子和 PJ 记录。数据编译时按当前片段的输入长度及已实现后果预留容量；这是该实现的工作区需求，不是推定游戏中队列或技能的全局上限。
+`PioneerState` 独占一个标量主状态和一个连续整数缓冲区。缓冲分段保存支援羁绊、岛训练分配、设施、训练等级、执行次数、角色效果、Hint 候选与等级、故事、建设阈值与有序方案、临时效果、PJ 记录和路线比赛计数。数据编译时按当前输入长度和已实现的后果预留容量。
 
-执行期间不扩容。`CopyInto` 只允许同一编成数据，复制主状态、各段有效长度和有效内容；只读规则与条件输入共享。工作区不足属于明确的编译／容量错误，不静默租借更大的数组。`MutablePayloadBytes` 报有效载荷，`WorkspaceBytes` 报已预留数组容量加对象开销预留；`SharedMemoryBytes` 是包含冷参考输入、规则表和编译数据的保守预算，不是 CLR 精确对象图测量。
+整数工作区在执行期间不扩容。`CopyInto` 复制同一编成下的主状态、各段有效长度和内容，以及当前不可变面板规则。设施、评审、出场人数或合宿模式变化时重编译面板规则，工作区预算包含该规则的预留。`MutablePayloadBytes` 报有效载荷，`SharedMemoryBytes` 报共享输入和编译数据的保守预算。
 
 `KnownParts` 区分已提供的资源分量。Tucker 资源片段只知道体力、上限、技能 Pt 等必要字段时，不把缺失五属性当成真实零。`TurnKnown`、`RawPlayingStateKnown` 区分当前步骤完成后能否确认回合／阶段；`SourceTurn`、`SourcePlayingState` 保留原动作来源。字段未知时，字段中的占位或此前数值不得作为已生成后态使用。
 
@@ -51,9 +57,9 @@ var scenario = new PioneerScenario(data);
 
 `PioneerState.Clone` 只复制领域状态。精确执行恢复还包括策略游标、待动作、执行位置和两条 RNG；通过 Core 的 `ForkInto` 复制整个 `TrajectoryExecution`。重新独立采样使用 Core 的 `ResetSample`，不能混同两种操作。
 
-`PendingTrainingLevelEventId` 单独保存训练升级里程碑：null为未知、0为已确认没有、正数为对应待结算事件。成功普通训练达到四次倍数时按当前等级登记，当前可见事件和训练等级保持原值；已揭示升级确认后清零。它随主状态复制，和 `Event`、`PendingStories` 的可见事件事实分别维护。[触发与排队证据](training-level-trigger.md)。
+`PendingTrainingLevelCommandId` 保存训练升级里程碑。null 表示未知，0 表示无升级，正数是待升级的普通训练指令。成功普通训练达到四次倍数时按当前等级登记。自主模拟在建设之后结算并清零，条件回放通过已揭示升级确认结算。[触发证据](training-level-trigger.md)。
 
-## 已接入路径与停止位置
+## 条件回放分量与停止位置
 
 | 起点 | 已执行的内容 | 停止位置 |
 |---|---|---|
@@ -88,7 +94,7 @@ var scenario = new PioneerScenario(data);
 
 训练数值使用 `TrainingNumericKernel` 和共享 `CompiledTrainingDeck`；`RawGains` 分数字符串由审计入口生成。动态固有按羁绊阈值、训练等级和粉丝整除分段预编译；每个单元保留原子顺序和条件激活时的错误。执行只读查表，未知分支不会提前影响未触发的条件。岛训练编译入口交叉校验Deck与参与者身份、等级及羁绊，并预编译基础增量、海之家系数及各友情设施数的倍率。数值核保留BigInteger及逐原子取整。组件的未知规则异常转换为结构化停止。各片段耗时、分配和编译成本见性能报告。
 
-合宿配置保存五项普通等级、按五属性顺序排列的基础值及六个设施。训练时使用有效Lv5解析支援固有，普通等级保留在状态中。静态设施基础增量、海之家系数和剧本倍率在规则编译时计算，行动路径直接消费数值。规则身份包含`pioneer-runtime-components-v12`和`pioneer-training-turn-v12`；等级确认规则为`pioneer-training-level-trigger-v2`。训练数值版本为`jp-training-refit14-d6x3-r5-candidate-v4`，包含在完整规则身份中；证据与统计口径见[训练行动](training-turn-evidence.md)。
+合宿配置保存五项普通等级、按五属性顺序排列的基础值及六个设施。训练时使用有效Lv5解析支援固有，普通等级保留在状态中。静态设施基础增量、海之家系数和剧本倍率在规则编译时计算，行动路径直接消费数值。规则身份包含`pioneer-runtime-components-v12`和`pioneer-training-turn-v12`；等级确认规则为`pioneer-training-level-trigger-v3`。训练数值版本为`jp-training-refit14-d6x3-r5-candidate-v4`，包含在完整规则身份中；证据与统计口径见[训练行动](training-turn-evidence.md)。
 
 `SuccessfulOrdinaryTrainingCounts`在已知时保存五项成功普通训练次数，与包含合宿和失败的`TrainingExecutionCounts`分别维护；缺失时不写已知位。两者归轨迹缓冲独占，计数更新不提前结算训练等级事件。[历史导入](training-history.md)
 

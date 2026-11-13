@@ -27,8 +27,8 @@ public static class TrainingFailureRate
     {
         10 or 13 => -2,
         11 => -4,
-        12 => 2,
-        1 or 3 or 5 or 7 or 8 or 9 or 25 or 26 or 27 or 31 or 36 => 0,
+        6 or 12 => 2,
+        1 or 2 or 3 or 4 or 5 or 7 or 8 or 9 or 25 or 26 or 27 or 31 or 36 => 0,
         _ => throw new UnknownMechanismException($"角色效果{effect}不在失败率预览已核验集合中。")
     };
 
@@ -157,6 +157,11 @@ public static class TrainingFormulaCandidate
                         friendship *= new TrainingRational(100L + (long)bonus * scale / 100, 100);
                 training = checked(training + member.Card.TrainingEffectParts.Sum(value => (long)value * scale / 100));
                 motivation = checked(motivation + member.Card.MotivationEffectParts.Sum(value => (long)value * scale / 100));
+                if (friendCount != 0 && !member.Card.FriendshipTrainingEffects.IsEmpty)
+                {
+                    training = checked(training + member.Card.FriendshipTrainingBonus(8, scale));
+                    motivation = checked(motivation + member.Card.FriendshipTrainingBonus(2, scale));
+                }
             }
             if (input.Environment.GoldShipBoost is { } boost && TrainingFacilityRules.PrimaryTarget(boost.CommandId) == target)
                 training += 20;
@@ -175,13 +180,19 @@ public static class TrainingFormulaCandidate
         TrainingRational friendship = 1;
         foreach (var bonus in supports.Where(card => card.FriendshipEligible).SelectMany(card => card.FriendshipBonuses))
             friendship *= new TrainingRational(100L + bonus, 100);
+        var motivation = (long)supports.Sum(card => card.MotivationEffect);
+        if (supports.Any(card => card.FriendshipEligible))
+        {
+            training = checked(training + supports.Sum(card => card.FriendshipTrainingBonus(8)));
+            motivation = checked(motivation + supports.Sum(card => card.FriendshipTrainingBonus(2)));
+        }
         var bases = Attributes(basis);
         var growth = Attributes(environment.GrowthPercent);
         return Enumerable.Range(0, 6).Select(index => new TrainingFactors(
             bases[index] == 0 ? 0 : checked(bases[index] + supports.Sum(card => Attributes(card.BaseBonuses)[index])),
             new(100L + growth[index], 100), friendship, new(100 + training, 100),
             new(100L + 5L * ((long)guests + supports.Length), 100), new(10000 + houseBasisPoints, 10000),
-            Motivation(environment.Motivation, supports.Sum(card => card.MotivationEffect)))).ToArray();
+            Motivation(environment.Motivation, motivation))).ToArray();
     }
 
     static TrainingRational Motivation(int motivation, long bonus) => new(checked(1000 + (motivation - 3) * (100 + bonus)), 1000);
@@ -225,6 +236,9 @@ public static class TrainingFormulaCandidate
         TrainingRational result = basis;
         foreach (var reduction in supports.SelectMany(card => card.VitalReductions))
             result *= new TrainingRational(100 - reduction, 100);
+        if (supports.Any(card => card.FriendshipEligible))
+            foreach (var effect in supports.SelectMany(card => card.FriendshipTrainingEffects))
+                if (effect.Type == 28) result *= new TrainingRational(100 - effect.Value, 100);
         return result.Truncate();
     }
 

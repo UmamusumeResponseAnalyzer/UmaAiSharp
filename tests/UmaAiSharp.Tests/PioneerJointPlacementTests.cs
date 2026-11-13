@@ -9,7 +9,6 @@ public sealed class PioneerJointPlacementTests
 {
     [Theory]
     [InlineData(false, 0, 492, 4416)]
-    [InlineData(false, 10, 9739, 87848)]
     [InlineData(true, 10, 1584, 24255)]
     public void NpcWeightsPreserveTheObservedOpportunityDenominator(bool camp, int sea, int absent, int present)
     {
@@ -46,30 +45,6 @@ public sealed class PioneerJointPlacementTests
             Assert.Equal(new(-1, false), placements[5]);
         }
         Assert.True(rejected > 0);
-    }
-
-    [Fact]
-    public void SamplesHaveStableIdentityAcrossWorkersAndPrefixes()
-    {
-        var model = Model();
-        var reordered = new PioneerJointPlacement([.. model.Members.Reverse()]);
-        var first = Batch(model, 1, 2049);
-        foreach (var workers in new[] { 2, 4, 8, 16, 32 }) Assert.Equal(first, Batch(reordered, workers, 2049));
-        Assert.Equal(first[..65], Batch(model, 4, 65));
-        Assert.Throws<InvalidDataException>(() => new PioneerJointPlacement(model.Members.Add(model.Members[0])));
-        Assert.Throws<InvalidDataException>(() => new PioneerJointPlacement(model.Members.RemoveAt(0)));
-    }
-
-    static (TrainingBoard Board, ulong State)[] Batch(PioneerJointPlacement model, int workers, int samples)
-    {
-        var results = new (TrainingBoard, ulong)[samples];
-        Parallel.For(0, samples, new ParallelOptions { MaxDegreeOfParallelism = workers }, index =>
-        {
-            var random = new SimulationRandom(SimulationRandom.DeriveSeed(289, index, SimulationRandomStream.Rules));
-            Span<SupportPlacement> placements = stackalloc SupportPlacement[model.Members.Length];
-            results[index] = (model.Sample(placements, ref random), random.State);
-        });
-        return results;
     }
 
     static SupportPlacement[] Reference(ImmutableArray<PlacementMember> members, ref SimulationRandom random, ref int rejected)

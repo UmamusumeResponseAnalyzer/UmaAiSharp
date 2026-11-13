@@ -22,10 +22,35 @@ Tucker选择2只有预览证据，没有实际选择结算；未实现。支援�
 
 ## 核验入口与证据链
 
-```powershell
-dotnet run --project src/UmaAiSharp.Cli --no-build -- evidence development-components --input artifacts/evidence/local-audit-05 --research artifacts/research/blockers --output artifacts/evidence/development-components-new
-dotnet run --project src/UmaAiSharp.Cli --no-build -- evidence checkpoint --input artifacts/evidence/local-audit-05 --output artifacts/evidence/checkpoint-components-new
-dotnet run --project src/UmaAiSharp.Cli --no-build -- evidence construction --input artifacts/evidence/local-audit-05 --output artifacts/evidence/construction-components-new
+```json
+{
+  "name": "evidence_development_components",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "researchDirectory": "artifacts/research/blockers",
+    "outputDirectory": "artifacts/evidence/development-components-new"
+  }
+}
+```
+
+```json
+{
+  "name": "evidence_checkpoint",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "outputDirectory": "artifacts/evidence/checkpoint-components-new"
+  }
+}
+```
+
+```json
+{
+  "name": "evidence_construction",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "outputDirectory": "artifacts/evidence/construction-components-new"
+  }
+}
 ```
 
 输出目录必须为空。`DevelopmentComponentAudit.Run`先核对研究中五个归一化输入的完整SHA-256，再关联两个研究的比赛标签，并记录研究文件自身的前后指纹。新增或重导出的数据不匹配时直接报错，不能只靠`packets-0002`等alias复用旧标签。规则类本身不依赖研究目录。
@@ -56,8 +81,16 @@ dotnet run --project src/UmaAiSharp.Cli --no-build -- evidence construction --in
 
 `DevelopmentComponentAudit.RunRaceStudy(inputDirectory, studyDirectory, masterPath, outputDirectory)`显式接受扩大比赛研究，独立于原902交集入口，不自动选择研究版本或回退到旧标签。
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence race-points --input artifacts/research/blockers/island-training/expansion-20261108/audit --study artifacts/research/blockers/races/expansion-20261108 --master G:/DMM/Umamusume/umamusume_Data/Persistent/master/master.mdb --output artifacts/evidence/race-points-expanded-new
+```json
+{
+  "name": "evidence_race_points",
+  "arguments": {
+    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
+    "studyDirectory": "artifacts/research/blockers/races/expansion-20261108",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "artifacts/evidence/race-points-expanded-new"
+  }
+}
 ```
 
 研究定位文件包含2483个直接窗口（旧904、新1579），入口核对四个归一化输入与master的完整指纹，重新读取实际前态、请求、后态和相应比赛响应；用实际已选路线与master重新判定目标赛，调用产品公式并对比原始Pt净差。研究的predicted/observed字段不作为真值。窗口必须同源同局、请求响应明确配对、前态/请求/后态有序；中间仅允许完整配对的奖励查询。其余六个缺唯一比赛链的事件不在该定位集合中。

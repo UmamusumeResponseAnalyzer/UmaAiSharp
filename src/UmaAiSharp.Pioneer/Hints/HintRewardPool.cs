@@ -24,9 +24,9 @@ public static class HintRewardPool
         if (supportSkills.Concat(learnedSkills).Concat(recordedHints.Select(hint => hint.Skill))
             .Any(skill => skill.GroupId <= 0 || skill.Rarity <= 0))
             throw new InvalidDataException("Hint 技能组与稀有度必须为正整数。");
-        if (recordedHints.Any(hint => hint.Level is < 1 or > 5)
+        if (recordedHints.Any(hint => hint.Level is < 0 or > 5)
             || recordedHints.Select(hint => hint.Skill).Distinct().Count() != recordedHints.Length)
-            throw new InvalidDataException("已记录 Hint 等级必须为1..5，同一组和稀有度不能重复。");
+            throw new InvalidDataException("已记录 Hint 等级必须为0..5，同一组和稀有度不能重复。");
         if (supportSkills.Any(skill => skill.Rarity != 1))
             throw new UnknownMechanismException("有效奖池过滤仅核验白技能候选；其他稀有度候选尚未确认。");
         var hints = recordedHints.ToDictionary(hint => hint.Skill, hint => hint.Level);

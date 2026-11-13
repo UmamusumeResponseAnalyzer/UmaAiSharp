@@ -10,7 +10,7 @@
     <Using Include="Xunit" />
     <ProjectReference Include="../../src/UmaAiSharp.Core/UmaAiSharp.Core.csproj" />
     <ProjectReference Include="../../src/UmaAiSharp.Pioneer/UmaAiSharp.Pioneer.csproj" />
-    <ProjectReference Include="../../src/UmaAiSharp.Cli/UmaAiSharp.Cli.csproj" />
+    <ProjectReference Include="../../src/UmaAiSharp.MCP/UmaAiSharp.MCP.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />

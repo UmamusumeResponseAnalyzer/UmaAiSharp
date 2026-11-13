@@ -30,4 +30,5 @@ public sealed record TerminalMetrics(
     AttributeValues Caps,
     int? FutureGainedSkillPoints,
     AttributeValues? FutureOverflow,
-    int? VerifiedAttributeRating);
+    int? VerifiedAttributeRating,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? FailedCareerGoalId = null);

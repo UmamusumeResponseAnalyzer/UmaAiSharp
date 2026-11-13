@@ -19,7 +19,7 @@ public readonly record struct EventEffectScaling(int RecoveryPercent, int Resour
                 Add(effect.Parameter1, effect.Parameter2);
                 Add(effect.Parameter3, effect.Parameter4);
             }
-            else if (effect.Type is not (101 or 104 or 105 or 111 or 121 or 122))
+            else if (effect.Type is not (101 or 104 or 105 or 111 or 113 or 121 or 122))
                 throw new UnknownMechanismException($"支援卡{support.CardId}的固有{effect.Type}尚未解释，不能推断事件加成。");
         }
         return new(recovery, resources);

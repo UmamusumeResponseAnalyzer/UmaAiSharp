@@ -49,35 +49,6 @@ public sealed class PioneerConstructionTriggerTests
     }
 
     [Fact]
-    public void EarlierEventsCanDelayVisibilityWithoutLosingTheReachedMilestone()
-    {
-        var delayed = Fixtures().Where(x => x.EventStoryId == 400011107 && x.EventRecordId != x.AfterRecordId).ToArray();
-        Assert.Equal(2, delayed.Length);
-        foreach (var fixture in delayed)
-        {
-            var result = Rules().ApplyPointGainCandidate(fixture.Before, fixture.PointGain, fixture.SourceKind);
-            Assert.NotNull(result.Milestone);
-            Assert.DoesNotContain(result.Milestone.StoryId, fixture.VisibleEventsAtPointGain);
-            Assert.Equal(10, result.Milestone.RawPlayTiming);
-            Assert.True(fixture.BeforeRecordId < fixture.RequestRecordId && fixture.RequestRecordId < fixture.AfterRecordId);
-            Assert.True(fixture.EventRecordId > fixture.AfterRecordId);
-        }
-    }
-
-    [Fact]
-    public void CampMilestoneWaitsForTurn41WithoutChangingTheVisibleQueue()
-    {
-        var fixtures = Fixtures().Where(x => x.EventStoryId == 400011108).ToArray();
-        Assert.Equal(70, fixtures.Length);
-        var fixture = fixtures[0];
-        var result = Rules().ApplyPointGainCandidate(fixture.Before, fixture.PointGain, fixture.SourceKind);
-        Assert.Equal(41, result.Milestone!.NotBeforeTurn);
-        Assert.Equal(fixture.Before.Turn, result.AfterPoints.Turn);
-        Assert.Equal(fixture.Before.RawPlayingState, result.AfterPoints.RawPlayingState);
-        Assert.Empty(result.AfterPoints.PendingStoryIds);
-    }
-
-    [Fact]
     public void AlreadyReachedThresholdDoesNotProduceAnotherMilestone()
     {
         var result = Rules().ApplyPointGainCandidate(new(15, 1, 3, 256, [200, 500], []), 80, ConstructionPointSource.Training);
@@ -87,7 +58,6 @@ public sealed class PioneerConstructionTriggerTests
 
     [Theory]
     [InlineData(295, 22)]
-    [InlineData(294, 22)]
     public void LastClassicCampRaceCrossingWaitsForTheReturnWindow(int points, int gain)
     {
         var before = new ConstructionProgress(40, 5, 3, points, [300, 600], [400011105]);

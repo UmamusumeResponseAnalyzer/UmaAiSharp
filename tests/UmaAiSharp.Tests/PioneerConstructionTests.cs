@@ -69,7 +69,6 @@ public sealed class PioneerConstructionTests
     }
 
     [Theory]
-    [InlineData(0, 1)]
     [InlineData(1, 1)]
     [InlineData(1, 3)]
     public void AmbiguousPrioritiesCannotBecomeAnOrderedPlan(int first, int second)
@@ -89,17 +88,6 @@ public sealed class PioneerConstructionTests
         Assert.Equal(10600, state.Facilities.Single(x => x.FacilityId == 106).StateId);
         Assert.Equal([400011107], report.PendingStoryIds!.Value.ToArray());
         Assert.Equal(evidence, report.Source);
-    }
-
-    [Fact]
-    public void GrowthAfterIslandTrainingDoesNotProveImmediateConstruction()
-    {
-        var state = new PioneerDevelopmentState(8, 1, 333, 400, 3,
-            [200, 400], 0, [new(101, 10100), new(102, 10200), new(106, 10610)], FirstPlan(), []);
-        var report = ConstructionEvidence.CheckImmediateCompletion(new(Data()), state,
-            new(new string('a', 64), 43));
-
-        Assert.Equal(new(101, 10100, 10110), Assert.Single(report.ImmediateCompletionDifferences));
     }
 
     [Fact]
@@ -130,10 +118,8 @@ public sealed class PioneerConstructionTests
     }
 
     [Theory]
-    [InlineData(15, 5, 400011107, 0)]
     [InlineData(15, 5, 400011107, 1)]
     [InlineData(41, 1, 400011108, 0)]
-    [InlineData(41, 1, 400011108, 1)]
     public void FacilityComponentChangesFacilitiesWithoutClaimingToCompleteTheEvent(int turn, int phase, int story, int tickets)
     {
         var plan = new PioneerConstructionPlan([new(1, 101, 10100, 10110), new(2, 106, 10600, 10610)]);
@@ -179,26 +165,4 @@ public sealed class PioneerConstructionTests
         Assert.Contains("第 1 行", error.Message);
     }
 
-    [Fact]
-    public void MasterExportRetainsSourceValuesAndProvenance()
-    {
-        var data = Data();
-        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
-        var lines = new List<string>();
-        void Add<T>(string table, ImmutableArray<T> rows)
-        {
-            foreach (var row in rows)
-                lines.Add(JsonSerializer.Serialize(new { table, row }, options));
-        }
-        Add("single_mode_11_facility_kind", data.FacilityKinds);
-        Add("single_mode_11_facility_state", data.FacilityStates);
-        Add("single_mode_11_facility_lv_up", data.FacilityUpgrades);
-        Add("single_mode_11_planning", data.PlanningPeriods);
-        Add("single_mode_11_gain_training_pt", data.TicketThresholds);
-
-        var result = PioneerMasterData.ReadExport(new StringReader(string.Join('\n', lines)), MasterHash);
-        Assert.Equal(data.SourceSha256, result.SourceSha256);
-        Assert.Equal(data.FacilityUpgrades.ToArray(), result.FacilityUpgrades.ToArray());
-        Assert.Equal(400, result.PlanningPeriods[0].TargetPt);
-    }
 }

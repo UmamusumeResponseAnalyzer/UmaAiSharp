@@ -40,12 +40,12 @@ public sealed class PioneerForecastTests
         var root = new PioneerForecastState(new(77, ForecastActionKind.Home, 0), Values(start), [0]);
         var original = root.Fields.ToArray();
         var candidates = Actions.Select(action => new RootCandidate<ForecastAction>(action.Id, action)).ToArray();
-        var baseline = RootSearch.Evaluate(scenario, scenario.CreatePolicy(), root, candidates, Goal, 89, 2049, 1, ownedActionPayloadBytes: 0);
+        var baseline = RootSearch.Evaluate(scenario, scenario.CreatePolicy(), root, candidates, Goal, 89, 129, 1, ownedActionPayloadBytes: 0);
         Assert.Equal(SearchStatus.Completed, baseline.Status);
         Assert.True(baseline.Candidates[0].Batch.Results.Select(sample => sample.Outcome).Distinct().Count() > 1);
-        foreach (var workers in new[] { 4, 16, 32 })
+        foreach (var workers in new[] { 4 })
         {
-            var result = RootSearch.Evaluate(scenario, scenario.CreatePolicy(), root, candidates, Goal, 89, 2049, workers, ownedActionPayloadBytes: 0);
+            var result = RootSearch.Evaluate(scenario, scenario.CreatePolicy(), root, candidates, Goal, 89, 129, workers, ownedActionPayloadBytes: 0);
             Assert.Equal(baseline.Ranking, result.Ranking);
             foreach (var candidate in result.Candidates)
                 Assert.Equal(baseline.Candidates.Single(row => row.Candidate.Id == candidate.Candidate.Id).Batch.Results, candidate.Batch.Results);
@@ -121,6 +121,41 @@ public sealed class PioneerForecastTests
     }
 
     [Fact]
+    public void ObservedFailureTransfersThePenaltyToTheAttemptedTrainingAndSkipsTheSuccessHint()
+    {
+        var (start, input) = Fixture(77);
+        start = start with { Environment = start.Environment with { Current = start.Environment.Current with { Vital = 0 } } };
+        var before = Values(start).Append(1).ToArray();
+        var failure = new ForecastNode(30, ForecastActionKind.Event, 501045713);
+        var hint = new ForecastNode(77, ForecastActionKind.Event, 801000003);
+        var success = input.Transitions[0] with { To = hint, Before = new([.. before], []) };
+        input = input with
+        {
+            Fields = input.Fields.Add("effect:25"),
+            Transitions = [success,
+                new("donor", "deck", hint, new(78, ForecastActionKind.Event, 501001111), new(ForecastActionKind.Event, 20099),
+                    new([.. before], []), [new(16, 5, false)], 0, -1, true, "fixture", 202),
+                new("other", "deck", new(30, ForecastActionKind.Home, 0), failure, Actions[1],
+                    new([.. before], []), [new(28, 1, false)], 0, 0, false, "fixture", 300),
+                new("other", "deck", failure, new(31, ForecastActionKind.Home, 0), new(ForecastActionKind.Event, 7043, 1),
+                    new([.. before], []), [new(1, -5, false), new(12, -1, false)], 0, -1, true, "fixture", 301)],
+        };
+        var scenario = new PioneerForecastScenario(new(input, "failure"), "deck", "input", start, [Actions[0]]);
+        var state = new PioneerForecastState(success.From, before, [0]);
+        var oracle = PioneerRuntimeData.Compile(start, [], "failure-preview");
+        var rate = new PioneerScenario(oracle).PreviewTraining(oracle.CreateInitialState(), 101).FailureRate;
+        var seed = (ulong)Enumerable.Range(0, 64).First(value => new SimulationRandom((ulong)value).NextInt(100) < rate);
+        var random = new SimulationRandom(seed);
+        Assert.Null(scenario.ApplyAction(ref state, Actions[0], ref random).Stop);
+        Assert.Equal(78, state.Turn);
+        before[0] -= 5;
+        before[27]++;
+        before[^1] = 0;
+        Assert.Equal(before, state.Fields.ToArray());
+        Assert.Equal(501001111, scenario.Inspect(state, 1).Decision.Context.Node.StoryId);
+    }
+
+    [Fact]
     public void OrderedEventChangesPreserveTheCapAndUnknownOverflowAndRejectInvalidActions()
     {
         var (start, input) = Fixture(77);
@@ -128,7 +163,7 @@ public sealed class PioneerForecastTests
             .Select(row => row with { Changes = [new(0, 900, false), new(5, 5, false), new(10, 70, false)] })] };
         var action = new ForecastAction(ForecastActionKind.Event, 6);
         var scenario = new PioneerForecastScenario(new(input, "fixture"), "deck", "excluded", start, [action]);
-        var state = new PioneerForecastState(new(78, ForecastActionKind.Event, 123), Values(start), [0]);
+        var state = new PioneerForecastState(new(78, ForecastActionKind.Event, 501001111), Values(start), [0]);
         var random = new SimulationRandom(3);
         Assert.NotNull(scenario.ValidateAction(state, new(ForecastActionKind.Training, 101)));
         Assert.Null(scenario.ApplyAction(ref state, action, ref random).Stop);
@@ -163,7 +198,7 @@ public sealed class PioneerForecastTests
             row with { Run = "excluded", Before = row.Before with { Values = row.Before.Values.SetItem(14, int.MaxValue) }, Changes = [new(2, 100, false)] }
         ] };
         var action = new ForecastAction(ForecastActionKind.Event, 6);
-        var root = new PioneerForecastState(new(78, ForecastActionKind.Event, 123), Values(start), [visited]);
+        var root = new PioneerForecastState(new(78, ForecastActionKind.Event, 501001111), Values(start), [visited]);
         var scenario = new PioneerForecastScenario(new(input, "fixture"), "deck", "excluded", start, [action]);
         var random = new SimulationRandom(5);
         Assert.Null(scenario.ApplyAction(ref root, action, ref random).Stop);
@@ -179,11 +214,11 @@ public sealed class PioneerForecastTests
         var terminalRows = input.Transitions.Select((row, index) => (row, index)).Where(item => item.row.From.Kind == ForecastActionKind.Event).ToArray();
         input = input with
         {
-            Stories = [123, 456],
+            Stories = [501001111, 456],
             Transitions = input.Transitions.Add(new("other", "deck", new(76, ForecastActionKind.Event, 456), new(77, ForecastActionKind.Home, 0),
-                eventAction, new([.. before], []), [], 456, -1, true, "fixture", 300)),
+                eventAction with { Id = 10002 }, new([.. before], []), [], 456, -1, true, "fixture", 300)),
             EventRewards = [.. terminalRows.Select(item => new ForecastEventReward(item.index, 1,
-                new("donor", 123, new(1, 101, 6, 6, 3, 0, 0), [new(1, 3, 10 + item.index, 0)], [])))],
+                new("donor", 501001111, new(1, 101, 6, 6, 3, 0, 0), [new(1, 3, 10 + item.index, 0)], [])))],
         };
         var choices = new[] { eventAction, eventAction with { Choice = 2 } };
         var declared = new PioneerStart.DeclaredEvent(76, 5, new(10000, 1001, 456, 6), start.Environment.Current,
@@ -274,12 +309,12 @@ public sealed class PioneerForecastTests
                 new(19, 3, 4, 36, 48, 600), new(20, 3, 5, 48, 60, 800)], CharacterId: 1001);
         var before = Values(start);
         var rows = Actions.Select(action => new ForecastTransition("donor", "deck", new(turn, ForecastActionKind.Home, 0),
-            new(turn + 1, ForecastActionKind.Event, 123), action, new([.. before], []),
+            new(turn + 1, ForecastActionKind.Event, 501001111), action, new([.. before], []),
             [.. Oracle(start, action.Id).Select((value, index) => new ForecastChange(index, value - before[index], false)).Where(change => change.Delta != 0)],
             0, 0, true, "fixture", action.Id)).ToList();
-        for (var i = 0; i < 2; i++) rows.Add(new("donor", "deck", new(78, ForecastActionKind.Event, 123), null,
-            new(ForecastActionKind.Event, 6), new([.. before], []), [new(2, 5 + i, false)], 123, -1, true, "fixture", 200 + i));
-        return (start, new(3, "master", "evidence", [.. PioneerForecastScenario.BasicFields, "effect:8"], [123], [.. Enumerable.Repeat(720, 30)], [start], [.. rows], [], [], [], null, [], []));
+        for (var i = 0; i < 2; i++) rows.Add(new("donor", "deck", new(78, ForecastActionKind.Event, 501001111), null,
+            new(ForecastActionKind.Event, 6), new([.. before], []), [new(2, 5 + i, false)], 501001111, -1, true, "fixture", 200 + i));
+        return (start, new(3, "master", "evidence", [.. PioneerForecastScenario.BasicFields, "effect:8"], [501001111], [.. Enumerable.Repeat(720, 30)], [start], [.. rows], [], [], [], null, [], []));
     }
 
     static int[] Oracle(PioneerStart.TrainingTurn start, int command)

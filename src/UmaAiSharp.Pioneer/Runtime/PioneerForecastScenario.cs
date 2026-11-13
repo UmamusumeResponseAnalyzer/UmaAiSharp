@@ -129,7 +129,7 @@ public sealed class PioneerForecastScenario : ISimulationScenario<PioneerForecas
         destination.Plan = source.Plan;
     }
     public Inspection<PioneerForecastDecision> Inspect(in PioneerForecastState state, long decisionOrdinal)
-        => state.Terminal ? Inspection<PioneerForecastDecision>.Terminal()
+        => state.Terminal ? Inspection<PioneerForecastDecision>.Terminal(state.Node.Turn)
             : Inspection<PioneerForecastDecision>.AtDecision(new(new((int)state.Node.Kind, decisionOrdinal,
                 ((long)state.Node.Turn << 32) | (uint)state.Node.StoryId), new(state.Node, state.Values, state.History, state.Root, state.Plan)));
 
@@ -211,6 +211,28 @@ public sealed class PioneerForecastScenario : ISimulationScenario<PioneerForecas
             {
                 var preview = Preview(template!, action.Id, state.Values);
                 var success = preview.FailureRate == 0 || preview.FailureRate < 100 && nextRandom.NextInt(100) >= preview.FailureRate;
+                if (!success && model.HasSimpleTrainingFailure(action.Id, excludedRun))
+                {
+                    var schedule = row.TrainingSuccess ? index : model.Select(configuration, state.Node, state.Values,
+                        state.History, scales, excludedRun, action, ref nextRandom, true);
+                    if (schedule < 0 || model.TrainingFailureContinuation(schedule) is not { } continuation)
+                        return TransitionResult.Stopped(false, false, new(SimulationStopReason.UnknownMechanism, 2005, state.Node.Turn, action.Id));
+                    var turn = state.Node.Turn + continuation.Turn - model.Input.Transitions[schedule].From.Turn;
+                    if (turn is < 1 or > 78)
+                        return TransitionResult.Stopped(false, false, new(SimulationStopReason.UnknownMechanism, 2003, state.Node.Turn));
+                    var primary = TrainingFacilityRules.PrimaryTarget(TrainingBaseTable.OrdinaryCommand(action.Id)) - 1;
+                    var executions = checked(state.Values[27 + primary] + 1);
+                    var positiveThinking = positiveThinkingField >= 0 && state.Values[positiveThinkingField] == 1;
+                    var (motivation, consumePositiveThinking) = MotivationRules.Apply(state.Values[12], -1, positiveThinking, false);
+                    state.Values[27 + primary] = executions;
+                    state.Values[primary] = Math.Max(0, state.Values[primary] - 5);
+                    state.Values[12] = motivation;
+                    if (consumePositiveThinking) state.Values[positiveThinkingField] = 0;
+                    state.Node = continuation with { Turn = turn };
+                    state.Root = false; state.Steps++;
+                    random = nextRandom;
+                    return TransitionResult.Settled(turn);
+                }
                 if (row.TrainingSuccess != success)
                 {
                     index = model.Select(configuration, state.Node, state.Values, state.History, scales, excludedRun, action, ref nextRandom, success);
@@ -227,7 +249,7 @@ public sealed class PioneerForecastScenario : ISimulationScenario<PioneerForecas
                 return TransitionResult.Stopped(false, false, new(SimulationStopReason.UnknownMechanism, 2017, state.Node.Turn, action.Id));
             }
         }
-        else if (action.Kind == ForecastActionKind.Event && RestRules.IsSupportedEvent(action.Id))
+        else if (action.Kind == ForecastActionKind.Event && RestRules.IsStory(state.Node.StoryId, (state.Node.StoryId - 500000000) / 1000))
         {
             var character = (state.Node.StoryId - 500000000) / 1000;
             var gain = RestRules.Recovery(new(action.Id, character, state.Node.StoryId, 6), character);

@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
-using UmaAiSharp.Cli;
+using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
 
@@ -36,12 +36,12 @@ public sealed class PioneerPacketImportTests
                 var packet = Path.Combine(directory, $"training-{checkedFrames}.msgpack");
                 File.WriteAllBytes(packet, MessagePackSerializer.ConvertFromJson(new JsonObject { ["data"] = data }.ToJsonString()));
                 var output = Path.Combine(directory, $"training-{checkedFrames}");
-                Assert.Equal(0, Program.Main(["pioneer", "import", "--packet", packet, "--endpoint", wrapped ? "/single_mode/load" : "/single_mode/check_event",
-                    "--master", master.Path, "--output", output]));
-                var loaded = PioneerExecutionCommand.Load(Path.Combine(output, "input.json"), master.Path);
+                Assert.Equal("completed", PioneerImport.Run(packet, wrapped ? "/single_mode/load" : "/single_mode/check_event",
+                    null, master.Path, output).Status);
+                var loaded = PioneerExecution.Load(Path.Combine(output, "input.json"), master.Path);
                 Assert.Equal(PioneerStage.TrainingTurn, loaded.Root.Header.Stage);
                 Assert.Equal(frame["c"]!["turn"]!.GetValue<int>(), loaded.Root.Header.Turn);
-                var candidates = JsonSerializer.Deserialize<RootCandidate<PioneerRuntimeAction>[]>(File.ReadAllBytes(Path.Combine(output, "candidates.json")), PioneerExecutionCommand.JsonOptions)!;
+                var candidates = JsonSerializer.Deserialize<RootCandidate<PioneerRuntimeAction>[]>(File.ReadAllBytes(Path.Combine(output, "candidates.json")), PioneerExecution.JsonOptions)!;
                 Assert.Equal(5, candidates.Count(candidate => candidate.Action.Kind == PioneerActionKind.Train));
                 Assert.Single(candidates, candidate => candidate.Action.Kind == PioneerActionKind.Rest);
                 var scenario = new PioneerScenario(loaded.Data);
@@ -66,23 +66,20 @@ public sealed class PioneerPacketImportTests
             var endingPacket = Path.Combine(directory, "ending.msgpack");
             File.WriteAllBytes(endingPacket, MessagePackSerializer.ConvertFromJson(response.ToJsonString()));
             var endingOutput = Path.Combine(directory, "ending");
-            Assert.Equal(0, Program.Main(["pioneer", "import", "--packet", endingPacket, "--endpoint", "/single_mode/check_event",
-                "--master", master.Path, "--output", endingOutput]));
+            Assert.Equal("completed", PioneerImport.Run(endingPacket, "/single_mode/check_event", null, master.Path, endingOutput).Status);
             var goal = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../examples/power-goal.json"));
             var recommendation = Path.Combine(directory, "recommendation.json");
-            Assert.Equal(0, Program.Main(["pioneer", "recommend", "--input", Path.Combine(endingOutput, "input.json"),
-                "--goal", goal, "--candidates", Path.Combine(endingOutput, "candidates.json"), "--seed", "71", "--samples", "3", "--workers", "4", "--output", recommendation]));
+            Assert.Equal("completed", PioneerRecommendation.Run(Path.Combine(endingOutput, "input.json"), goal,
+                Path.Combine(endingOutput, "candidates.json"), 71, 3, 4, recommendation).Status);
             var result = JsonNode.Parse(File.ReadAllBytes(recommendation))!["search"]!;
             Assert.Equal("completed", result["status"]!.GetValue<string>());
             Assert.Equal(ending["finish"]![0]!.GetValue<int>(), result["candidates"]![0]!["batch"]!["results"]![0]!["outcome"]!["attributes"]!["speed"]!.GetValue<int>());
-            Assert.Equal(2, Program.Main(["pioneer", "import", "--packet", endingPacket, "--endpoint", "/single_mode/check_event",
-                "--master", master.Path, "--output", endingOutput]));
+            Assert.Throws<InvalidDataException>(() => PioneerImport.Run(endingPacket, "/single_mode/check_event", null, master.Path, endingOutput));
 
             response["data"]!["unchecked_event_array"] = new JsonArray();
             File.WriteAllBytes(endingPacket, MessagePackSerializer.ConvertFromJson(response.ToJsonString()));
             var unknown = Path.Combine(directory, "unknown");
-            Assert.Equal(3, Program.Main(["pioneer", "import", "--packet", endingPacket, "--endpoint", "/single_mode/check_event",
-                "--master", master.Path, "--output", unknown]));
+            Assert.Equal("stopped", PioneerImport.Run(endingPacket, "/single_mode/check_event", null, master.Path, unknown).Status);
             Assert.False(File.Exists(Path.Combine(unknown, "input.json")));
             Assert.Equal("unknownMechanism", JsonNode.Parse(File.ReadAllBytes(Path.Combine(unknown, "import.json")))!["reason"]!.GetValue<string>());
             chara["scenario_id"] = 1;
@@ -96,8 +93,8 @@ public sealed class PioneerPacketImportTests
             {
                 File.WriteAllBytes(endingPacket, invalidPayloads[i]);
                 var invalid = Path.Combine(directory, $"invalid-{i}");
-                Assert.Equal(2, Program.Main(["pioneer", "import", "--packet", endingPacket, "--endpoint", i == 1 ? "/single_mode/load" : "/single_mode/check_event",
-                    "--master", master.Path, "--output", invalid]));
+                Assert.Throws<InvalidDataException>(() => PioneerTools.ImportPacket(endingPacket, i == 1 ? "/single_mode/load" : "/single_mode/check_event",
+                    invalid, default, masterPath: master.Path));
                 Assert.False(Directory.Exists(invalid));
             }
             Assert.Equal(masterHash, SHA256.HashData(File.ReadAllBytes(master.Path)));

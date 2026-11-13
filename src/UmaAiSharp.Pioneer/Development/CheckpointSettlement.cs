@@ -18,6 +18,7 @@ public sealed record CheckpointProgressSettlement(OrdinaryTrainingLevels Trainin
 
 public sealed class CheckpointSettlement(CheckpointMasterData master)
 {
+    internal CheckpointMasterData Master => master;
     public const string Version = "observed-checkpoint-resource-settlement-v1";
     public static FrozenDictionary<int, (int Type, int Result)> ObservedEventOutcomes { get; } =
         new Dictionary<int, (int, int)>
@@ -69,7 +70,12 @@ public sealed class CheckpointSettlement(CheckpointMasterData master)
         if ((before.DevelopmentPoints >= period.TargetPt) != (context.ResultState == 2))
             throw new UnknownMechanismException($"评审结果 {context.ResultState} 与发展 Pt={before.DevelopmentPoints}、目标={period.TargetPt} 不符合已观测关系；不自动改写结果。");
 
-        var bonus = master.PointBonuses[context.CheckpointType];
+        return SettleResources(period, before);
+    }
+
+    internal CheckpointResourceSettlement SettleResources(PlanningPeriod period, CheckpointResources before)
+    {
+        var bonus = master.PointBonuses[period.CheckPointType];
         var surplus = Math.Max(0, before.DevelopmentPoints - period.TargetPt);
         var recovery = (int)Math.Min(bonus.AddValueMax, (long)surplus * bonus.PtRate / 1000);
         var actualRecovery = Math.Min(recovery, before.MaxVital - before.Vital);

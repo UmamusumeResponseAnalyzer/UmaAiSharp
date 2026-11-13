@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.Json;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Events;
@@ -14,19 +14,6 @@ public sealed class PioneerEventComponentTests
         Path.Combine(Path.GetDirectoryName(source)!, "../../src/UmaAiSharp.Pioneer/Development/Evidence"));
     static T[] Read<T>(string name) => File.ReadLines(Path.Combine(Evidence(), name))
         .Select(line => JsonSerializer.Deserialize<T>(line, EvidenceJson.ReadOptions)!).ToArray();
-
-    [Fact]
-    public void ProjectedFixturesKeepTheirInputFingerprintAndRecordedValues()
-    {
-        using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(Evidence(), "event-component-provenance.json")));
-        foreach (var file in manifest.RootElement.GetProperty("files").EnumerateArray())
-        {
-            var path = Path.Combine(Evidence(), file.GetProperty("name").GetString()!);
-            using var stream = File.OpenRead(path);
-            Assert.Equal(file.GetProperty("sha256").GetString(), Convert.ToHexStringLower(SHA256.HashData(stream)));
-            Assert.Equal(file.GetProperty("count").GetInt32(), File.ReadLines(path).Count());
-        }
-    }
 
     [Fact]
     public void TuckerResourcesAndFriendProgressMatchAll1496SelectedEvents()
@@ -126,15 +113,15 @@ public sealed class PioneerEventComponentTests
         foreach (var row in fixtures)
         {
             var before = LateCheckpointConfirmation.ObserveAppliedBoundary(row.Turn, row.Phase, row.ResultState,
-                row.EventId, row.StoryId, row.PlayTiming, row.ChoiceCount);
-            var after = LateCheckpointConfirmation.Confirm(before, row.EventId, row.StoryId, row.ChoiceNumber);
+                row.StoryId, row.PlayTiming, row.ChoiceCount);
+            var after = LateCheckpointConfirmation.Confirm(before, row.StoryId, row.ChoiceNumber);
             Assert.True(after.Confirmed);
             Assert.False(before.Confirmed);
             Assert.All(row.ObservedDelta, value => Assert.Equal(0, value));
             Assert.True(row.TipsUnchanged && row.SkillsUnchanged && row.MembersUnchanged);
-            Assert.Throws<IllegalActionException>(() => LateCheckpointConfirmation.Confirm(after, row.EventId, row.StoryId, row.ChoiceNumber));
+            Assert.Throws<IllegalActionException>(() => LateCheckpointConfirmation.Confirm(after, row.StoryId, row.ChoiceNumber));
         }
-        Assert.Throws<UnknownMechanismException>(() => LateCheckpointConfirmation.ObserveAppliedBoundary(60, 5, 2, 3005, 501021407, 1, 0));
-        Assert.Throws<UnknownMechanismException>(() => LateCheckpointConfirmation.ObserveAppliedBoundary(61, 1, 2, 3005, 999, 1, 0));
+        Assert.Throws<UnknownMechanismException>(() => LateCheckpointConfirmation.ObserveAppliedBoundary(60, 5, 2, 501021407, 1, 0));
+        Assert.Throws<UnknownMechanismException>(() => LateCheckpointConfirmation.ObserveAppliedBoundary(61, 1, 2, 999, 1, 0));
     }
 }

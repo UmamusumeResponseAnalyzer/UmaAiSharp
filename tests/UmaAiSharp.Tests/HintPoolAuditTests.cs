@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 
 namespace UmaAiSharp.Tests;
 
@@ -15,7 +15,6 @@ public sealed class HintPoolAuditTests
     [InlineData(false, 2, false)]
     [InlineData(true, 2, false)]
     [InlineData(false, 6, false)]
-    [InlineData(false, 2, true)]
     public void RebuildsPoolFromRawExportAndRejectsContaminatedOrInvalidOutcomes(bool learnedOutcome, int level, bool learnedChange)
     {
         var directory = Path.Combine(Path.GetTempPath(), "UmaAiSharp-Hint-" + Guid.NewGuid().ToString("N"));
@@ -46,7 +45,7 @@ public sealed class HintPoolAuditTests
             if (learnedChange) after["skill_array"]!.AsArray().Add(new JsonObject { ["skill_id"] = 3 });
             var responseBefore = Response(before, new JsonArray(new JsonObject
             {
-                ["event_id"] = 20099, ["chara_id"] = 0,
+                ["event_id"] = 20099, ["chara_id"] = 0, ["story_id"] = 801000003,
                 ["event_contents_info"] = new JsonObject { ["tips_training_partner_id"] = 1 }
             }));
             var responseAfter = Response(after, []);

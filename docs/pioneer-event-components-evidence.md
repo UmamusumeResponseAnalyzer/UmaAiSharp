@@ -53,8 +53,15 @@
 - `late-checkpoint-confirmations.jsonl`：220行，其中9行标记混合评审边界。
 - `event-component-provenance.json`：五个归一化输入、研究文件、master、脚本及夹具SHA-256。
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence event-components --input artifacts/research/blockers/island-training/expansion-20261108/audit --fixtures src/UmaAiSharp.Pioneer/Development/Evidence --output artifacts/evidence/pioneer-event-components-new
+```json
+{
+  "name": "evidence_event_components",
+  "arguments": {
+    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
+    "fixturesDirectory": "src/UmaAiSharp.Pioneer/Development/Evidence",
+    "outputDirectory": "artifacts/evidence/pioneer-event-components-new"
+  }
+}
 ```
 
 `PioneerEventComponentAudit.Run(inputDirectory, fixtureDirectory, outputDirectory)`先核对完整输入与夹具指纹，再调用上述产品规则并记录逐条候选结果。输入不匹配不能按同名alias关联；输出目录非空时拒绝覆盖。`CandidateOnly`和退出3表示限定分量核验，不表示完整育成通过。

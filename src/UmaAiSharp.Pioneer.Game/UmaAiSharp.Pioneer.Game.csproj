@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../UmaAiSharp.Pioneer/UmaAiSharp.Pioneer.csproj" />
+    <InternalsVisibleTo Include="UmaAiSharp.MCP" />
+  </ItemGroup>
+</Project>

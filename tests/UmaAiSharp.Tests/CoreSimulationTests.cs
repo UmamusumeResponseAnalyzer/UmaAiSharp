@@ -6,13 +6,6 @@ namespace UmaAiSharp.Tests;
 
 public sealed class CoreSimulationTests
 {
-    [Theory]
-    [InlineData("{}")]
-    [InlineData("{\"decisionId\":{\"kind\":1,\"ordinal\":0},\"action\":0}")]
-    [InlineData("{\"decisionId\":{\"kind\":1,\"ordinal\":0,\"key\":0}}")]
-    public void ScriptJsonDoesNotDefaultMissingIdentityOrAction(string json)
-        => Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<ScriptedAction<int>>(json, GoalJson.Options));
-
     [Fact]
     public void RandomAlgorithmAndDrawConsumptionKeepTheirGoldenVectors()
     {

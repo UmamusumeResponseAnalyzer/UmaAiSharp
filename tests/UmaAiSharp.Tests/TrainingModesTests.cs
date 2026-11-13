@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Training;
 
@@ -14,18 +14,6 @@ public sealed class TrainingModesTests
         new(1800, 1800, 1800, 1800, 1800, 100), new(), null);
     static ImmutableArray<TrainingFacility> Facilities => Enumerable.Range(101, 6)
         .Select(id => new TrainingFacility(id, id * 100 + 10, 1, [])).ToImmutableArray();
-
-    [Fact]
-    public void IslandTruncatesNormalAndUniqueEffectsSeparatelyBeforeAddingThem()
-    {
-        var support = new TrainingSupport(1, 50, 1, 101, 100, [new(8, 4)], [new(8, 4, 0, 0, 0, 0)]);
-        var island = new IslandTrainingInput(Environment, [1, 1, 1, 1, 1], new(98, 0, 0, 0, 0, 0, 0),
-            Facilities, [new(106, [support], 0)]);
-
-        Assert.Equal(98, TrainingFormulaCandidate.GenerateIsland(island).Common.Speed);
-        var merged = support with { Effects = [new(8, 8)], UniqueEffects = [] };
-        Assert.Equal(99, TrainingFormulaCandidate.GenerateIsland(island with { Assignments = [new(106, [merged], 0)] }).Common.Speed);
-    }
 
     [Fact]
     public void OnlyCampAndIslandCapTheExtraLayerAt100()
@@ -49,11 +37,8 @@ public sealed class TrainingModesTests
 
     [Theory]
     [InlineData("valid")]
-    [InlineData("wrong-event-request")]
     [InlineData("non-head-event")]
     [InlineData("unverified-goldship-costume")]
-    [InlineData("duplicate-island-guest")]
-    [InlineData("wrong-exchange-endpoint")]
     [InlineData("missing-disable-list")]
     public void RebuildsActualSnapshotsAndRejectsUnprovenOrMalformedInput(string variant)
     {

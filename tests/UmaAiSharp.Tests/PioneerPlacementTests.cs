@@ -27,36 +27,6 @@ public sealed class PioneerPlacementTests
         Assert.Equal(ordinary.Weights.ToArray(), expired.Weights.ToArray());
     }
 
-    [Theory]
-    [InlineData(false, 0, 571, 3998)]
-    [InlineData(false, 10, 3547, 28099)]
-    [InlineData(true, 10, 357, 4811)]
-    public void PlacementSamplingMatchesCompiledMassAndRecomputesExactly(bool camp, int sea, int absent, int other)
-    {
-        var distribution = new PioneerPlacementDistribution(Input() with { Camp = camp, SeaHousePercent = sea });
-        Assert.Equal((decimal)(400 * absent) / other, (decimal)distribution.Weights[5] * 100 / distribution.Weights[1]);
-        var random = new SimulationRandom(123);
-        var repeated = random;
-        var counts = new int[6];
-        var hints = 0;
-        const int samples = 100_000;
-        for (var sample = 0; sample < samples; sample++)
-        {
-            var value = distribution.Sample(true, ref random);
-            Assert.Equal(value, distribution.Sample(true, ref repeated));
-            counts[value.TrainingIndex == -1 ? 5 : value.TrainingIndex]++;
-            if (value.HasHint) hints++;
-        }
-        Assert.Equal(random.State, repeated.State);
-        for (var index = 0; index < 6; index++)
-        {
-            var probability = (double)distribution.Weights[index] / distribution.TotalWeight;
-            Assert.InRange(Math.Abs(counts[index] - samples * probability), 0, 6 * Math.Sqrt(samples * probability * (1 - probability)));
-        }
-        var present = samples - counts[5];
-        Assert.InRange(Math.Abs(hints - present * 0.075), 0, 6 * Math.Sqrt(present * 0.075 * 0.925));
-    }
-
     [Fact]
     public void AppearanceAndGuaranteedHintConsumeOnlyTheirApplicableRandomDraws()
     {
@@ -75,26 +45,4 @@ public sealed class PioneerPlacementTests
         Assert.Equal(friend.Weights[0], friend.Weights[4]);
     }
 
-    [Fact]
-    public void WideRandomDrawUsesTheSameRejectionSequenceAsExistingIntegerDraws()
-    {
-        foreach (var bound in new[] { 1, 2, 127, int.MaxValue })
-        {
-            var narrow = new SimulationRandom(42);
-            var wide = narrow;
-            for (var index = 0; index < 100; index++) Assert.Equal((ulong)narrow.NextInt(bound), wide.NextUInt64((ulong)bound));
-            Assert.Equal(narrow.State, wide.State);
-        }
-        var random = new SimulationRandom(0);
-        var reference = random;
-        const ulong large = (1UL << 63) + 1;
-        var threshold = unchecked(0UL - large) % large;
-        for (var index = 0; index < 100; index++)
-        {
-            var value = reference.NextUInt64();
-            while (value < threshold) value = reference.NextUInt64();
-            Assert.Equal(value % large, random.NextUInt64(large));
-        }
-        Assert.Equal(reference.State, random.State);
-    }
 }

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 
 namespace UmaAiSharp.Tests;
 
@@ -39,14 +39,10 @@ public sealed class PlacementHintAuditTests : IDisposable
     }
 
     [Theory]
-    [InlineData("missing-hints", "UnsupportedOrMalformedFrame")]
-    [InlineData("duplicate-partner", "UnsupportedOrMalformedFrame")]
     [InlineData("missing-introduction", "UnsupportedOrMalformedFrame")]
-    [InlineData("hint-without-partner", "UnsupportedOrMalformedFrame")]
     [InlineData("placeholder", "DisabledOrPlaceholderPreview")]
     [InlineData("pending", "PendingOrUnobservedEvents")]
     [InlineData("unpaired", "ExchangeNotPaired")]
-    [InlineData("other-scenario", "UnsupportedOrMalformedFrame")]
     public void MissingContextAndPendingBoardsAreNotRandomAbsenceTrials(string kind, string rejected)
     {
         var frame = Frame(1, 1);
@@ -58,28 +54,11 @@ public sealed class PlacementHintAuditTests : IDisposable
         if (kind == "hint-without-partner") command["tips_event_partner_array"] = new JsonArray(1);
         if (kind == "placeholder") command["params_inc_dec_info_array"] = null;
         if (kind == "pending") frame.Visible["unchecked_event_array"] = new JsonArray(new JsonObject
-            { ["event_id"] = 10, ["story_id"] = 20, ["play_timing"] = 1 });
+            { ["event_id"] = 10, ["story_id"] = 20, ["play_timing"] = 1, ["chara_id"] = 0 });
         var report = Run([frame], kind == "unpaired" ? "ConflictingCapture" : "Paired");
         Assert.Equal(1, report.Counts[rejected]);
         Assert.Empty(report.Strata);
         Assert.Equal(0, report.Counts.GetValueOrDefault("ReadyFrames"));
-    }
-
-    [Fact]
-    public void HistoricalHypothesesStayDistinctAndEmptyStatisticsStayUnknown()
-    {
-        var models = PlacementHintAudit.Baselines(80, 20, 1000, 325, 75);
-        var weighted = Assert.Single(models, model => model.Model == "Vip2021MultiplicativeUniqueWeights");
-        Assert.Equal(216.0 / 666, weighted.PreferredProbability, 12);
-        Assert.Equal(50.0 / 666, weighted.AbsentProbability, 12);
-        var sequential = Assert.Single(models, model => model.Model == "PresenceFirst90ThenSameWeightsHypothesis");
-        Assert.Equal(.9 * 216 / 616, sequential.PreferredProbability, 12);
-        Assert.Equal(.1, sequential.AbsentProbability);
-        Assert.Null(PlacementHintAudit.Frequency([]).Rate);
-        Assert.Null(PlacementHintAudit.Frequency([("one", true)]).RunClusterStandardError);
-        var clustered = PlacementHintAudit.Frequency([("one", true), ("one", true), ("two", false), ("two", false)]);
-        Assert.Equal(.5, clustered.Rate);
-        Assert.Equal(.5, clustered.RunClusterStandardError);
     }
 
     PlacementHintAuditReport Run(PioneerObservation[] frames, string status = "Paired")

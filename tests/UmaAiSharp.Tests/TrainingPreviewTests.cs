@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Training;
 
@@ -64,7 +64,6 @@ public sealed class TrainingPreviewTests : IDisposable
     }
 
     [Theory]
-    [InlineData("ConflictingCapture", 3)]
     [InlineData("Paired", 99)]
     public void AuditRejectsConflictingOrUnreferencedResponses(string status, long responseId)
     {

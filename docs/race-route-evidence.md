@@ -46,8 +46,15 @@
 
 ## 复跑
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence race-route --input artifacts/evidence/local-audit-05 --master G:/DMM/Umamusume/umamusume_Data/Persistent/master/master.mdb --output artifacts/evidence/race-route-audit-next
+```json
+{
+  "name": "evidence_race_route",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "artifacts/evidence/race-route-audit-next"
+  }
+}
 ```
 
-退出码 3 表示生成了有界映射报告，比赛模拟尚未完成。测试覆盖条件目标切换、决赛组保留、不完整/异剧本/冲突输入，以及无效重复状态的明确拒绝。
+报告核验已选比赛目标与 master 的映射。测试覆盖条件目标切换、决赛组保留、不完整/异剧本/冲突输入，以及无效重复状态的明确拒绝。

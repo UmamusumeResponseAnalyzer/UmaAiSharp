@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Core.Goals;
 
 namespace UmaAiSharp.Pioneer.Scoring;
 
@@ -24,8 +25,7 @@ public static class ScoringCandidates
     {
         if (input.RunningStyleAptitudes.Length != 4 || input.DistanceAptitudes.Length != 4)
             throw new InvalidDataException("评分候选要求完整的4项脚质适性和4项距离适性。");
-        var attributes = checked(StatusToPoint(input.Speed) + StatusToPoint(input.Stamina)
-            + StatusToPoint(input.Power) + StatusToPoint(input.Guts) + StatusToPoint(input.Wisdom));
+        var attributes = AttributeScore(new(input.Speed, input.Stamina, input.Power, input.Guts, input.Wisdom));
         var skills = ImmutableArray.CreateBuilder<SkillScoreContribution>(input.Skills.Length);
         var skillScore = 0;
         foreach (var owned in input.Skills)
@@ -38,6 +38,9 @@ public static class ScoringCandidates
         }
         return new(attributes, skillScore, skills.MoveToImmutable());
     }
+
+    public static int AttributeScore(AttributeValues attributes) => checked(StatusToPoint(attributes.Speed) + StatusToPoint(attributes.Stamina)
+        + StatusToPoint(attributes.Power) + StatusToPoint(attributes.Guts) + StatusToPoint(attributes.Wisdom));
 
     public static int StatusToPoint(int status)
     {

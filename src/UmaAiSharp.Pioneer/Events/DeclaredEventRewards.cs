@@ -90,7 +90,7 @@ public sealed class DeclaredEventRewards
             throw new InvalidDataException("事件前态的属性、上限、体力、技能Pt或干劲无效。");
     }
 
-    static (int Value, int Overflow) Attribute(int before, int limit, int value)
+    internal static (int Value, int Overflow) Attribute(int before, int limit, int value)
     {
         // The over-1200 portion is halved with a one-point minimum, including a crossing action.
         var lower = Math.Min(value, Math.Max(0, 1200 - before));

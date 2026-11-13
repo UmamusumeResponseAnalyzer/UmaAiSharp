@@ -111,11 +111,20 @@
 ## 复跑与验证
 
 ```powershell
-dotnet build src/UmaAiSharp.Cli/UmaAiSharp.Cli.csproj --no-restore -m:1
-dotnet src/UmaAiSharp.Cli/bin/Debug/net10.0/UmaAiSharp.Cli.dll evidence placement-hint --input artifacts/evidence/local-audit-05 --master G:/DMM/Umamusume/umamusume_Data/Persistent/master/master.mdb --output artifacts/evidence/placement-hint-audit-next
 dotnet test tests/UmaAiSharp.Tests/UmaAiSharp.Tests.csproj --no-restore --filter FullyQualifiedName~PlacementHintAuditTests -m:1
 ```
 
-输出目录必须为空或不存在。`Status=DescriptiveEvidenceOnly`，CLI 返回 3 表示尚未认证随机生成模型，不表示本次解析失败。已通过 10 项测试，覆盖跨回合相同结果不去重、同回合冲突保留、未登场分层、缺字段、重复人员、Hint 不属于训练、占位预览、pending、冲突 exchange 和异剧本输入。全套 160 项测试记录在 `artifacts/validation/pioneer-research-final/integration.trx`。构建有 `NU1900` 漏洞源访问告警，未以此宣称依赖漏洞扫描完成。
+```json
+{
+  "name": "evidence_placement_hint",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "artifacts/evidence/placement-hint-audit-next"
+  }
+}
+```
 
-实现位置：[PlacementHintAudit.cs](../src/UmaAiSharp.Cli/PlacementHintAudit.cs)、[PlacementHintAuditTests.cs](../tests/UmaAiSharp.Tests/PlacementHintAuditTests.cs)。本模块未修改原始包或 master，未启动监听或游戏操作，未引入概率 fallback。
+输出目录须为新目录或空目录。`summary.validation` 为 `DescriptiveEvidenceOnly`，覆盖观察统计。已通过 10 项测试，覆盖跨回合相同结果不去重、同回合冲突保留、未登场分层、缺字段、重复人员、Hint 不属于训练、占位预览、pending、冲突 exchange 和异剧本输入。全套 160 项测试记录在 `artifacts/validation/pioneer-research-final/integration.trx`。构建有 `NU1900` 漏洞源访问告警，未以此宣称依赖漏洞扫描完成。
+
+实现位置：[PlacementHintAudit.cs](../src/UmaAiSharp.MCP/PlacementHintAudit.cs)、[PlacementHintAuditTests.cs](../tests/UmaAiSharp.Tests/PlacementHintAuditTests.cs)。本模块未修改原始包或 master，未启动监听或游戏操作，未引入概率 fallback。

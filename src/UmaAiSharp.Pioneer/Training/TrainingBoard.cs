@@ -4,6 +4,8 @@ namespace UmaAiSharp.Pioneer.Training;
 
 public readonly record struct TrainingPlacement(byte SupportMask, byte HintMask, byte GuestCount)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Director { get; init; }
     public int SupportCount => BitOperations.PopCount((uint)SupportMask);
 }
 

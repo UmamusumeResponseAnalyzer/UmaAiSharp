@@ -4,8 +4,14 @@
 
 ## 复核入口
 
-```powershell
-dotnet run --project src/UmaAiSharp.Cli -- evidence construction --input artifacts/evidence/local-audit-05 --output artifacts/evidence/construction-audit-new
+```json
+{
+  "name": "evidence_construction",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "outputDirectory": "artifacts/evidence/construction-audit-new"
+  }
+}
 ```
 
 输出目录必须为空或不存在。工具读取 `audit.json`、`master-rows.jsonl`、`pioneer-observations.jsonl`、`pioneer-actions.jsonl` 和 `exchanges.jsonl`；复用归一化器的 load/start/finish 路由，不从邻近回合补齐缺字段。输出包括：
@@ -16,7 +22,7 @@ dotnet run --project src/UmaAiSharp.Cli -- evidence construction --input artifac
 - `construction-triggers.jsonl`：建设事件首次出现在响应数组时的 Pt、阈值计数与 `last_gain_rights_num`。
 - `construction-component-changes.jsonl`：同局相邻可读观测中，设施、券数量或券字段是否给出数值的变化；保留来源记录和请求对应情况。字段不出现不解释成 0 张券。
 
-退出码 3 表示候选核验已完成但完整机制尚未实现；它不等于运行失败，也不认证完整模拟器。
+建设分量的核验结论见工具结果的 `summary.validation`。
 
 ## 已核验的数据和局部分量
 

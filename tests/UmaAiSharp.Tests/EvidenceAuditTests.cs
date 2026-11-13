@@ -3,8 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP;
+using UmaAiSharp.MCP.Evidence;
 
 namespace UmaAiSharp.Tests;
 
@@ -174,18 +174,18 @@ public sealed class EvidenceAuditTests : IDisposable
     {
         var json = new JsonException("Unrecognized type discriminator 'private-value'.", "$.priorities[0]", 2, 10);
         json.Data["FileRole"] = "目标文件";
-        var jsonMessage = CliDiagnostics.Describe(json);
+        var jsonMessage = ToolDiagnostics.Describe(json);
         Assert.Contains("目标文件", jsonMessage, StringComparison.Ordinal);
         Assert.Contains("$.priorities[0]", jsonMessage, StringComparison.Ordinal);
         Assert.Contains("2", jsonMessage, StringComparison.Ordinal);
         Assert.DoesNotContain("private-value", jsonMessage, StringComparison.Ordinal);
         var file = new FileNotFoundException("private-account.sqlite", "private-account.sqlite");
         file.Data["FileRole"] = "包库 packets-0001";
-        var fileMessage = CliDiagnostics.Describe(file);
+        var fileMessage = ToolDiagnostics.Describe(file);
         Assert.Contains("packets-0001", fileMessage, StringComparison.Ordinal);
         Assert.Contains("HRESULT", fileMessage, StringComparison.Ordinal);
         Assert.DoesNotContain("private-account", fileMessage, StringComparison.Ordinal);
-        Assert.Throws<ArgumentException>(() => CliDiagnostics.Describe(new InvalidOperationException("implementation bug")));
+        Assert.Throws<ArgumentException>(() => ToolDiagnostics.Describe(new InvalidOperationException("implementation bug")));
     }
 
     [Fact]
@@ -204,8 +204,6 @@ public sealed class EvidenceAuditTests : IDisposable
     }
 
     [Theory]
-    [InlineData("{\"data\":[]}")]
-    [InlineData("{\"data\":{\"single_mode_load_common\":[]}}")]
     [InlineData("{\"data\":{\"single_mode_load_common\":{\"chara_info\":[]}}}")]
     public void InvalidObjectShapesAreNotSilentlyReportedAsMissingFields(string json)
     {

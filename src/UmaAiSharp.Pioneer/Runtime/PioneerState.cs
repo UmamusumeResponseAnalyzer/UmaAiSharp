@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using UmaAiSharp.Core.Goals;
+using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Runtime;
@@ -9,11 +10,11 @@ public enum PioneerStateSection
     SupportBonds, IslandSupportFacilities, FacilityStates, FacilityGuests, TrainingLevels,
     CharacterEffects, HintCandidates, PendingStories, Thresholds, ConstructionSteps,
     TemporaryGrants, ProjectMembers, AddedProjectNpcs, TrainingExecutionCounts, SuccessfulOrdinaryTrainingCounts,
-    PartnerEvaluations,
+    PartnerEvaluations, CheckpointResults, InheritanceAptitudes, HintLevels, StoryHistory, CareerRaceCounts,
 }
 
 [InlineArray(SectionLengths.Count)]
-internal struct SectionLengths { public const int Count = 16; int first; }
+internal struct SectionLengths { public const int Count = 21; int first; }
 
 public struct PioneerStateHeader
 {
@@ -32,20 +33,31 @@ public struct PioneerStateHeader
     public int CompletedCheckpoint, CheckpointResult, CheckpointBonusPercent;
     public bool HasCheckpointBonus, OutingUnlocked, DisplayConfirmed, HasCharm, HasAttention;
     public int TuckerBond, TuckerStoryStep, DirectorBond;
+    public int ProjectNpcCount, EvaluationTrainingPercent, CompletedUraRaces;
+    public int CompletedInheritances;
+    public int FailedCareerGoal;
+    internal int RaceGrade;
+    internal PioneerOrdinaryStoryProgress OrdinaryStories;
+    internal int TraineeStoryMask;
+    public bool DeferredConstruction, PioneerCompleted;
+    public int UnseenFriendMask, UnlockedFriendMask, FriendOutings;
     public long FutureGainedSkillPoints;
     public AttributeValues FutureOverflow;
     public bool TrainingSucceeded;
+    internal bool TrainingFailureIllness;
     public int EventRewardResourceMask, EventRewardRemainingEffects;
     public TrainingBoard TrainingBoard;
+    public PioneerIslandBoard IslandBoard;
     public int AvailableTrainingCommands;
     public int? AvailableRestCommands;
-    public int? PendingTrainingLevelEventId;
+    public int? PendingTrainingLevelCommandId;
 }
 
 // One owner, one contiguous variable-length buffer. No mutable references are shared by copies.
 public sealed class PioneerState
 {
     internal PioneerStateHeader Mutable;
+    internal PioneerBoardRules? TurnBoard;
     SectionLengths lengths;
     int[] buffer;
     int used;
@@ -56,7 +68,8 @@ public sealed class PioneerState
     public int BufferCapacityIntegers => buffer.Length;
     public long MutablePayloadBytes => Unsafe.SizeOf<PioneerStateHeader>() + Unsafe.SizeOf<SectionLengths>() + 4L * used;
     // Includes a conservative allowance for this object and the array object on the supported runtime.
-    public long WorkspaceBytes => Unsafe.SizeOf<PioneerStateHeader>() + Unsafe.SizeOf<SectionLengths>() + 4L * buffer.Length + 128;
+    public long WorkspaceBytes => Unsafe.SizeOf<PioneerStateHeader>() + Unsafe.SizeOf<SectionLengths>() + 4L * buffer.Length + 128
+        + (Data.TurnRules is null ? 0 : PioneerTurnRules.BoardWorkspaceBytes);
 
     internal PioneerState(PioneerRuntimeData data, int capacity)
     {
@@ -88,6 +101,18 @@ public sealed class PioneerState
     internal Span<int> MutableSection(PioneerStateSection section)
         => buffer.AsSpan(Offset((int)section), lengths[(int)section]);
 
+    internal const int StoryOccurrenceSize = 10;
+    internal void RecordStory(PioneerStoryOccurrence story)
+    {
+        // StoryHistory is the final section, so append without shifting other state.
+        EnsureCapacity(checked(used + StoryOccurrenceSize));
+        Span<int> values = [story.StoryId, story.Turn, story.Phase, story.PlayTiming, story.CharacterId,
+            story.SupportCardId, story.PartnerId, story.ChoiceNumber, story.ProgressStage, story.ProgressLength];
+        values.CopyTo(buffer.AsSpan(used));
+        lengths[(int)PioneerStateSection.StoryHistory] += StoryOccurrenceSize;
+        used += StoryOccurrenceSize;
+    }
+
     internal void RemoveCharacterEffect(int effect)
     {
         var effects = MutableSection(PioneerStateSection.CharacterEffects);
@@ -108,6 +133,40 @@ public sealed class PioneerState
         used += grants.Length;
     }
 
+    internal void AppendGrants(ReadOnlySpan<TemporarySupportGrant> grants)
+    {
+        Span<int> packed = stackalloc int[grants.Length * 6];
+        for (var i = 0; i < grants.Length; i++)
+        {
+            var grant = grants[i];
+            var offset = i * 6;
+            packed[offset] = grant.SourceTurn; packed[offset + 1] = (int)grant.Source;
+            packed[offset + 2] = grant.StoryId ?? 0; packed[offset + 3] = grant.Position;
+            packed[offset + 4] = grant.EffectType; packed[offset + 5] = grant.Value;
+        }
+        AppendGrants(packed);
+    }
+
+    internal void AddCharacterEffect(int effect)
+    {
+        var current = GetSection(PioneerStateSection.CharacterEffects);
+        if (current.Contains(effect)) return;
+        Span<int> updated = stackalloc int[current.Length + 1];
+        current.CopyTo(updated);
+        updated[^1] = effect;
+        SetSection(PioneerStateSection.CharacterEffects, updated);
+    }
+
+    internal void ExpireGrants(int turn)
+    {
+        var grants = MutableSection(PioneerStateSection.TemporaryGrants);
+        var offset = 0;
+        while (offset < grants.Length && grants[offset] < turn - 1) offset += 6;
+        if (offset == 0) return;
+        grants[offset..].CopyTo(grants);
+        SetSection(PioneerStateSection.TemporaryGrants, grants[..(grants.Length - offset)]);
+    }
+
     public void CopyInto(PioneerState destination)
     {
         if (!ReferenceEquals(Data, destination.Data))
@@ -118,6 +177,7 @@ public sealed class PioneerState
         destination.used = used;
         destination.lengths = lengths;
         destination.Mutable = Mutable;
+        destination.TurnBoard = TurnBoard;
     }
 
     public PioneerState Clone()

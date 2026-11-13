@@ -1,13 +1,19 @@
 # 事件基础资源模型
 
-`pioneer event-model`从已配对的事件窗口和奖励声明中提取基础资源样本，按事件所属支援的卡面／固有加成进行分解。`pioneer model --events`将这些资源样本绑定到经验转移；未来执行按当前卡片和羁绊重算已校准资源，未解析后果单独保留为经验分量。
+`pioneer_calibrate_events`从已配对的事件窗口和奖励声明中提取基础资源样本，按事件所属支援的卡面／固有加成进行分解。`pioneer_build_model`将这些资源样本绑定到经验转移；未来执行按当前卡片和羁绊重算已校准资源，未解析后果单独保留为经验分量。
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Release/net10.0/UmaAiSharp.Cli.dll pioneer event-model `
-  --events <event-transitions.jsonl> --model <源model.json> --output <新报告.json>
+```json
+{
+  "name": "pioneer_calibrate_events",
+  "arguments": {
+    "eventsPath": "<event-transitions.jsonl>",
+    "modelPath": "<源model.json>",
+    "outputPath": "<新报告.json>"
+  }
+}
 ```
 
-`--events`是已有事件研究的请求／响应窗口文件；`--model`用于关联已接受育成的来源、支援身份和等级。两项均只读。输出记录两项输入的哈希、master身份、样本、排除原因及未匹配窗口。
+`eventsPath`是已有事件研究的请求／响应窗口文件；`modelPath`用于关联已接受育成的来源、支援身份和等级。两项均只读。输出记录两项输入的哈希、master身份、样本、排除原因及未匹配窗口。
 
 ## 分解和抽样
 
@@ -17,7 +23,7 @@ dotnet src/UmaAiSharp.Cli/bin/Release/net10.0/UmaAiSharp.Cli.dll pioneer event-m
 
 奖励声明保留封顶前的奖励。先用现有精确事件资源核比对当前选择的结果，只有资源投影唯一匹配的声明参与统计；封顶导致多个不同声明都匹配时排除。未解析奖励原子放入`RemainingEffects`，不会据此宣布完整事件完成。
 
-查询先选择同一故事、同一条件的样本；没有样本时，使用用户授权的同类模型。条件包括所属类型、普通支援得意训练、事件编号、触发时机、年份、master显示进度及选项。输出`usesFamilyEstimate`区分两条路径，并记录样本数和育成数。两条路径都排除调用方指定的整局。
+奖励查询匹配故事、所属类型、普通支援得意训练、触发时机、年份、master 显示进度及选项，并排除指定的整局。同一故事可合并使用不同协议号的样本。协议号保留在配对证据里。缺少匹配故事时报告缺样本。
 
 同类模型是统计推断。显示进度不是完整隐藏历史，接受样本还受玩家选项和资源投影可辨识性影响；得到的频数不能宣称为无偏游戏概率。无可用同类样本时明确失败，不创建零奖励或均匀分支。
 

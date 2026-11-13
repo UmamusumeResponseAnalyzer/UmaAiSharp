@@ -1,27 +1,42 @@
 # 条件经验预测
 
-`pioneer model` 将规范化实包和事件基础资源编译为离线转移模型。`pioneer recommend --model` 从抓包前缀恢复当前决策，比较合法根候选，执行到角色结局后按目标排序。预测期间不读取输入响应之后的抓包。
+`pioneer_build_model` 将规范化实包和事件基础资源编译为离线转移模型。`pioneer_forecast` 从抓包前缀恢复当前决策，比较合法根候选，执行到角色结局后按目标排序。预测期间不读取输入响应之后的抓包。
 
 该入口采用本轮授权的条件经验模型。它是可运行的预测基线，完整 Pioneer 机制模拟器的验收仍未完成。
 
 ## 使用
 
-先用 `evidence audit` 生成包含 `exchanges.jsonl`、`pioneer-actions.jsonl`、`pioneer-observations.jsonl` 的证据目录，再编译模型：
+先用 `evidence_audit` 生成包含 `exchanges.jsonl`、`pioneer-actions.jsonl`、`pioneer-observations.jsonl` 的证据目录，再编译模型：
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Release/net10.0/UmaAiSharp.Cli.dll pioneer model `
-  --evidence <规范化证据目录> --events <event-transitions.jsonl> `
-  --master <master.mdb> --output <新模型目录>
+```json
+{
+  "name": "pioneer_build_model",
+  "arguments": {
+    "evidenceDirectory": "<规范化证据目录>",
+    "eventsPath": "<event-transitions.jsonl>",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "<新模型目录>"
+  }
+}
 ```
 
 输出 `model.json` 和 `build.json`，后者记录材料哈希、纳入局数、配置覆盖及排除原因。模型和推荐使用同一份 master；此校验仅保证本地解释一致，不宣称 master 与服务器资源版本严格匹配。
 
-```powershell
-dotnet src/UmaAiSharp.Cli/bin/Release/net10.0/UmaAiSharp.Cli.dll pioneer recommend `
-  --packets <DebugSaveAllPackets抓包.sqlite> --packet-id <当前响应编号> `
-  --master <master.mdb> --model <模型目录/model.json> `
-  --goal examples/stamina-curve-goal.json --seed 12345 --samples 65 --workers 4 `
-  --output <新推荐报告.json>
+```json
+{
+  "name": "pioneer_forecast",
+  "arguments": {
+    "capturePath": "<DebugSaveAllPackets抓包.sqlite>",
+    "packetId": "<当前响应编号>",
+    "masterPath": "<master.mdb>",
+    "modelPath": "<模型目录/model.json>",
+    "goalPath": "examples/stamina-curve-goal.json",
+    "seed": "12345",
+    "samples": 65,
+    "workers": 4,
+    "outputPath": "<新推荐报告.json>"
+  }
+}
 ```
 
 输入须保有可关联的本局开局前缀。支持状态1的行动面板、状态35的建设规划，以及单个待处理事件；`get_choice_reward`响应可关联到当前事件状态。多个同时待处理事件的选择顺序尚未接入。
@@ -41,7 +56,7 @@ dotnet src/UmaAiSharp.Cli/bin/Release/net10.0/UmaAiSharp.Cli.dll pioneer recomme
 | 样本选择 | 先选回合距离最小的观测，再比较归一化整数状态距离和已发生故事集合距离；仅在最小距离并列时均匀抽样 |
 | 本局排除 | 从可选转移和距离缩放统计中排除输入状态所属的整局，不使用其未来记录作为预测材料 |
 | 训练收益 | 当前回合使用已揭示面板；未来参与位置来自条件观测，卡片、角色成长和规划期采用当前配置。以模拟中的属性、上限、羁绊、等级、干劲、粉丝及设施重新调用精确训练核，并替换来源训练分量；发展Pt和羁绊也重新结算 |
-| 训练成败 | 按 master 中当前训练等级的系数及已接入效果计算显示失败率，用规则随机流抽样。缺少对应成败分支时停止，不把未观察到失败解释成概率零 |
+| 训练成败 | 按 master 中当前训练等级的系数及已接入效果计算显示失败率，用规则随机流抽样。普通与合宿各有一条完整的耐力失败记录。经验预测借用同模式的已见选项1，增加当前训练的执行次数，扣当前主属性5、干劲1，按当前状态应用下限和正向思考。后续从当前训练的经验调度继续，跳过成功才会触发的提示与升级。没有兼容样本时保留停止 |
 | 休息 | 已接入的普通休息事件回复及合宿回复／干劲，按当前体力上限重新结算 |
 | 事件资源 | 4,900条已识别奖励绑定按目标卡位、当前羁绊重新缩放；替换资源净增量并按当前上限截断。当前单结果奖励声明优先；其他原子、事件时机和连续进度保留经验成分 |
 | 岛训练 | 当前卡组、成长、资源、羁绊与设施参与生成收益，扣除当前券并重算发展Pt和羁绊；未来人员分组与未解释临时效果来自经验转移 |
@@ -53,6 +68,8 @@ dotnet src/UmaAiSharp.Cli/bin/Release/net10.0/UmaAiSharp.Cli.dll pioneer recomme
 | 终局 | 仅在模拟自己的回合到达 78，并执行模型中的角色结局确认时生成终局指标 |
 
 模型保留逐行动窗口及其来源，不将整局最终属性覆盖到预测状态。故事历史使用已出现故事集合，支援连续事件进度另由观测字段记录；重复故事的完整顺序、全部隐含条件尚未建模。稀疏 Pioneer 字段保留最近一次明确观测，缺失的标量使用未知标记；基础必需字段未知时拒绝起点。
+
+训练失败迁移只用于 `pioneer_forecast`。其他训练项目、选项概率、失败后未满羁绊的变化以及临界属性的实际扣减仍需新实包核对。两条来源记录见[训练失败原包窗口](training-failure-evidence.md#两个原包窗口)。
 
 非训练事件的属性增量可能已经经过 1200 换算和封顶，不能据此恢复未截断原始奖励。预测结果的 `futureOverflow` 为 `null`，此入口明确拒绝 `overflow` 目标；已有严格执行入口和离线评价器继续支持该指标。
 
@@ -68,10 +85,18 @@ dotnet src/UmaAiSharp.Cli/bin/Release/net10.0/UmaAiSharp.Cli.dll pioneer recomme
 
 测试覆盖精确训练分量替换、1200跨越、封顶、羁绊、发展Pt、事件历史、输入局排除、停止前状态不变、取消、分叉和工作区复用。合成的事件选择→当前卡组训练→已校准事件→终局链以每候选2,049样本核对1／4／16／32 worker的逐样本终局、停止和双RNG。真实起点、跨角色材料裁剪、建设批次及未通过案例分别见[整链报告](../artifacts/implementation/forecast-integration-01/REPORT.md)。
 
+## 整局留出验收
+
+用两份既有抓包按整局哈希选出8局，从建模观察、动作、配对和事件校准材料中移除。用 MCP 的 `pioneer_build_model` 重新编译其余195局、63,549个转移和4,710条事件资源绑定，再核对模型没有这8局的转移或奖励绑定。[留出清单](../artifacts/implementation/pioneer-whole-run/holdout-input/selection.json) · [模型清单](../artifacts/implementation/pioneer-whole-run/holdout-model/build.json)
+
+每局的输入SQLite截在第1回合首个可行动响应。经真实 stdio 调用 `pioneer_forecast`，8局均给出建议，3,640条轨迹均在第78回合完成角色结局。同一真实起点以1个和4个 worker 执行，逐样本结果及两条随机流末态一致。[执行结果](../artifacts/implementation/pioneer-whole-run/acceptance-v2/results.json)
+
+目标要求耐力与智力均大于1201。8局的建议均为模拟样本中的最小平均条件缺口，模拟没有联合达标样本；实包有4局达标。只取实包首动作相同的候选，速度、耐力、力量、根性、智力的终局预测均值绝对误差分别约136、89、126、85、320点。实包此后的行动由玩家选择，预测由经验策略选择；此对照同时反映了后续策略差异和模型误差，无法据此验证建议的行动排序或达标概率。[实包终局对照](../artifacts/implementation/pioneer-whole-run/acceptance-v2/terminal-comparison.json)
+
 ## 尚未完成
 
-完整机制状态机、独立数据上的预测误差及行动排序质量验收仍未完成。相同配置的样本很少，一局参照产生的重复预测不能解释成高置信度。当前原始材料此前已用于研究，本轮排除输入局的流程不等于建立了独立验收集。
+上述8局从本次建模整局留出，原始抓包此前参与项目研究。行动排序、概率校准和全新抓包上的整局验收仍待完成。相同配置的样本很少，重复的终局输出无法提供独立样本量。
 
-设施／评审变化与事件调度、人员刷新之间的完整因果关系，完整继承和事件隐含条件、比赛结果生成、未观察到的失败后果，仍属于完整模拟器核心缺口。跨角色的增长倍率和跨卡的数值效果可以重算，但经验时机与专属故事迁移尚未获得游戏概率校准。此入口的经验后续不能作为自动操作脚本。
+设施／评审变化与事件调度、人员刷新之间的完整因果关系，完整继承和事件隐含条件、比赛结果生成、未观察到的失败后果，仍属于完整模拟器核心缺口。模型取材于观察到角色结局的育成，真实目标失败、重赛和提前终止缺少完整实包，当前经验概率未计入这些路径。跨角色的增长倍率和跨卡的数值效果可以重算，但经验时机与专属故事迁移尚未获得游戏概率校准。此入口的经验后续不能作为自动操作脚本。
 
 神经模型、在线推荐插件、自动操作、最优购技、其他剧本及全树搜索继续延期。

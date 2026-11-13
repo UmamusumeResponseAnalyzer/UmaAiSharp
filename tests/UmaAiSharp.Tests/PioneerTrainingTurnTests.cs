@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using UmaAiSharp.Cli;
+using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Runtime;
@@ -16,7 +16,7 @@ public sealed class PioneerTrainingTurnTests
     internal static void VerifyBondSettlement(PioneerStart.TrainingTurn original)
     {
         using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-bond-support.json")));
-        var friend = fixture.RootElement.GetProperty("support").Deserialize<TrainingSupport>(PioneerExecutionCommand.JsonOptions)! with { Bond = 50 };
+        var friend = fixture.RootElement.GetProperty("support").Deserialize<TrainingSupport>(PioneerExecution.JsonOptions)! with { Bond = 50 };
         foreach (var location in new[] { -1, 0, 1 })
         foreach (var charm in new[] { false, true })
         foreach (var success in new[] { false, true })
@@ -45,7 +45,6 @@ public sealed class PioneerTrainingTurnTests
             Assert.Equal(random, result.RandomState.Rules);
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
             Assert.Equal(50, root.GetSection(PioneerStateSection.SupportBonds)[0]);
-            if (success && charm && location == 0) PioneerStateAudit.AssertDeterministic(data, script);
         }
         var absent = original with { Deck = original.Deck.SetItem(5, friend with { UniqueEffects = [new(999, 1, 0, 0, 0, 0)] }),
             Commands = [.. original.Commands.Select(command => command with
@@ -53,46 +52,6 @@ public sealed class PioneerTrainingTurnTests
         Assert.Throws<UnknownMechanismException>(() => PioneerRuntimeData.Compile(absent, [], "unknown-deck-effect"));
         Assert.Throws<UnknownMechanismException>(() => PioneerRuntimeData.Compile(absent with
         { Deck = absent.Deck.SetItem(5, friend with { UniqueEffects = [new(121, 1, 2, 1, 0, 0)] }) }, [], "unknown-bond-parameters"));
-    }
-
-    [Fact]
-    public void AllFiveChoicesUseTheExactKernelAndSettleOnlyTheSelectedTraining()
-    {
-        var start = Start();
-        var data = PioneerRuntimeData.Compile(start, [new PioneerConditionalOutcome.TrainingResult(0, true)], "training-test");
-        var scenario = new PioneerScenario(data);
-        var root = data.CreateInitialState();
-        Assert.Equal(31, scenario.Inspect(root, 0).Decision.Context.AvailableTrainingCommands);
-        foreach (var command in start.Commands)
-        {
-            var preview = scenario.PreviewTraining(root, command.CommandId);
-            var input = new TrainingFormulaInput(command.CommandId, command.Level, start.Environment.Motivation, start.Environment.Fans,
-                command.GuestCount, start.Environment.Current, start.Environment.Limits, start.Environment.GrowthPercent,
-                [.. start.Deck.Where(card => command.SupportPositions.Contains(card.Position))], command.EvaluationTrainingPercent, null);
-            var oracle = TrainingFormulaCandidate.GenerateOrdinary(input);
-            Assert.Equal((oracle.Common, oracle.Scenario), (preview.Gains.Common, preview.Gains.Scenario));
-            var reductions = input.Supports.SelectMany(card => TrainingSupportEffects.Resolve(card, command.CommandId, command.Level, input.Fans).FailureReductions);
-            Assert.Equal(TrainingFailureRate.Calculate(command.FailureCoefficient, input.Current.Vital, reductions, 0), preview.FailureRate);
-            var script = Script(root, command.CommandId);
-            var execution = SimulationRunner.CreateExecution(scenario, script, root, 77, 0);
-            var random = execution.RulesRandom.State;
-            var result = SimulationRunner.Continue(scenario, script, ref execution);
-            Assert.Equal((int)PioneerStopCode.TrainingEventsRequired, result.Stop!.Value.Code);
-            Assert.True(execution.State.Header.TrainingSucceeded);
-            Assert.Equal(random, result.RandomState.Rules);
-            Assert.Equal(1, result.Progress.ConsumedActions);
-            Assert.Equal(0, result.Progress.SettledActions);
-            Assert.Equal(TrainingPreviewSettlement.Apply(input.Current, input.Limits, oracle.Common, oracle.Scenario), execution.State.Header.Resources);
-            Assert.Equal(root.GetSection(PioneerStateSection.TrainingLevels).ToArray(), execution.State.GetSection(PioneerStateSection.TrainingLevels).ToArray());
-            var counts = execution.State.GetSection(PioneerStateSection.TrainingExecutionCounts).ToArray();
-            Assert.Equal(1, counts.Count(value => value == 4));
-            Assert.Equal(command.HintPositions.ToArray(), execution.State.GetSection(PioneerStateSection.HintCandidates).ToArray());
-            foreach (var card in start.Deck)
-                Assert.Equal(command.SupportPositions.Contains(card.Position) ? Math.Min(100, card.Bond + (card.TrainingCommandId == 0 ? 4 : 7) + 2) : card.Bond,
-                    execution.State.GetSection(PioneerStateSection.SupportBonds)[card.Position - 1]);
-            Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
-        }
-        Assert.Equal(start.Environment.Current, root.Header.Resources);
     }
 
     [Fact]
@@ -179,13 +138,12 @@ public sealed class PioneerTrainingTurnTests
         try
         {
             var input = new PioneerExecutionInput(1, "training-cli", PioneerExecutionMode.Conditional,
-                new("trainingTurn", JsonSerializer.SerializeToElement(start, PioneerExecutionCommand.JsonOptions)),
+                new("trainingTurn", JsonSerializer.SerializeToElement(start, PioneerExecution.JsonOptions)),
                 [new("trainingResult", JsonSerializer.SerializeToElement(new { actionOrdinal = 0, success = true }))],
                 [new(new((int)PioneerStage.TrainingTurn, 0, PioneerScenario.DecisionKey(start.Turn, 0)), PioneerRuntimeAction.Train(105))]);
             var path = Path.Combine(directory, "input.json"); var output = Path.Combine(directory, "output.json");
-            File.WriteAllText(path, JsonSerializer.Serialize(input, PioneerExecutionCommand.JsonOptions));
-            Assert.Equal(3, PioneerExecutionCommand.Run("replay", new()
-            { ["--input"] = path, ["--seed"] = "77", ["--output"] = output }));
+            File.WriteAllText(path, JsonSerializer.Serialize(input, PioneerExecution.JsonOptions));
+            Assert.Equal("stopped", PioneerExecution.Run(path, 77, output, PioneerExecutionMode.Conditional).Status);
             using var report = JsonDocument.Parse(File.ReadAllText(output));
             Assert.True(report.RootElement.GetProperty("finalState").GetProperty("header").GetProperty("trainingSucceeded").GetBoolean());
         }

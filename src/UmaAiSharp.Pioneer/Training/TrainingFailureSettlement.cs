@@ -23,10 +23,10 @@ public static class TrainingFailureSettlement
             throw new InvalidDataException("失败前的回合、资源或执行次数无效。");
         if (supportBonds.Length != 6 || supportBonds.ContainsAnyExcept(100))
             throw new UnknownMechanismException("已见失败的六张支援均满羁绊；未满羁绊的失败后果尚未核验。");
-        var supported = (before.CardId, commandId, failure.EventId, failure.CharacterId, failure.StoryId, failure.PlayTiming) switch
+        var supported = (before.CardId, commandId, failure.CharacterId, failure.StoryId, failure.PlayTiming) switch
         {
-            (104501, 3602, 211087, 0, 400011112, 6) => true,
-            (104503, 105, 7043, 1045, 501045713, 6) => true,
+            (104501, 3602, 0, 400011112, 6) => true,
+            (104503, 105, 1045, 501045713, 6) => true,
             _ => false
         };
         if (!supported) throw new UnknownMechanismException("该角色、训练与失败事件组合未核验；不推测失败事件选择规则。");

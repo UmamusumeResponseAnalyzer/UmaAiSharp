@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <ProjectReference Include="../../src/UmaAiSharp.Pioneer.Game/UmaAiSharp.Pioneer.Game.csproj" />
+    <Compile Include="../../src/UmaAiSharp.MCP/PioneerMasterReader.cs" Link="PioneerMasterReader.cs" />
+  </ItemGroup>
+</Project>

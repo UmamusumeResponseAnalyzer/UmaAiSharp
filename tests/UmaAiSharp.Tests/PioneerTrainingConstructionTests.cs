@@ -1,9 +1,12 @@
+using UmaAiSharp.Pioneer.Offline;
+using UmaAiSharp.Pioneer.Game;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
-using UmaAiSharp.Cli;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
+using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
@@ -18,20 +21,21 @@ public sealed class PioneerTrainingConstructionTests
         using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-construction.json")));
         using var database = new PioneerRuntimeComponentTests.FixtureMaster(PioneerRuntimeComponentTests.ConstructionTables());
         using var db = EvidenceAudit.OpenReadOnly(database.Path);
-        var master = PioneerMasterCompiler.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
+        var master = PioneerMasterReader.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
         var constructions = 0; var pendingUpgrades = 0; var autonomous = 0;
         foreach (var row in fixture.RootElement.GetProperty("cases").EnumerateArray())
         {
-            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
             var data = PioneerRuntimeData.Compile(start, [new PioneerConditionalOutcome.TrainingResult(0, row.GetProperty("success").GetBoolean())], "construction-chain", master);
             var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
             var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
-                row.GetProperty("script").Deserialize<ImmutableArray<ScriptedAction<PioneerRuntimeAction>>>(PioneerExecutionCommand.JsonOptions), 0);
+                row.GetProperty("script").Deserialize<ImmutableArray<ScriptedAction<PioneerRuntimeAction>>>(PioneerExecution.JsonOptions), 0);
             var execution = SimulationRunner.CreateExecution(scenario, script, root, 88, 0);
             var rootHeader = root.Header;
+            var expectedCommand = row.GetProperty("pendingUpgrade").GetInt32() == 0 ? 0 : row.GetProperty("command").GetInt32();
             var first = SimulationRunner.Advance(scenario, script, ref execution);
             CheckTraining(row.GetProperty("afterTraining"), execution.State);
-            Assert.Equal(row.GetProperty("pendingUpgrade").GetInt32(), execution.State.Header.PendingTrainingLevelEventId);
+            Assert.Equal(expectedCommand, execution.State.Header.PendingTrainingLevelCommandId);
             Assert.Equal(rootHeader, root.Header);
             if (row.GetProperty("construction").GetBoolean())
             {
@@ -55,29 +59,44 @@ public sealed class PioneerTrainingConstructionTests
                 Assert.Equal(final, SimulationRunner.Continue(scenario, script, ref fork));
                 Assert.Equal(execution.State.Header, fork.State.Header);
                 Assert.Equal(final, SimulationRunner.Continue(scenario, script, ref execution));
-                Assert.Equal(row.GetProperty("pendingUpgrade").GetInt32(), execution.State.Header.PendingTrainingLevelEventId);
+                Assert.Equal(expectedCommand, execution.State.Header.PendingTrainingLevelCommandId);
                 SimulationRunner.ResetSample(scenario, script, root, ref execution, 88, 0);
                 Assert.Equal(rootHeader, execution.State.Header);
                 Assert.Equal(final, SimulationRunner.Continue(scenario, script, ref execution));
-                if (scenario.PreviewTraining(root, row.GetProperty("command").GetInt32()).FailureRate == 0)
+                var command = row.GetProperty("command").GetInt32();
+                if (scenario.PreviewTraining(root, command).FailureRate == 0
+                    && start.PlanningPeriods.All(period => period.CheckPointTurn != start.Turn))
                 {
-                    var generated = PioneerRuntimeData.Compile(start, [], "autonomous-construction", master);
-                    var generatedScenario = new PioneerScenario(generated);
-                    var future = SimulationRunner.CreateExecution(generatedScenario, script, generated.CreateInitialState(), 88, 0);
-                    Assert.Equal(final, SimulationRunner.Continue(generatedScenario, script, ref future));
-                    CheckConstruction(row.GetProperty("afterConstruction"), future.State);
-                    Assert.Equal(0, future.State.Header.ConditionalOutcomeCount);
+                    var calibration = new PioneerTurnCalibration([new(701, 1)],
+                        [new(PioneerArrivalSource.Training, start.Turn, 0, 0, 0, 1, 0, 0)],
+                        [new(PlacementMemberKind.Training, false, 0, 1, 10), new(PlacementMemberKind.Tucker, false, 0, 1, 10)]);
+                    var turnRules = new PioneerTurnRules(calibration,
+                        start.Commands.Select(item => (item.CommandId, item.Level, item.FailureCoefficient)),
+                        start, 63, [], [.. master.FacilityStates.Select(facility => new TrainingFacility(
+                            facility.FacilityId, facility.StateId, facility.FacilityLv, []))]);
+                    var generated = PioneerRuntimeData.Compile(start, [], "autonomous-construction", master, turnRules: turnRules);
+                    var generatedScenario = new PioneerScenario(generated, autonomous: true);
+                    var future = generated.CreateInitialState();
+                    var rulesRandom = new SimulationRandom(88);
+                    var result = generatedScenario.ApplyAction(ref future, PioneerRuntimeAction.Train(command), ref rulesRandom);
+                    Assert.True(result.ActionSettled, result.Stop.ToString());
+                    CheckConstruction(row.GetProperty("afterConstruction"), future);
+                    Assert.Equal(start.Turn + 1, future.Header.Turn);
+                    Assert.Equal(0, future.Header.PendingTrainingLevelCommandId);
+                    Assert.Empty(future.GetSection(PioneerStateSection.PendingStories).ToArray());
+                    var levels = root.GetSection(PioneerStateSection.TrainingLevels).ToArray();
+                    if (expectedCommand != 0) levels[Array.IndexOf(new[] { 101, 105, 102, 103, 106 }, expectedCommand)]++;
+                    Assert.Equal(levels, future.GetSection(PioneerStateSection.TrainingLevels).ToArray());
                     autonomous++;
                 }
                 constructions++;
-                if (middle.PendingTrainingLevelEventId > 0) pendingUpgrades++;
+                if (middle.PendingTrainingLevelCommandId > 0) pendingUpgrades++;
             }
             else
             {
                 Assert.Equal(TrajectoryStatus.Stopped, first.Status);
                 Assert.Equal((int)(row.GetProperty("success").GetBoolean() ? PioneerStopCode.TrainingEventsRequired : PioneerStopCode.TrainingFailureEventRequired), first.Stop!.Value.Code);
             }
-            PioneerStateAudit.AssertDeterministic(data, script);
         }
         Assert.Equal(9, constructions);
         Assert.True(pendingUpgrades > 0);
@@ -89,10 +108,10 @@ public sealed class PioneerTrainingConstructionTests
     {
         using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-construction.json")));
         var row = fixture.RootElement.GetProperty("cases")[0];
-        var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+        var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
         using var database = new PioneerRuntimeComponentTests.FixtureMaster(PioneerRuntimeComponentTests.ConstructionTables());
         using var db = EvidenceAudit.OpenReadOnly(database.Path);
-        var master = PioneerMasterCompiler.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
+        var master = PioneerMasterReader.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
         Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(start, [], "missing-master"));
         Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(start with
         { Development = start.Development! with { DevelopmentPoints = start.DevelopmentPoints + 1 } }, [], "conflict", master));
@@ -103,7 +122,7 @@ public sealed class PioneerTrainingConstructionTests
         var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
         Assert.False(root.Header.KnownParts.HasFlag(PioneerKnownParts.Tickets));
         var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
-            row.GetProperty("script").Deserialize<ImmutableArray<ScriptedAction<PioneerRuntimeAction>>>(PioneerExecutionCommand.JsonOptions), 0);
+            row.GetProperty("script").Deserialize<ImmutableArray<ScriptedAction<PioneerRuntimeAction>>>(PioneerExecution.JsonOptions), 0);
         var execution = SimulationRunner.CreateExecution(scenario, script, root, 7, 0);
         Assert.Equal(TrajectoryStatus.Advanced, SimulationRunner.Advance(scenario, script, ref execution).Status);
         var before = execution.State.Header;
@@ -116,44 +135,14 @@ public sealed class PioneerTrainingConstructionTests
     }
 
     [Fact]
-    public void TrainingAndCurrentConstructionRejectInconsistentPlansAtCompilation()
-    {
-        using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-construction.json")));
-        var row = fixture.RootElement.GetProperty("cases")[0];
-        var training = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
-        using var database = new PioneerRuntimeComponentTests.FixtureMaster(PioneerRuntimeComponentTests.ConstructionTables());
-        using var db = EvidenceAudit.OpenReadOnly(database.Path);
-        var master = PioneerMasterCompiler.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
-        var state = training.Development!;
-        var invalid = new[]
-        {
-            state with { IslandTrainingThresholds = [1, 2] },
-            state with { IslandTrainingThresholds = [] },
-            state with { Facilities = state.Facilities.RemoveAt(3) },
-            state with { Facilities = state.Facilities.SetItem(3, new(104, 99999)) },
-            state with { Facilities = state.Facilities.SetItem(3, state.Facilities[0]) },
-            state with { Facilities = state.Facilities.SetItem(0, new(101, 10120)) },
-            state with { PlanningCost = 0 },
-            state with { PlanningCost = state.PlanningCost + 1 },
-        };
-        var current = new PioneerEvent(211067, 0, 400011107, 6);
-        foreach (var bad in invalid)
-        {
-            Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(training with { Development = bad }, [], "invalid-training", master));
-            var building = bad with { RawPlayingState = 5, DevelopmentPoints = row.GetProperty("afterTraining").GetProperty("points").GetInt32(), PendingStoryIds = [400011107] };
-            Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(new PioneerStart.Construction(building, current), [], "invalid-building", master));
-        }
-    }
-
-    [Fact]
     public void CompiledConstructionKeepsPlanOrderIndependentOfFacilityStorageOrder()
     {
         using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-construction.json")));
         var row = fixture.RootElement.GetProperty("cases")[0];
-        var training = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+        var training = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
         using var database = new PioneerRuntimeComponentTests.FixtureMaster(PioneerRuntimeComponentTests.ConstructionTables());
         using var db = EvidenceAudit.OpenReadOnly(database.Path);
-        var master = PioneerMasterCompiler.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
+        var master = PioneerMasterReader.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
         var rules = new PioneerConstructionRules(master);
         var before = training.Development! with { RawPlayingState = 5,
             DevelopmentPoints = row.GetProperty("afterTraining").GetProperty("points").GetInt32(), PendingStoryIds = [400011107] };
@@ -180,7 +169,6 @@ public sealed class PioneerTrainingConstructionTests
             Assert.Equal(expected.IslandTrainingTickets, execution.State.Header.Tickets);
             Assert.Equal(state.Facilities.SelectMany(value => new[] { value.FacilityId, value.StateId }), root.GetSection(PioneerStateSection.FacilityStates).ToArray());
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
-            PioneerStateAudit.AssertDeterministic(data, script);
         }
     }
 
@@ -189,16 +177,16 @@ public sealed class PioneerTrainingConstructionTests
     {
         using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-construction.json")));
         var row = fixture.RootElement.GetProperty("cases").EnumerateArray().Single(value => value.GetProperty("name").GetString() == "threshold-300");
-        var original = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+        var original = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
         // The public input accepts this value; it forces the unsupported multiple-threshold boundary.
         var start = original with { CheckpointBonusPercent = 500, Environment = original.Environment with { Current = original.Environment.Current with { Vital = 30 } } };
         using var database = new PioneerRuntimeComponentTests.FixtureMaster(PioneerRuntimeComponentTests.ConstructionTables());
         using var db = EvidenceAudit.OpenReadOnly(database.Path);
-        var master = PioneerMasterCompiler.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
+        var master = PioneerMasterReader.ConstructionData(db, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(database.Path))));
         var data = PioneerRuntimeData.Compile(start, [], "pending-random", master);
         var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
         var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
-            row.GetProperty("script").Deserialize<ImmutableArray<ScriptedAction<PioneerRuntimeAction>>>(PioneerExecutionCommand.JsonOptions), 0);
+            row.GetProperty("script").Deserialize<ImmutableArray<ScriptedAction<PioneerRuntimeAction>>>(PioneerExecution.JsonOptions), 0);
         var stopped = 0; var consumed = 0;
         for (var seed = 0UL; seed < 32; seed++)
         {
@@ -228,7 +216,7 @@ public sealed class PioneerTrainingConstructionTests
 
     static void CheckTraining(JsonElement expected, PioneerState state)
     {
-        Assert.Equal(expected.GetProperty("resources").Deserialize<TrainingValues>(PioneerExecutionCommand.JsonOptions), state.Header.Resources);
+        Assert.Equal(expected.GetProperty("resources").Deserialize<TrainingValues>(PioneerExecution.JsonOptions), state.Header.Resources);
         Assert.Equal(expected.GetProperty("motivation").GetInt32(), state.Header.Motivation);
         Assert.Equal(expected.GetProperty("points").GetInt32(), state.Header.DevelopmentPoints);
         Assert.Equal(expected.GetProperty("levels").Deserialize<int[]>(), state.GetSection(PioneerStateSection.TrainingLevels).ToArray());

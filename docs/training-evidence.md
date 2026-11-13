@@ -4,11 +4,17 @@
 
 运行核验：
 
-```powershell
-dotnet run --project src/UmaAiSharp.Cli -- evidence training --input artifacts/evidence/local-audit-05 --output artifacts/evidence/training-audit-new
+```json
+{
+  "name": "evidence_training",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "outputDirectory": "artifacts/evidence/training-audit-new"
+  }
+}
 ```
 
-输出目录必须为空。`training-audit.json` 保存输入文件哈希、筛选计数、排除原因与适用范围；`training-transitions.jsonl` 保存每个适用转移的来源、请求/响应位置、预览、预测值及观测值。输入来自正式 `evidence audit` 生成的动作与观测文件。
+输出目录必须为空。`training-audit.json` 保存输入文件哈希、筛选计数、排除原因与适用范围；`training-transitions.jsonl` 保存每个适用转移的来源、请求/响应位置、预览、预测值及观测值。输入来自正式 `evidence_audit` 生成的动作与观测文件。
 
 最终实包核验报告位于 `artifacts/evidence/training-audit-04/training-audit.json`，同时固定观测、动作和请求响应关联三个输入文件的哈希。
 

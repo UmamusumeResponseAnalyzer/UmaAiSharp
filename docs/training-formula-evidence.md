@@ -6,9 +6,15 @@ v5允许master定义的住宿设施更高等级、熟练路线Lv5及未建对应
 
 失败率规则为`jp-failure-preview-v2`，新增状态3／5／11／27的偏置与证据见[角色状态分量](condition-effects.md)。训练收益v4在构造精确分数前使用足够位宽的倍率乘加；设施、成长、友情、人数与剧本比例保留原量化及截断顺序。基础值或体力等必须保存为int的和使用checked，溢出明确失败。相关边界与当前核验见[数值修复记录](../artifacts/implementation/numeric-width-01/REPORT.md)。
 
-```powershell
-dotnet build src/UmaAiSharp.Cli/UmaAiSharp.Cli.csproj --no-restore -m:1 -nodeReuse:false --disable-build-servers -p:WarningsNotAsErrors=NU1900
-dotnet run --project src/UmaAiSharp.Cli --no-build --no-restore -- evidence training-formula --input artifacts/evidence/local-audit-05 --master G:\DMM\Umamusume\umamusume_Data\Persistent\master\master.mdb --output artifacts/evidence/training-formula-audit-new
+```json
+{
+  "name": "evidence_training_formula",
+  "arguments": {
+    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "masterPath": "<master.mdb>",
+    "outputDirectory": "artifacts/evidence/training-formula-audit-new"
+  }
+}
 ```
 
 输出目录必须为空。报告保存标准化观测、请求响应关联和本地 master 的 SHA-256，并在完成时复核输入未变化。`training-formula-samples.jsonl` 保存参加支援卡及其已解析面板、固有参数、前置属性、上限、成长、干劲、基础系数、预测与实际预览；`training-formula-counterexamples.jsonl` 单独保存反例。每个属性的理论值使用 `BigInteger` 有理数记录。未经过 100 点限制、1200 转换或属性上限截断的项目还保存“观测值减理论值”的精确分数。
@@ -52,7 +58,9 @@ dotnet run --project src/UmaAiSharp.Cli --no-build --no-restore -- evidence trai
 
 公式形态参考移交包 `04_参照实现/umasim` 的 `MujintoStore.kt`、`MujintoCalculator.kt`，以及本轮实际读取的 [umasim Calculator](https://github.com/mee1080/umasim/blob/75bebbeb4316cac4049fe47981231b9088d2627e/core/src/commonMain/kotlin/io/github/mee1080/umasim/simulation2/Calculator.kt#L169)。它们是参照实现，不是游戏真值。候选依次组合基础属性与支援属性加成、人数、训练效果、干劲效果、符合条件的友情倍率及角色成长；上层使用尚未经过 1200 转换和属性上限截断的整数下层乘评估会加成。
 
-参与训练的位置与羁绊来自同一观测帧。普通卡的友情资格是匹配训练种类且羁绊达到 80；没有引入额外的 0.72 友情触发抽样。固有 101 按羁绊条件加入指定效果，104 按粉丝档位生成训练加成，111 按训练等级生成指定加成。105 的初始属性与 122 的下回合位置效果不计入本次训练收益，也未在此模块模拟其生命周期。其余固有类型明确失败。
+参与训练的位置与羁绊来自同一观测帧。普通卡的友情资格是匹配训练种类且羁绊达到 80。固有 101 按羁绊条件加入指定效果，104 按粉丝档位生成训练加成，111 按训练等级生成指定加成。固有 113 在持有该效果的卡参加友情训练时加入干劲效果、训练效果或体力消耗降低，触发方也可以是同次训练的另一张卡。岛训练以整次训练判定友情，跨设施分支待实包核验。固有 120 在羁绊达 80 后按完整编成计算基础加成。五属性取对应类型的卡数，技能 Pt 取友人和团卡数，每项最多加 2。113 和 120 的触发分支来自日服 master 和 [umasim 参照实现](https://github.com/mee1080/umasim/blob/main/core/src/commonMain/kotlin/io/github/mee1080/umasim/data/SupportCardSpecialUnique.kt)。
+
+普通效果 32 是开局技能 Pt，真实起点直接读取已结算的技能 Pt。效果 33 增加技能 Hint 获取数，当前自主模式只结算 Hint 羁绊。固有 105 的初始属性和 122 的下回合位置效果属于各自的结算阶段。未接入的固有类型会报错。
 
 基础值表中普通 Lv1 与 scenario 11 master 相符。高等级数值由参照表作为候选、结合已解析支援效果的实包预览反推；不是把训练后的均值当作基础值。移交包参照表中的以下条目存在明确反例：
 

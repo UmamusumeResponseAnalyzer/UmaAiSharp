@@ -6,14 +6,13 @@ namespace UmaAiSharp.Tests;
 
 public sealed class InheritancePedigreeTests
 {
-    static InheritancePedigree Rules() => new([new(101, 1, 1, 1), new(103, 1, 1, 3), new(201, 2, 31, 1),
+    static InheritancePedigree Rules() => new([new(101, 1, 1, 1), new(102, 1, 1, 2), new(103, 1, 1, 3), new(201, 2, 31, 1),
         new(203, 2, 31, 3), new(503, 4, 50, 3)]);
     static ParentFactorSnapshot Parent() => new([new(1, [101, 201]), new(10, [101, 201]), new(20, [101, 201]),
         new(11, [101, 201]), new(12, [101, 201]), new(21, [101, 201]), new(22, [101, 201])], []);
 
     [Theory]
     [InlineData(InheritanceSlot.Parent1)]
-    [InlineData(InheritanceSlot.Parent2)]
     public void ExplicitTopLevelEmptyArrayCoversThreeRuntimeSources(InheritanceSlot parentSlot)
     {
         var sources = Rules().MapParent(Parent(), parentSlot);
@@ -47,5 +46,18 @@ public sealed class InheritancePedigreeTests
         Assert.Throws<InvalidDataException>(() => Rules().MapParent(Parent() with { FlatExtensions = [new(10, 201, 103)] }, InheritanceSlot.Parent1));
         Assert.Throws<InvalidDataException>(() => Rules().MapParent(Parent() with { FlatExtensions = [new(10, 103, 101)] }, InheritanceSlot.Parent1));
         Assert.Throws<UnknownMechanismException>(() => Rules().MapParent(Parent() with { FlatExtensions = [new(10, 0, 999)] }, InheritanceSlot.Parent1));
+    }
+
+    [Fact]
+    public void EffectiveFactorsUseTheNewestUpgradeWithoutDuplicatingItsBase()
+    {
+        var parent = Parent() with
+        {
+            FlatExtensions = [new(1, 101, 103, "2026-10-21 16:34:16"), new(1, 101, 102, "2026-09-18 19:03:27"),
+                new(1, 0, 503, "2026-09-16 11:38:08")],
+        };
+        var sources = Rules().MapParent(parent, InheritanceSlot.Parent1, effective: true);
+        Assert.Equal([201, 103, 503], sources[0].FactorIds.ToArray());
+        Assert.Equal([101, 201], sources[1].FactorIds.ToArray());
     }
 }

@@ -11,12 +11,12 @@ public sealed class HintRewardPoolTests
     public void PoolDeduplicatesGroupsAndPreservesUnrecordedLevels()
     {
         var pool = HintRewardPool.Evaluate([new(1, 1), new(1, 1), new(2, 1), new(3, 1), new(4, 1)],
-            [new(new(2, 1), 5), new(new(4, 1), 2)], [new(3, 2)]);
+            [new(new(2, 1), 5), new(new(4, 1), 0)], [new(3, 2)]);
         Assert.Equal(4, pool.Length);
         Assert.Equal(new HintPoolEntry(new(1, 1), null, HintPoolExclusion.None), pool[0]);
         Assert.Equal(HintPoolExclusion.MaximumHintLevel, pool[1].Exclusion);
         Assert.Equal(HintPoolExclusion.AlreadyLearned, pool[2].Exclusion);
-        Assert.Equal(new HintPoolEntry(new(4, 1), 2, HintPoolExclusion.None), pool[3]);
+        Assert.Equal(new HintPoolEntry(new(4, 1), 0, HintPoolExclusion.None), pool[3]);
         Assert.Empty(HintRewardPool.Evaluate([new(1, 1)], [], [new(1, 1)]).Where(entry => entry.Exclusion == HintPoolExclusion.None));
     }
 
@@ -24,7 +24,7 @@ public sealed class HintRewardPoolTests
     public void MissingInputsAndUnverifiedRarityDoNotBecomeAnEmptyPool()
     {
         Assert.Throws<InvalidDataException>(() => HintRewardPool.Evaluate([new(1, 1)], default, []));
-        Assert.Throws<InvalidDataException>(() => HintRewardPool.Evaluate([new(1, 1)], [new(new(1, 1), 0)], []));
+        Assert.Throws<InvalidDataException>(() => HintRewardPool.Evaluate([new(1, 1)], [new(new(1, 1), -1)], []));
         Assert.Throws<UnknownMechanismException>(() => HintRewardPool.Evaluate([new(1, 2)], [], [new(1, 1)]));
         Assert.Throws<UnknownMechanismException>(() => HintRewardPool.Evaluate([new(1, 1)], [], [new(1, 3)]));
     }

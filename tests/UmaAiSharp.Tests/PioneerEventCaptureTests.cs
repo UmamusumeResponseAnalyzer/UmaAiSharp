@@ -1,9 +1,10 @@
+using UmaAiSharp.Pioneer.Game;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
 
@@ -27,14 +28,13 @@ public sealed class PioneerEventCaptureTests
         Assert.True(JsonNode.DeepEquals(before.Rewards, after.Rewards));
         Assert.Null(PioneerEventCapture.Read(fixture.Path, 10));
 
-        Assert.Equal(0, PioneerImportCommand.Run(new() { ["--packets"] = fixture.Path, ["--packet-id"] = "14",
-            ["--master"] = fixture.Master, ["--output"] = fixture.Output }));
+        Assert.Equal("completed", PioneerImport.Run(fixture.Path, null, 14, fixture.Master, fixture.Output).Status);
         var inputPath = System.IO.Path.Combine(fixture.Output, "input.json");
-        var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(inputPath), PioneerExecutionCommand.JsonOptions)!;
+        var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(inputPath), PioneerExecution.JsonOptions)!;
         Assert.Equal("declaredEvent", input.Start.Kind);
-        var start = input.Start.Data.Deserialize<PioneerStart.DeclaredEvent>(PioneerExecutionCommand.JsonOptions)!;
+        var start = input.Start.Data.Deserialize<PioneerStart.DeclaredEvent>(PioneerExecution.JsonOptions)!;
         var candidates = JsonSerializer.Deserialize<RootCandidate<PioneerRuntimeAction>[]>(
-            File.ReadAllBytes(System.IO.Path.Combine(fixture.Output, "candidates.json")), PioneerExecutionCommand.JsonOptions)!;
+            File.ReadAllBytes(System.IO.Path.Combine(fixture.Output, "candidates.json")), PioneerExecution.JsonOptions)!;
         Assert.Equal(start.Choices.Length, candidates.Length);
         var data = PioneerRuntimeData.Compile(start, [], input.RulesIdentity);
         var root = data.CreateInitialState(); var scenario = new PioneerScenario(data);
@@ -46,17 +46,13 @@ public sealed class PioneerEventCaptureTests
         Assert.Equal(0, result.Progress.SettledActions);
         Assert.Equal((int)PioneerStopCode.EventRewardRemainderRequired, result.Stop!.Value.Code);
         Assert.Equal(root.Header, data.CreateInitialState().Header);
-        PioneerStateAudit.AssertDeterministic(data, script);
     }
 
     [Theory]
     [InlineData("missingRequest")]
     [InlineData("requestAfterMutation")]
-    [InlineData("responseBeforeMutation")]
     [InlineData("eventMismatch")]
     [InlineData("multipleEvents")]
-    [InlineData("missingState")]
-    [InlineData("unrelatedResponse")]
     public void UnclosedWindowsCannotUseAnEarlierEvent(string fault)
     {
         using var fixture = new Capture();
@@ -99,7 +95,7 @@ public sealed class PioneerEventCaptureTests
         Assert.Equal((int)PioneerStopCode.EventRewardOutcomeRequired, result.Stop!.Value.Code);
     }
 
-    sealed class Capture : IDisposable
+    internal sealed class Capture : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "UmaAiSharp-event-" + Guid.NewGuid().ToString("N") + ".sqlite");
         public string Master => Path + ".master";

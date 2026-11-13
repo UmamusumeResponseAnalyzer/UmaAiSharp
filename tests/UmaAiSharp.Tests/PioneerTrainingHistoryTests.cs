@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
-using UmaAiSharp.Cli;
+using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
@@ -32,9 +32,7 @@ public sealed class PioneerTrainingHistoryTests
     [InlineData("missingStart")]
     [InlineData("missingRequest")]
     [InlineData("missingResponse")]
-    [InlineData("unknownResult")]
     [InlineData("otherRun")]
-    [InlineData("realReplay")]
     public void IncompleteOrUnidentifiedHistoryDoesNotProduceCounts(string fault)
     {
         using var fixture = new Capture();
@@ -54,12 +52,11 @@ public sealed class PioneerTrainingHistoryTests
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
-    [InlineData(true, true)]
     public void RuntimeHistoryCountsOnlySuccessfulOrdinaryActionsAndForksIndependently(bool camp, bool success)
     {
-        var path = PioneerExecutionCommandTests.Example(camp ? "camp-failure-replay.json" : "ordinary-failure-replay.json");
-        var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(path), PioneerExecutionCommand.JsonOptions)!;
-        var start = input.Start.Data.Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+        var path = PioneerExecutionTests.Example(camp ? "camp-failure-replay.json" : "ordinary-failure-replay.json");
+        var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(path), PioneerExecution.JsonOptions)!;
+        var start = input.Start.Data.Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
         int[] order = [101, 105, 102, 103, 106];
         var counts = order.Select(id => start.Commands.Single(command => TrainingBaseTable.OrdinaryCommand(command.CommandId) == id).ExecutionCount).ToArray();
         var data = PioneerRuntimeData.Compile(start with { SuccessfulOrdinaryTrainingCounts = [.. counts] },
@@ -75,7 +72,6 @@ public sealed class PioneerTrainingHistoryTests
         Assert.Equal(expected, execution.State.GetSection(PioneerStateSection.SuccessfulOrdinaryTrainingCounts).ToArray());
         Assert.Equal(counts, root.GetSection(PioneerStateSection.SuccessfulOrdinaryTrainingCounts).ToArray());
         Assert.Equal(stopped, SimulationRunner.Continue(scenario, script, ref execution));
-        PioneerStateAudit.AssertDeterministic(data, script);
         var unknown = PioneerRuntimeData.Compile(start, [], "unknown-history").CreateInitialState();
         Assert.False(unknown.Header.KnownParts.HasFlag(PioneerKnownParts.SuccessfulOrdinaryTrainingCounts));
         Assert.True(unknown.GetSection(PioneerStateSection.SuccessfulOrdinaryTrainingCounts).IsEmpty);

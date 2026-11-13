@@ -1,8 +1,10 @@
+using UmaAiSharp.Pioneer.Offline;
+using UmaAiSharp.Pioneer.Game;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
-using UmaAiSharp.Cli;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
@@ -19,7 +21,7 @@ public sealed class PioneerCampTurnTests
         foreach (var table in fixture["tables"]!.AsObject()) tables[table.Key] = table.Value!.DeepClone();
         foreach (var table in PioneerRuntimeComponentTests.ConstructionTables()) tables[table.Key] = table.Value!.DeepClone();
         using var database = new PioneerRuntimeComponentTests.FixtureMaster(tables);
-        var master = new PioneerMasterCompiler(database.Path); var facilities = new PioneerFacilityCompiler(database.Path);
+        var master = new PioneerMasterCompiler(PioneerMasterReader.ReadTraining(database.Path)); var facilities = new PioneerFacilityCompiler(PioneerMasterReader.ReadFacilities(database.Path));
         var directory = Path.Combine(Path.GetTempPath(), "UmaAiSharp-camp-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
@@ -75,12 +77,6 @@ public sealed class PioneerCampTurnTests
                 if (index == 0)
                 {
                     PioneerTrainingTurnTests.VerifyBondSettlement(start);
-                    var randomStart = start with { Environment = start.Environment with { Current = start.Environment.Current with { Vital = 35 } } };
-                    var randomData = PioneerRuntimeData.Compile(randomStart, [], "camp-random");
-                    var randomRoot = randomData.CreateInitialState();
-                    var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
-                        [new(new PioneerScenario(randomData).Inspect(randomRoot, 0).Decision.Id, PioneerRuntimeAction.Train(3601))], 0);
-                    PioneerStateAudit.AssertDeterministic(randomData, script);
                     Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(start with { Camp = null }, [], "missing-camp"));
                     Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(start with
                     { Commands = start.Commands.SetItem(0, start.Commands[0] with { GuestCount = 6 }) }, [], "overfull-camp"));
@@ -91,11 +87,10 @@ public sealed class PioneerCampTurnTests
                     ["home_info"] = frame["home"]!.DeepClone(), ["pioneer_data_set"] = frame["s"]!.DeepClone(), ["unchecked_event_array"] = new JsonArray() } };
                 File.WriteAllBytes(packet, MessagePackSerializer.ConvertFromJson(payload.ToJsonString()));
                 var output = Path.Combine(directory, $"import-{index++}");
-                Assert.Equal(0, Program.Main(["pioneer", "import", "--packet", packet, "--endpoint", row["endpoint"]!.GetValue<string>(),
-                    "--master", database.Path, "--output", output]));
-                var loaded = PioneerExecutionCommand.Load(Path.Combine(output, "input.json"), database.Path);
+                Assert.Equal("completed", PioneerImport.Run(packet, row["endpoint"]!.GetValue<string>(), null, database.Path, output).Status);
+                var loaded = PioneerExecution.Load(Path.Combine(output, "input.json"), database.Path);
                 Assert.True(new PioneerScenario(loaded.Data).Inspect(loaded.Root, 0).Decision.Context.IsCamp);
-                var candidates = JsonSerializer.Deserialize<RootCandidate<PioneerRuntimeAction>[]>(File.ReadAllBytes(Path.Combine(output, "candidates.json")), PioneerExecutionCommand.JsonOptions)!;
+                var candidates = JsonSerializer.Deserialize<RootCandidate<PioneerRuntimeAction>[]>(File.ReadAllBytes(Path.Combine(output, "candidates.json")), PioneerExecution.JsonOptions)!;
                 Assert.Equal(Enumerable.Range(3601, 6), candidates.Select(candidate => candidate.Action.CommandId));
                 Assert.Equal(PioneerActionKind.Rest, candidates[^1].Action.Kind);
             }

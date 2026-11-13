@@ -29,13 +29,14 @@ public sealed record ForecastModelInput(int SchemaVersion, string MasterSha256, 
 // Numeric state and event history condition a sampled transition; only increments are executable.
 public sealed class PioneerForecastModel
 {
-    public const string Version = "pioneer-component-transitions-v3";
+    public const string Version = "pioneer-component-transitions-v5";
     public const int Unknown = int.MinValue;
     public ForecastModelInput Input { get; }
     public string ArtifactSha256 { get; }
     internal FrozenDictionary<(string Configuration, ForecastActionKind Kind, int Story), int[]> Nodes { get; }
     internal FrozenDictionary<(ForecastActionKind Kind, int Story), int[]> AllNodes { get; }
     internal FrozenDictionary<(ForecastActionKind Kind, int Id), int[]> ActionNodes { get; }
+    readonly int[] simpleTrainingFailures;
     internal FrozenDictionary<(int Facility, int State), TrainingFacility> Facilities { get; }
     internal FrozenDictionary<int, ForecastRaceProgram> RacePrograms { get; }
     public FrozenDictionary<int, int> StoryIndices { get; }
@@ -60,7 +61,7 @@ public sealed class PioneerForecastModel
             .GroupBy(x => (x.row.Configuration, x.row.From.Kind, x.row.From.StoryId)).ToFrozenDictionary(g => g.Key, g => g.Select(x => x.index).ToArray());
         AllNodes = input.Transitions.Select((row, index) => (row, index))
             .GroupBy(x => (x.row.From.Kind, x.row.From.StoryId)).ToFrozenDictionary(g => g.Key, g => g.Select(x => x.index).ToArray());
-        ActionNodes = input.Transitions.Select((row, index) => (row, index))
+        ActionNodes = input.Transitions.Select((row, index) => (row, index)).Where(x => x.row.Action.Kind != ForecastActionKind.Event)
             .GroupBy(x => (x.row.Action.Kind, x.row.Action.Id)).ToFrozenDictionary(g => g.Key, g => g.Select(x => x.index).ToArray());
         Facilities = input.Facilities.ToFrozenDictionary(facility => (facility.Id, facility.StateId));
         RacePrograms = input.RacePrograms.ToFrozenDictionary(program => program.Id);
@@ -75,10 +76,22 @@ public sealed class PioneerForecastModel
                 || row.Changes.Select(change => change.Field).Distinct().Count() != row.Changes.Length
                 || string.IsNullOrWhiteSpace(row.Run) || string.IsNullOrWhiteSpace(row.Configuration)
                 || !Enum.IsDefined(row.Action.Kind) || !Enum.IsDefined(row.From.Kind)
-                || row.To is null && (row.From.Turn != 78 || row.Action != new ForecastAction(ForecastActionKind.Event, 6, 0)))
+                || row.To is null && (row.From.Turn != 78 || row.Action is not { Kind: ForecastActionKind.Event, Choice: 0 }
+                    || !PioneerEvent.IsCharacterEndingStory(row.From.StoryId)))
                 throw new InvalidDataException($"预测转移{row.Source}:{row.PacketId}的维度、回合或训练模板无效。");
             ValidateValues(row.Before.Values.AsSpan());
         }
+        simpleTrainingFailures = [.. Enumerable.Range(0, input.Transitions.Length - 1).Where(index =>
+        {
+            var attempt = input.Transitions[index];
+            if (attempt.Action.Kind != ForecastActionKind.Training || attempt.TrainingSuccess) return false;
+            var primary = TrainingFacilityRules.PrimaryTarget(TrainingBaseTable.OrdinaryCommand(attempt.Action.Id)) - 1;
+            var choice = input.Transitions[index + 1];
+            return attempt.Run == choice.Run && attempt.To == choice.From && attempt.From.Turn == choice.From.Turn
+                && choice.Action is { Kind: ForecastActionKind.Event, Choice: 1 } && choice.To?.Turn == choice.From.Turn + 1
+                && attempt.Changes.AsSpan().SequenceEqual([new(27 + primary, 1, false)])
+                && choice.Changes.AsSpan().SequenceEqual([new(primary, -5, false), new(12, -1, false)]);
+        })];
         var rewardIndices = new HashSet<int>();
         foreach (var reward in input.EventRewards)
         {
@@ -107,13 +120,40 @@ public sealed class PioneerForecastModel
             + (row.Island is null ? 0 : 16384L))
             + Training.Sum(template => template.Bytes)
             + input.EventRewards.Sum(reward => 128L + 16L * (reward.Sample.BaseEffects.Length + reward.Sample.RemainingEffects.Length))
-            + 12L * input.Transitions.Length + 256L * (Nodes.Count + AllNodes.Count + ActionNodes.Count + StoryIndices.Count + Configurations.Count)
+            + 12L * input.Transitions.Length + 4L * simpleTrainingFailures.Length
+            + 256L * (Nodes.Count + AllNodes.Count + ActionNodes.Count + StoryIndices.Count + Configurations.Count)
             + input.Facilities.Sum(facility => 128L + 16L * facility.Effects.Length)
             + 32L * input.FacilityBases.Length + 128L * input.RacePrograms.Length + 64L * input.CheckpointBonuses.Length
             + 64L * input.Fields.Length + 2L * input.Fields.Sum(field => field.Length)
             + (input.Construction is { } construction ? 4096L + 256L * (construction.FacilityKinds.Length + construction.FacilityStates.Length
                 + construction.FacilityUpgrades.Length + construction.PlanningPeriods.Length + construction.TicketThresholds.Length) : 0));
         new ExecutionMemoryPlan(SharedMemoryBytes, 512L + 12L * input.Fields.Length + 4L * input.Stories.Length).Validate();
+    }
+
+    internal bool HasSimpleTrainingFailure(int commandId, string excludedRun)
+    {
+        var camp = TrainingBaseTable.OrdinaryCommand(commandId) != commandId;
+        return simpleTrainingFailures.Any(index =>
+        {
+            var row = Input.Transitions[index];
+            return row.Run != excludedRun && (TrainingBaseTable.OrdinaryCommand(row.Action.Id) != row.Action.Id) == camp;
+        });
+    }
+
+    internal ForecastNode? TrainingFailureContinuation(int schedule)
+    {
+        var attempt = Input.Transitions[schedule];
+        var next = attempt.To;
+        // shortcut: keep the sampled event schedule, skipping success-only hints and upgrades, until same-turn failure schedules are available.
+        for (var i = schedule + 1; next is { Kind: ForecastActionKind.Event } && next.Value.Turn == attempt.From.Turn
+            && i < Input.Transitions.Length; i++)
+        {
+            var row = Input.Transitions[i];
+            if (row.Run != attempt.Run || row.From != next) return null;
+            if (row.From.StoryId is not (PioneerEvent.TrainingHintStory or TrainingLevelRules.StoryId)) break;
+            next = row.To;
+        }
+        return next;
     }
 
     internal int Select(string configuration, ForecastNode node, ReadOnlySpan<int> values, ReadOnlySpan<int> history,
@@ -164,7 +204,6 @@ public sealed class PioneerForecastModel
         if (shared is not null && shared.Any(index => Input.Transitions[index].From.Turn == node.Turn && Eligible(Input.Transitions[index], excludedRun, action, success, poolEventChoices))) return shared;
         if (local is not null && local.Any(index => CalendarMatches(Input.Transitions[index], node.Turn) && Eligible(Input.Transitions[index], excludedRun, action, success, poolEventChoices))) return local;
         if (shared is not null && shared.Any(index => CalendarMatches(Input.Transitions[index], node.Turn) && Eligible(Input.Transitions[index], excludedRun, action, success, poolEventChoices))) return shared;
-        // Explicit empirical transfer: a root story may be unseen, but its event class and choice are known.
         return action is { } selected && ActionNodes.TryGetValue((selected.Kind, selected.Id), out var related) ? related : [];
     }
 
@@ -172,7 +211,8 @@ public sealed class PioneerForecastModel
         || row.From.Kind != ForecastActionKind.Planning && row.To?.Kind != ForecastActionKind.Planning;
 
     bool Eligible(ForecastTransition row, string excludedRun, ForecastAction? action, bool? success, bool poolEventChoices = false)
-        => row.Run != excludedRun && (action is null || row.Action.Kind == action.Value.Kind && row.Action.Id == action.Value.Id
+        => row.Run != excludedRun && (action is null || row.Action.Kind == action.Value.Kind
+            && (row.Action.Kind == ForecastActionKind.Event || row.Action.Id == action.Value.Id)
             && (row.Action.Kind == ForecastActionKind.Planning || poolEventChoices && row.Action.Kind == ForecastActionKind.Event
                 || row.Action.Choice == action.Value.Choice || row.Action is { Kind: ForecastActionKind.Race, Id: 1 }
                     && SameRaceFamily(row.Action.Choice, action.Value.Choice)))

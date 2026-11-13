@@ -33,17 +33,17 @@ public sealed class StatisticalEventRewardsTests
     }
 
     [Fact]
-    public void UnknownCardUsesOnlyMatchingFamilyAndProgressWithoutTheInputRun()
+    public void StoryRewardsCombineProtocolAliasesAndExcludeReusedIdsAndOtherProgress()
     {
-        var family = new EventRewardFamily(1, 101, 10002, 6, 1, 2, 1);
+        var family = new EventRewardFamily(2, 0, 21174, 1, 0, 0, 1);
         var samples = ImmutableArray.Create(
-            new EventRewardSample("first", 100, family, [new(1, 1, 10, 0)], []),
-            new EventRewardSample("second", 101, family, [new(1, 1, 20, 0)], []),
-            new EventRewardSample("input", 999, family, [new(1, 1, 1000, 0)], []),
-            new EventRewardSample("third", 102, family with { Progress = 3 }, [new(1, 1, 999, 0)], []));
+            new EventRewardSample("first", 809049004, family, [new(1, 1, 10, 0)], []),
+            new EventRewardSample("second", 809049004, family with { EventId = 10002 }, [new(1, 1, 20, 0)], []),
+            new EventRewardSample("input", 809049004, family, [new(1, 1, 1000, 0)], []),
+            new EventRewardSample("third", 830005001, family with { EventId = 10002 }, [new(1, 1, 999, 0)], []),
+            new EventRewardSample("fourth", 809049004, family with { Progress = 3 }, [new(1, 1, 888, 0)], []));
         var model = new StatisticalEventRewards(samples);
-        var estimate = model.Estimate(999, family, "input");
-        Assert.True(estimate.UsesFamilyEstimate);
+        var estimate = model.Estimate(809049004, family with { EventId = 10002 }, "input");
         Assert.Equal(2, estimate.SampleCount);
         Assert.Equal(2, estimate.RunCount);
         var compiled = new CompiledStatisticalEventRewards(estimate, default);
@@ -57,11 +57,11 @@ public sealed class StatisticalEventRewardsTests
         Assert.Contains(10, baseline.Values);
         Assert.Contains(20, baseline.Values);
         Assert.All(baseline.Values, value => Assert.True(value is 10 or 20));
-        var exact = model.Estimate(100, family, "input");
-        Assert.False(exact.UsesFamilyEstimate);
+        Assert.Throws<UnknownMechanismException>(() => model.Estimate(830005002, family with { EventId = 10002 }, "input"));
+        var exact = model.Estimate(830005001, family with { EventId = 10002 }, "input");
         var random = new SimulationRandom(123);
         var old = random;
-        Assert.Equal(10, new CompiledStatisticalEventRewards(exact, default).Sample(ref random).Resources.Effects[0].Value1);
+        Assert.Equal(999, new CompiledStatisticalEventRewards(exact, default).Sample(ref random).Resources.Effects[0].Value1);
         Assert.Equal(old, random);
     }
 

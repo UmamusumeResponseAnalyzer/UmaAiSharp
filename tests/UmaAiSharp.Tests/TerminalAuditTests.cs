@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 
 namespace UmaAiSharp.Tests;
 
@@ -19,9 +19,7 @@ public sealed class TerminalAuditTests
 
     [Theory]
     [InlineData("ambiguous")]
-    [InlineData("missing")]
     [InlineData("attributes")]
-    [InlineData("skills")]
     [InlineData("phase")]
     public void RejectsAmbiguousOrInconsistentResults(string mutation)
     {

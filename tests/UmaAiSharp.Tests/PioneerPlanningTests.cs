@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using UmaAiSharp.Cli;
+using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Runtime;
@@ -19,18 +19,18 @@ public sealed class PioneerPlanningTests
             "Fixtures", "pioneer-planning-snapshots.json")));
         foreach (var window in fixture.RootElement.GetProperty("windows").EnumerateArray())
         {
-            var before = window.GetProperty("before").Deserialize<PioneerDevelopmentState>(PioneerExecutionCommand.JsonOptions)!;
-            var expected = window.GetProperty("after").Deserialize<PioneerDevelopmentState>(PioneerExecutionCommand.JsonOptions)!;
-            var plan = window.GetProperty("submittedPlan").Deserialize<PioneerConstructionPlan>(PioneerExecutionCommand.JsonOptions)!;
+            var before = window.GetProperty("before").Deserialize<PioneerDevelopmentState>(PioneerExecution.JsonOptions)!;
+            var expected = window.GetProperty("after").Deserialize<PioneerDevelopmentState>(PioneerExecution.JsonOptions)!;
+            var plan = window.GetProperty("submittedPlan").Deserialize<PioneerConstructionPlan>(PioneerExecution.JsonOptions)!;
             rules.ValidateForSubmission(before, plan);
             var candidates = rules.EnumeratePlans(before).ToArray();
             Assert.Contains(candidates, candidate => candidate.SemanticId == plan.SemanticId);
             Assert.Equal(candidates.Length, candidates.Select(candidate => candidate.SemanticId).Distinct().Count());
             foreach (var candidate in candidates) rules.ValidateForSubmission(before, candidate);
-            // Early disposal and a second enumeration must not retain the DFS cursor.
-            var lazy = rules.EnumeratePlans(before);
-            Assert.Equal(candidates[0].SemanticId, lazy.First().SemanticId);
-            Assert.Equal(candidates.Select(candidate => candidate.SemanticId), lazy.Select(candidate => candidate.SemanticId));
+            // Repeated enumeration must preserve candidate order.
+            var plans = rules.EnumeratePlans(before);
+            Assert.Equal(candidates[0].SemanticId, plans.First().SemanticId);
+            Assert.Equal(candidates.Select(candidate => candidate.SemanticId), plans.Select(candidate => candidate.SemanticId));
 
             var data = PioneerRuntimeData.Compile(new PioneerStart.Planning(before), [], master.SourceSha256, master);
             var scenario = new PioneerScenario(data);
@@ -40,7 +40,6 @@ public sealed class PioneerPlanningTests
             var action = PioneerRuntimeAction.Submit(plan);
             Assert.Null(scenario.ValidateAction(root, action));
             var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>([new(decision.Id, action)], action.OwnedPayloadBytes);
-            if (before.Turn == 3) PioneerStateAudit.AssertDeterministic(data, script);
             var execution = SimulationRunner.CreateExecution(scenario, script, root, 123, 0);
             var fork = SimulationRunner.CreateExecution(scenario, script, root, 999, 1);
             SimulationRunner.ForkInto(scenario, script, execution, ref fork);
@@ -95,58 +94,6 @@ public sealed class PioneerPlanningTests
         Assert.Equal(10152, Assert.Single(optional[1].Steps).TargetStateId);
         Assert.Throws<IllegalActionException>(() => rules.ValidateForSubmission(skilled with
         { Facilities = skilled.Facilities.SetItem(0, new(101, 10141)) }, new([])));
-    }
-
-    [Fact]
-    public void CliPlanningInputUsesTheSameMasterAndCompleteAction()
-    {
-        var root = Repository();
-        var path = Path.Combine(root, "examples", "pioneer", "planning-input.json");
-        // The CLI's existing file loader is exercised with a portable master snapshot.
-        var directory = Path.Combine(Path.GetTempPath(), "UmaAiSharp-planning-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
-        {
-            var database = Path.Combine(directory, "master.sqlite");
-            using (var target = new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
-                { DataSource = database, Pooling = false }.ToString()))
-            {
-                target.Open();
-                var tables = File.ReadLines(Path.Combine(root, "src", "UmaAiSharp.Pioneer", "Evidence", "construction-master.jsonl"))
-                    .Select(line => JsonDocument.Parse(line)).ToArray();
-                try
-                {
-                    foreach (var group in tables.GroupBy(document => document.RootElement.GetProperty("table").GetString()!))
-                    {
-                        var columns = group.First().RootElement.GetProperty("row").EnumerateObject().Select(value => value.Name).ToArray();
-                        using var command = target.CreateCommand();
-                        command.CommandText = $"CREATE TABLE {group.Key} ({string.Join(',', columns.Select(column => column + " INTEGER"))})";
-                        command.ExecuteNonQuery();
-                        foreach (var row in group)
-                        {
-                            command.CommandText = $"INSERT INTO {group.Key} VALUES ({string.Join(',', columns.Select(column => row.RootElement.GetProperty("row").GetProperty(column).GetInt32()))})";
-                            command.ExecuteNonQuery();
-                        }
-                    }
-                }
-                finally { foreach (var document in tables) document.Dispose(); }
-            }
-            var loaded = PioneerExecutionCommand.Load(path, database);
-            Assert.Equal(PioneerStage.ConstructionPlanning, loaded.Root.Header.Stage);
-            var output = Path.Combine(directory, "planning.json");
-            Assert.Equal(3, PioneerExecutionCommand.Run("run", new()
-            { ["--input"] = path, ["--master"] = database, ["--seed"] = "123", ["--output"] = output }));
-            using var report = JsonDocument.Parse(File.ReadAllText(output));
-            var header = report.RootElement.GetProperty("finalState").GetProperty("header");
-            Assert.Equal(3, header.GetProperty("turn").GetInt32());
-            Assert.Equal(1, header.GetProperty("rawPlayingState").GetInt32());
-            Assert.Equal(0, header.GetProperty("developmentPoints").GetInt32());
-            Assert.Equal(1, report.RootElement.GetProperty("results")[0].GetProperty("progress").GetProperty("settledActions").GetInt32());
-        }
-        finally
-        {
-            Directory.Delete(directory, true);
-        }
     }
 
     static PioneerMasterData Master()

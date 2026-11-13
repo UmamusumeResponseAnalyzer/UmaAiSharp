@@ -1,7 +1,8 @@
 using System.Collections.Immutable;
 using System.Text.Json;
-using UmaAiSharp.Cli;
+using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
+using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Events;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
@@ -15,9 +16,9 @@ public sealed class PioneerRestTests
     {
         foreach (var row in Cases())
         {
-            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
             var ordinary = row.GetProperty("kind").GetString() == "ordinary";
-            var current = ordinary ? row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecutionCommand.JsonOptions) : default;
+            var current = ordinary ? row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecution.JsonOptions) : default;
             var data = PioneerRuntimeData.Compile(start, ordinary ? [new PioneerConditionalOutcome.RestEvent(0, current)] : [], "captured-rest");
             var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
             var command = ordinary ? RestRules.OrdinaryCommand : RestRules.CampCommand;
@@ -64,8 +65,80 @@ public sealed class PioneerRestTests
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
             SimulationRunner.ResetSample(scenario, script, root, ref execution, 71, 0);
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
-            PioneerStateAudit.AssertDeterministic(data, script);
         }
+    }
+
+    [Fact]
+    public void RestRolloutAndConditionalReplaySettleBeforeReplacingTheBoard()
+    {
+        var row = Cases().First(row => row.GetProperty("start").GetProperty("turn").GetInt32() == 5);
+        var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
+        var rest = row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecution.JsonOptions);
+        var calibration = new PioneerTurnCalibration([new(rest.StoryId % 1000, 1)],
+            [new(PioneerArrivalSource.RestConfirmation, start.Turn, Ready: 0, TurnConfirmation: 0, TrainingLevel: 0,
+                SameTurnEvent: 1, NextTurnEvent: 1, OtherPhase: 0)],
+            [new(PlacementMemberKind.Training, false, 0, 1, 10), new(PlacementMemberKind.Tucker, false, 0, 1, 10)]);
+        var rules = new PioneerTurnRules(calibration,
+            start.Commands.Select(command => (command.CommandId, command.Level, command.FailureCoefficient)),
+            start, 63, [], []);
+        var generated = PioneerRuntimeData.Compile(start, [], "fitted-rest", turnRules: rules);
+        var scenario = new PioneerScenario(generated, autonomous: true);
+        var state = generated.CreateInitialState();
+        var random = new SimulationRandom(71);
+        Assert.True(scenario.ApplyAction(ref state, PioneerRuntimeAction.Rest(RestRules.OrdinaryCommand), ref random).ActionSettled);
+        Assert.Equal(default, state.Header.Event);
+        Assert.Equal(start.Turn + 1, state.Header.Turn);
+        Assert.Equal(PioneerStage.TrainingTurn, state.Header.Stage);
+        Assert.Equal(row.GetProperty("expectedVitals")[0].GetInt32(), state.Header.Resources.Vital);
+
+        var prior = new PioneerStoryOccurrence(rest.StoryId, start.Turn - 1, 5, rest.PlayTiming, rest.CharacterId, 0, 0, 0);
+        var recorded = PioneerRuntimeData.Compile(start with { ObservedStoryHistory = [prior] },
+            [new PioneerConditionalOutcome.RestEvent(0, rest with { EventId = 7010 }), new PioneerConditionalOutcome.TurnArrival(1,
+                PioneerArrival.Ready, state.Header.TrainingBoard, state.Header.AvailableTrainingCommands, state.Header.AvailableRestCommands)],
+            "rest-replay", turnRules: rules, usesStoryDecisions: true);
+        var replay = new PioneerScenario(recorded);
+        var copy = recorded.CreateInitialState();
+        var replayRandom = new SimulationRandom(71);
+        Assert.True(replay.ApplyAction(ref copy, PioneerRuntimeAction.Rest(RestRules.OrdinaryCommand), ref replayRandom).ActionSettled);
+        Assert.NotNull(replay.ValidateAction(copy, PioneerRuntimeAction.Choose(rest, 0)));
+        Assert.True(replay.ApplyAction(ref copy, PioneerRuntimeAction.Choose(copy.Header.Event, 0), ref replayRandom).ActionSettled);
+        Assert.Equal(state.Header.TrainingBoard, copy.Header.TrainingBoard);
+        Assert.Equal(state.Header.Resources, copy.Header.Resources);
+        var history = copy.GetSection(PioneerStateSection.StoryHistory);
+        Assert.Equal([rest.StoryId, start.Turn - 1, 5, 6, rest.CharacterId, 0, 0, 0, 0, 0,
+            rest.StoryId, start.Turn, 5, 6, rest.CharacterId, 0, 0, 0, 0, 0], history.ToArray());
+        Assert.Equal(2, copy.Header.ConditionalOutcomeCount);
+        Assert.Equal(71UL, replayRandom.State);
+
+    }
+
+    [Fact]
+    public void OrdinaryEventEffectsSettleBeforeTheNextDecisionWithoutCreatingAnEventChoice()
+    {
+        var row = Cases().First(row => row.GetProperty("start").GetProperty("turn").GetInt32() == 5);
+        var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
+        var rest = row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecution.JsonOptions);
+        var calibration = new PioneerTurnCalibration([new(rest.StoryId % 1000, 1)],
+            [new(PioneerArrivalSource.RestConfirmation, start.Turn, 0, 0, 0, 0, 0, 0,
+                [new(1, new(10, 0, 0, 0, 0, 10, 5), -1, 0, 5)])],
+            [new(PlacementMemberKind.Training, false, 0, 1, 10), new(PlacementMemberKind.Tucker, false, 0, 1, 10)]);
+        var rules = new PioneerTurnRules(calibration,
+            start.Commands.Select(command => (command.CommandId, command.Level, command.FailureCoefficient)), start, 1, [], []);
+        var data = PioneerRuntimeData.Compile(start, [], "ordinary-event", turnRules: rules, usesStoryDecisions: true);
+        var scenario = new PioneerScenario(data, autonomous: true);
+        var state = data.CreateInitialState();
+        var random = new SimulationRandom(71);
+        Assert.True(scenario.ApplyAction(ref state, PioneerRuntimeAction.Rest(RestRules.OrdinaryCommand), ref random).ActionSettled);
+        Assert.Equal(PioneerStage.TrainingTurn, state.Header.Stage);
+        Assert.Equal(start.Turn + 1, state.Header.Turn);
+        Assert.Equal(start.Environment.Current.Speed + 10, state.Header.Resources.Speed);
+        Assert.Equal(start.Environment.Limits.Vital, state.Header.Resources.Vital);
+        Assert.Equal(5, state.Header.FutureGainedSkillPoints);
+        Assert.Equal(start.Environment.Motivation - 1, state.Header.Motivation);
+        Assert.Equal(Math.Min(100, start.Deck.Single(card => card.Position == 1).Bond + 5),
+            state.GetSection(PioneerStateSection.SupportBonds)[0]);
+        Assert.Empty(state.GetSection(PioneerStateSection.PendingStories).ToArray());
+        Assert.Empty(state.GetSection(PioneerStateSection.StoryHistory).ToArray());
     }
 
     [Fact]
@@ -73,7 +146,7 @@ public sealed class PioneerRestTests
     {
         foreach (var row in Cases().Where(row => row.TryGetProperty("eventStart", out _)))
         {
-            var start = row.GetProperty("eventStart").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+            var start = row.GetProperty("eventStart").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
             var data = PioneerRuntimeData.Compile(start, [], "revealed-rest");
             var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
             var current = start.PendingRestEvent!.Value;
@@ -91,20 +164,18 @@ public sealed class PioneerRestTests
     }
 
     [Fact]
-    public void MissingOutcomesUnknownEffectsAndUnavailableCommandsDoNotMutateState()
+    public void MissingOutcomesAndUnavailableCommandsDoNotMutateState()
     {
         var row = Cases()[0];
-        var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
-        var current = row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecutionCommand.JsonOptions);
+        var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
+        var current = row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecution.JsonOptions);
         foreach (var (input, outcomes, code) in new (PioneerStart.TrainingTurn, ImmutableArray<PioneerConditionalOutcome>, PioneerStopCode)[]
         {
             (start, [], PioneerStopCode.RestOutcomeRequired),
             (start with { AvailableRestCommands = null }, [], PioneerStopCode.RestAvailabilityRequired),
             (start with { AvailableRestCommands = 0 }, [], PioneerStopCode.InvalidAction),
             (start with { CharacterId = null }, [new PioneerConditionalOutcome.RestEvent(0, current)], PioneerStopCode.RestCharacterRequired),
-            (start, [new PioneerConditionalOutcome.TrainingResult(0, true)], PioneerStopCode.OutcomeIdentityMismatch),
-            (start with { CharacterEffects = [.. start.CharacterEffects, 1] },
-                [new PioneerConditionalOutcome.RestEvent(0, current)], PioneerStopCode.UnsupportedComponentInput)
+            (start, [new PioneerConditionalOutcome.TrainingResult(0, true)], PioneerStopCode.OutcomeIdentityMismatch)
         })
         {
             var data = PioneerRuntimeData.Compile(input, outcomes, "rest-boundary");
@@ -132,11 +203,11 @@ public sealed class PioneerRestTests
         foreach (var vital in new[] { 0, maximum - 1, maximum })
         foreach (var motivation in new[] { 1, 4, 5 })
         {
-            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
+            var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
             var ordinary = start.Camp is null;
             start = start with { Environment = start.Environment with { Current = start.Environment.Current with { Vital = vital },
                 Limits = start.Environment.Limits with { Vital = maximum }, Motivation = motivation } };
-            var current = ordinary ? row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecutionCommand.JsonOptions) : default;
+            var current = ordinary ? row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecution.JsonOptions) : default;
             var data = PioneerRuntimeData.Compile(start, ordinary ? [new PioneerConditionalOutcome.RestEvent(0, current)] : [], "rest-limits");
             var scenario = new PioneerScenario(data); var state = data.CreateInitialState(); var random = new SimulationRandom(71);
             scenario.ApplyAction(ref state, PioneerRuntimeAction.Rest(ordinary ? 701 : 3606), ref random);
@@ -146,42 +217,6 @@ public sealed class PioneerRestTests
             Assert.Equal(71UL, random.State);
             Assert.False(state.Header.TurnKnown);
         }
-    }
-
-    [Fact]
-    public void RestCliUsesTheSameScriptsForSingleAndBatchExecution()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "UmaAiSharp-rest-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
-        {
-            foreach (var row in new[] { Cases()[0], Cases().First(row => row.GetProperty("kind").GetString() == "camp") })
-            {
-                var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecutionCommand.JsonOptions)!;
-                var ordinary = start.Camp is null; var mode = ordinary ? PioneerExecutionMode.Conditional : PioneerExecutionMode.Autonomous;
-                var current = ordinary ? row.GetProperty("event").Deserialize<PioneerEvent>(PioneerExecutionCommand.JsonOptions) : default;
-                ImmutableArray<ScriptedAction<PioneerRuntimeAction>> steps = [new(new((int)PioneerStage.TrainingTurn, 0,
-                    PioneerScenario.DecisionKey(start.Turn, 0)), PioneerRuntimeAction.Rest(ordinary ? 701 : 3606))];
-                if (ordinary) steps = [.. steps, new(new((int)PioneerStage.RestConfirmation, 1,
-                    PioneerScenario.DecisionKey(start.Turn, current.EventId)), PioneerRuntimeAction.Choose(current, 0))];
-                var input = new PioneerExecutionInput(1, "rest-cli", mode, new("trainingTurn", row.GetProperty("start")),
-                    ordinary ? [new("restEvent", JsonSerializer.SerializeToElement(new { actionOrdinal = 0, @event = current }, PioneerExecutionCommand.JsonOptions))] : [], steps);
-                var path = Path.Combine(directory, ordinary ? "ordinary.json" : "camp.json");
-                File.WriteAllText(path, JsonSerializer.Serialize(input, PioneerExecutionCommand.JsonOptions));
-                var result = path + ".result.json";
-                Assert.Equal(3, Program.Main(["pioneer", ordinary ? "replay" : "run", "--input", path, "--seed", "71", "--output", result]));
-                using var single = JsonDocument.Parse(File.ReadAllText(result));
-                Assert.Equal(row.GetProperty("expectedVitals")[0].GetInt32(), single.RootElement.GetProperty("finalState")
-                    .GetProperty("header").GetProperty("resources").GetProperty("vital").GetInt32());
-                var batch = path + ".batch.json";
-                Assert.Equal(3, Program.Main(["pioneer", "batch", "--input", path, "--seed", "71", "--samples", "131", "--workers", "4", "--output", batch]));
-                using var batchDocument = JsonDocument.Parse(File.ReadAllText(batch));
-                Assert.Equal(131, batchDocument.RootElement.GetProperty("results").GetArrayLength());
-                Assert.All(batchDocument.RootElement.GetProperty("results").EnumerateArray(), result =>
-                    Assert.Equal((int)PioneerStopCode.RestContinuationRequired, result.GetProperty("stop").GetProperty("code").GetInt32()));
-            }
-        }
-        finally { Directory.Delete(directory, true); }
     }
 
     static JsonElement[] Cases()

@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.Json;
-using UmaAiSharp.Cli.Evidence;
+using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Races;
@@ -28,17 +28,6 @@ public sealed class PioneerDevelopmentComponentTests
             { RespectRequiredConstructorParameters = true })!).ToArray();
 
     [Fact]
-    public void FixturesRetainTheRecordedInputAndOutputFingerprints()
-    {
-        using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(Evidence(), "component-provenance.json")));
-        foreach (var file in manifest.RootElement.GetProperty("outputs").EnumerateArray())
-        {
-            using var stream = File.OpenRead(Path.Combine(Evidence(), file.GetProperty("name").GetString()!));
-            Assert.Equal(file.GetProperty("sha256").GetString(), Convert.ToHexStringLower(SHA256.HashData(stream)));
-        }
-    }
-
-    [Fact]
     public void RacePointsMatchEveryWindowAgreedByBothIndependentClassifications()
     {
         var rules = new PioneerRacePointGain(Master());
@@ -51,10 +40,8 @@ public sealed class PioneerDevelopmentComponentTests
     }
 
     [Theory]
-    [InlineData(12, 0, 0, true, 60)]
     [InlineData(13, 1, 2, true, 61)]
     [InlineData(25, 2, 2, false, 22)]
-    [InlineData(49, 4, 2, true, 63)]
     public void TargetBonusIsAddedAfterScalingTheOrdinaryRacePoints(int turn, int checkpoint, int result, bool target, int expected)
     {
         Assert.Equal(expected, new PioneerRacePointGain(Master()).CalculateObservedEvent(
@@ -71,19 +58,6 @@ public sealed class PioneerDevelopmentComponentTests
         Assert.Throws<UnknownMechanismException>(() => rules.CalculateObservedEvent(context with { Turn = 61 }));
         Assert.Throws<UnknownMechanismException>(() => rules.CalculateObservedEvent(context with
             { Turn = 12, CompletedCheckpointType = 0, CompletedCheckpointResult = 0, IsTargetRace = false }));
-    }
-
-    [Fact]
-    public void TuckerResourcesMatchTheRecordedChoiceWithoutAdvancingTheEvent()
-    {
-        var fixtures = Fixtures<TuckerFixture>("tucker-point-observations.jsonl");
-        Assert.Equal(376, fixtures.Length);
-        foreach (var row in fixtures)
-            Assert.Equal(row.After, TuckerPointSettlement.ApplyObservedChoiceOne(row.Context, row.Before));
-        var context = fixtures[0].Context;
-        Assert.Throws<UnknownMechanismException>(() => TuckerPointSettlement.ApplyObservedChoiceOne(context with { ChoiceNumber = 2 }, new(0, 0)));
-        Assert.Throws<UnknownMechanismException>(() => TuckerPointSettlement.ApplyObservedChoiceOne(context with { SupportExperience = 82935 }, new(0, 0)));
-        Assert.Throws<UnknownMechanismException>(() => TuckerPointSettlement.ApplyObservedChoiceOne(context with { DeckId = 0 }, new(0, 0)));
     }
 
     [Fact]

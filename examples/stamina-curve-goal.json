@@ -1,17 +1,6 @@
 {
-  "constraints": [],
-  "priorities": [
-    {
-      "terms": [
-        {
-          "metric": {
-            "kind": "attribute",
-            "attribute": "Stamina",
-            "curve": { "points": [{ "value": 0, "weight": 10 }, { "value": 801, "weight": 10 }, { "value": 1201, "weight": 1 }] }
-          },
-          "weight": 1
-        }
-      ]
-    }
-  ]
+  "constraints": [
+    { "attribute": "Stamina", "comparison": "AtLeast", "value": 1201 }
+  ],
+  "priorities": []
 }

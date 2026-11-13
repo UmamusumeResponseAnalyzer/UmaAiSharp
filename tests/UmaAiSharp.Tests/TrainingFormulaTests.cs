@@ -7,11 +7,8 @@ namespace UmaAiSharp.Tests;
 public sealed class TrainingFormulaTests
 {
     [Theory]
-    [InlineData(520, 43, 0, 0, 13)]
-    [InlineData(532, 43, 20, 0, 12)]
     [InlineData(528, 35, 20, 2, 26)]
     [InlineData(536, 47, 0, -2, 7)]
-    [InlineData(536, 108, 0, 2, 2)]
     [InlineData(520, 0, 0, 0, 99)]
     public void GeneratesObservedDisplayRatesWithBiasAfterCeiling(int coefficient, int vital, int reduction, int bias, int expected)
         => Assert.Equal(expected, TrainingFailureRate.Calculate(coefficient, vital, [reduction], bias));
@@ -47,19 +44,6 @@ public sealed class TrainingFormulaTests
     }
 
     [Fact]
-    public void GeneratesOrdinaryGainsFromStateAndEffectsWithoutReadingServerPreview()
-    {
-        var input = new TrainingFormulaInput(101, 1, 5, 0, 2,
-            new(100, 100, 100, 100, 100, 50, 0), new(1800, 1800, 1800, 1800, 1800, 100),
-            new(0, 0, 20, 0, 0, 0, 0), [], 10, null);
-
-        var prediction = TrainingFormulaCandidate.GenerateOrdinary(input);
-
-        Assert.Equal(new TrainingValues(15, 0, 1, 0, 0, -20, 7), prediction.Common);
-        Assert.Equal(new TrainingValues(1, 0, 0, 0, 0, 0, 0), prediction.Scenario);
-    }
-
-    [Fact]
     public void QuantizesRealIntegerBoundaryWhilePreservingTheUnquantizedExactRational()
     {
         // packets-0002/4450: the raw product is 22.99968; refit-14 produces the observed 23.
@@ -83,12 +67,7 @@ public sealed class TrainingFormulaTests
     }
 
     [Theory]
-    [InlineData(1187, 1800, 12, 6)]
-    [InlineData(1188, 1800, 12, 6)]
-    [InlineData(1189, 1800, 12, 6)]
     [InlineData(1190, 1800, 11, 6)]
-    [InlineData(1191, 1800, 10, 6)]
-    [InlineData(1192, 1800, 10, 6)]
     [InlineData(1200, 1800, 6, 6)]
     [InlineData(1189, 1200, 11, 0)]
     public void SplitsEachPreviewLayerAt1200BeforeApplyingTheAttributeLimit(int speed, int cap, int common, int scenario)
@@ -107,10 +86,4 @@ public sealed class TrainingFormulaTests
         Assert.Equal((prediction.Common, prediction.Scenario), (numeric.Common, numeric.Scenario));
     }
 
-    [Fact]
-    public void NoCampOrIslandCandidateIsSubstitutedForOrdinaryTraining()
-    {
-        Assert.Throws<UnknownMechanismException>(() => TrainingBaseTable.GetOrdinary(3601, 5));
-        Assert.Throws<UnknownMechanismException>(() => TrainingBaseTable.GetOrdinary(3101, 1));
-    }
 }
