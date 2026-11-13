@@ -42,6 +42,28 @@ public struct SimulationRandom(ulong seed)
 
     public double NextDouble() => (NextUInt64() >> 11) * (1.0 / (1UL << 53));
 
+    public readonly SimulationRandom Fork(ulong key) => new(Mix(State ^ Mix(key)));
+
+    // Multiply-high keeps draws ordered across bounds. Rejection removes the uneven final buckets.
+    public ulong NextScaled(ulong bound)
+    {
+        ArgumentOutOfRangeException.ThrowIfZero(bound);
+        var result = Math.BigMul(NextUInt64(), bound, out var low);
+        if (low < bound)
+        {
+            var threshold = unchecked(0UL - bound) % bound;
+            while (low < threshold)
+                result = Math.BigMul(NextUInt64(), bound, out low);
+        }
+        return result;
+    }
+
+    public int NextScaled(int bound)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bound);
+        return (int)NextScaled((ulong)bound);
+    }
+
     public static ulong DeriveSeed(ulong rootSeed, int sampleIndex, SimulationRandomStream stream)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(sampleIndex);

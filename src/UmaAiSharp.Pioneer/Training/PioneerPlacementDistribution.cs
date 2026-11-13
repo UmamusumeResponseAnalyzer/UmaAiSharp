@@ -98,27 +98,29 @@ public sealed class PioneerPlacementDistribution
         return new(index, index >= 0 && SampleHint(ref random));
     }
 
-    internal int SamplePosition(bool appeared, ref SimulationRandom random)
+    internal int SamplePosition(bool appeared, ref SimulationRandom random, bool paired = false)
     {
         if (!appeared) return -1;
-        var draw = random.NextUInt64(TotalWeight);
+        var draw = paired ? random.NextScaled(TotalWeight) : random.NextUInt64(TotalWeight);
         var index = 0;
         while (draw >= Weights[index]) draw -= Weights[index++];
         return index == 5 ? -1 : index;
     }
 
-    internal bool SampleHint(ref SimulationRandom random, int extraFacilityPercent = 0)
+    internal bool SampleHint(ref SimulationRandom random, int extraFacilityPercent = 0, bool paired = false)
     {
         if (HintNumerator == 0) return false;
         if (HintNumerator == HintDenominator) return true;
-        if (extraFacilityPercent == 0) return random.NextUInt64(HintDenominator) < HintNumerator;
+        if (extraFacilityPercent == 0)
+            return (paired ? random.NextScaled(HintDenominator) : random.NextUInt64(HintDenominator)) < HintNumerator;
         var basis = (ulong)(100 + facilityHintPercent);
-        return random.NextUInt64(HintDenominator * basis) < HintNumerator * (basis + (ulong)extraFacilityPercent);
+        var bound = HintDenominator * basis;
+        return (paired ? random.NextScaled(bound) : random.NextUInt64(bound)) < HintNumerator * (basis + (ulong)extraFacilityPercent);
     }
 
     internal bool SampleExtraHint(int percent, ref SimulationRandom random)
     {
         var remaining = (HintDenominator - HintNumerator) * (ulong)(100 + facilityHintPercent);
-        return remaining != 0 && random.NextUInt64(remaining) < HintNumerator * (ulong)percent;
+        return remaining != 0 && random.NextScaled(remaining) < HintNumerator * (ulong)percent;
     }
 }

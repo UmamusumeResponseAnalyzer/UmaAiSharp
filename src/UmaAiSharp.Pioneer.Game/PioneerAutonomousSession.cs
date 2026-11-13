@@ -90,7 +90,9 @@ public sealed class PioneerAutonomousSession
         if (candidates.Length == 0) throw new UnknownMechanismException("当前面板没有已接入的合法根行动。");
         return RootSearch.Evaluate(scenario, new PioneerContinuationPolicy(), root,
             candidates, goal.Compiled, seed, samples, workers, cancellationToken,
-            candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes), rankByAttributeRating: true);
+            candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes), rankByTotalRating: true,
+            hasFirstStepAdvantage: root.Header.Stage == PioneerStage.TrainingTurn
+                ? (state, left, right) => scenario.HasFirstStepAdvantage(state, left, right) : null);
     }
 
     internal static ImmutableArray<PioneerStoryOccurrence>? ResolveStories(ImmutableArray<PioneerStoryOccurrence>? stories,

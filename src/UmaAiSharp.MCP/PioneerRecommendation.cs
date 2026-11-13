@@ -39,10 +39,14 @@ public static class PioneerRecommendation
             : goal.Compiled;
         ITrajectoryPolicy<PioneerDecisionView, PioneerRuntimeAction, ScriptCursor> policy = loaded.UseContinuation
             ? new PioneerContinuationPolicy() : loaded.Script;
-        var result = RootSearch.Evaluate(new PioneerScenario(loaded.Data, loaded.UseContinuation), policy, loaded.Root, candidates,
+        var scenario = new PioneerScenario(loaded.Data, loaded.UseContinuation);
+        var wholeRun = loaded.UseContinuation && loaded.Data.IsWholeRun;
+        var result = RootSearch.Evaluate(scenario, policy, loaded.Root, candidates,
             compiledGoal, seed, samples, workers, cancellationToken,
             candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes),
-            rankByAttributeRating: loaded.UseContinuation && loaded.Data.IsWholeRun);
+            rankByTotalRating: wholeRun,
+            hasFirstStepAdvantage: wholeRun && loaded.Root.Header.Stage == PioneerStage.TrainingTurn
+                ? (state, left, right) => scenario.HasFirstStepAdvantage(state, left, right) : null);
         var elapsed = Stopwatch.GetElapsedTime(timer);
         var bytes = GC.GetTotalAllocatedBytes(true) - allocated;
         var action = result.RecommendedCandidateId is { } recommended
@@ -63,8 +67,8 @@ public static class PioneerRecommendation
         return ToolResult.Report(output, new
         {
             recommendedCandidateId = result.RecommendedCandidateId,
-            recommendedAction = action, recommendationEvaluation = evaluation,
-            samplesPerCandidate = samples, candidateCount = candidates.Length,
+            recommendedAction = action, recommendationEvaluation = evaluation, result.FirstStepPromotedCandidateId,
+            samplesPerCandidate = samples, result.SampleLimitPerCandidate, candidateCount = candidates.Length,
             stops = ToolResult.SearchStops(result)
         }, ToolResult.SearchStatus(result.Status));
     }

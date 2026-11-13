@@ -17,7 +17,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
     readonly TrainingProjection? trainingProjection = autonomous && data.IsWholeRun ? new(data) : null;
     public string RulesIdentity { get; } = !autonomous || data.TurnRules is null
         ? data.RulesIdentity + "/" + data.Model.Identity
-        : data.RulesIdentity + "/" + data.Model.Identity + (data.TurnRules.WholeRun ? "/pioneer-whole-run-v6" : "/pioneer-direct-turn-v1");
+        : data.RulesIdentity + "/" + data.Model.Identity + (data.TurnRules.WholeRun ? "/pioneer-whole-run-v8" : "/pioneer-direct-turn-v1");
     public long SharedMemoryBytes => data.SharedMemoryBytes + (trainingProjection is null ? 0 : TrainingProjection.SharedMemoryBytes);
     public static long DecisionKey(int turn, int eventOrCommandId) => ((long)turn << 32) | (uint)eventOrCommandId;
     public PioneerState CreateWorkspace(in PioneerState source) => source.Clone();
@@ -211,11 +211,17 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var values = header.Resources;
         var limits = header.Limits;
         var attributes = new AttributeValues(values.Speed, values.Stamina, values.Power, values.Guts, values.Wisdom);
+        var futurePoints = checked((int)header.FutureGainedSkillPoints);
+        var futureSkillRating = autonomous && data.IsWholeRun && header.FailedCareerGoal == 0
+            ? FutureSkillRating.Estimate(data.TrainingStart!.Environment.Current.SkillPoints, futurePoints,
+                data.TurnRules!.Hints!.SupportPoolSize)
+            : (int?)null;
         return new(attributes,
             new(limits.Speed, limits.Stamina, limits.Power, limits.Guts, limits.Wisdom),
-            checked((int)header.FutureGainedSkillPoints),
+            futurePoints,
             (header.KnownParts & PioneerKnownParts.FutureOverflow) != 0 ? header.FutureOverflow : null,
-            ScoringCandidates.AttributeScore(attributes), header.FailedCareerGoal == 0 ? null : header.FailedCareerGoal);
+            ScoringCandidates.AttributeScore(attributes), header.FailedCareerGoal == 0 ? null : header.FailedCareerGoal,
+            futureSkillRating);
     }
 
     TransitionResult FinishCharacterEnding(PioneerState state)
@@ -270,7 +276,8 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var preview = PreviewTraining(state, commandId);
         var count = checked(state.GetSection(PioneerStateSection.TrainingExecutionCounts)[index] + 1);
         // Commit the draw with the action; an unsupported settlement leaves its pending context unchanged.
-        var nextRandom = random;
+        var paired = autonomous && data.IsWholeRun;
+        var nextRandom = paired ? random.At(state.Header.Turn, PioneerDraw.TrainingFailure) : random;
         var camp = commandId >= 3601;
         // Forced replay results consume no draw from the rule stream.
         var success = conditional is PioneerConditionalOutcome.TrainingResult result ? result.Success
@@ -320,7 +327,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             var hintCount = TrainingBoard.Positions(placement.HintMask, hints);
             state.SetSection(PioneerStateSection.HintCandidates, hints[..hintCount]);
         }
-        random = nextRandom;
+        if (!paired) random = nextRandom;
         state.MutableSection(PioneerStateSection.TrainingExecutionCounts)[index] = count;
         header.CommandId = commandId; header.TrainingSucceeded = success; header.KnownParts |= PioneerKnownParts.TrainingResult;
         if (conditional is not null) header.ConditionalOutcomeCount++;
@@ -354,7 +361,9 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             }
             else
             {
-                ApplyAutonomousFailure(state, preview.FailureRate, ref random);
+                var penaltyRandom = paired ? random.At(header.Turn, PioneerDraw.TrainingPenalty) : random;
+                ApplyAutonomousFailure(state, preview.FailureRate, ref penaltyRandom);
+                if (!paired) random = penaltyRandom;
             }
             return AdvanceTurn(state, source, ref random);
         }
@@ -473,8 +482,10 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         {
             RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects));
             var resources = state.Header.Resources;
+            var restRandom = data.IsWholeRun ? random.At(state.Header.Turn, PioneerDraw.Rest) : random;
             state.Mutable.Resources = resources with { Vital = VitalRules.Apply(resources.Vital, state.Header.Limits.Vital,
-                rules.DrawRestRecovery(ref random), 0).Vital };
+                rules.DrawRestRecovery(ref restRandom), 0).Vital };
+            if (!data.IsWholeRun) random = restRandom;
             state.Mutable.CommandId = commandId;
             return AdvanceTurn(state, PioneerArrivalSource.RestConfirmation, ref random);
         }
@@ -566,7 +577,8 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
                 }
                 if (next == 41 && header.DeferredConstruction)
                 {
-                    if (!SettleConstruction(state)) return Partial(state, PioneerStopCode.ConstructionSettlementRequired, turnKnown: true);
+                    if (!SettleConstruction(state))
+                        return Partial(state, PioneerStopCode.ConstructionSettlementRequired, turnKnown: true);
                     header.DeferredConstruction = false;
                 }
                 if (next == 65)
@@ -669,7 +681,15 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var scheduledRace = autonomous && ActiveScheduledRace(state) is not null;
         header.AvailableTrainingCommands = scheduledRace ? 0 : outcome?.AvailableTrainingCommands ?? 31;
         header.AvailableRestCommands = scheduledRace ? 0 : outcome?.AvailableRestCommands ?? (camp ? RestRules.CampAvailable : RestRules.OrdinaryAvailable);
-        header.TrainingBoard = scheduledRace ? default : outcome?.Board ?? data.TurnRules!.DrawBoard(state, camp, ref random);
+        if (scheduledRace) header.TrainingBoard = default;
+        else if (outcome?.Board is { } observed) header.TrainingBoard = observed;
+        else
+        {
+            var paired = autonomous && data.IsWholeRun;
+            var boardRandom = paired ? random.At(next, PioneerDraw.Board) : random;
+            header.TrainingBoard = data.TurnRules!.DrawBoard(state, camp, ref boardRandom, paired);
+            if (!paired) random = boardRandom;
+        }
         header.KnownParts &= ~PioneerKnownParts.IslandAssignments;
         header.IslandBoard = default;
         if (outcome?.IslandBoard is { } island)
@@ -678,7 +698,10 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             header.KnownParts |= PioneerKnownParts.IslandAssignments;
         }
         else if (autonomous && data.IsWholeRun && !camp && !scheduledRace && header.Turn is >= 6 and <= 72 && header.Tickets > 0)
-            data.TurnRules!.DrawIslandBoard(state, ref random);
+        {
+            var islandRandom = random.At(next, PioneerDraw.IslandBoard);
+            data.TurnRules!.DrawIslandBoard(state, ref islandRandom);
+        }
         header.KnownParts &= ~(PioneerKnownParts.EventIdentity | PioneerKnownParts.TrainingResult);
         header.KnownParts |= PioneerKnownParts.TrainingBoard;
         state.SetSection(PioneerStateSection.PendingStories, []);
@@ -760,10 +783,12 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         return true;
     }
 
-    static bool SettleConstruction(PioneerState state)
+    bool SettleConstruction(PioneerState state)
     {
         ref var header = ref state.Mutable;
-        if (header.DeckId != 3 || (header.KnownParts & PioneerKnownParts.Tickets) == 0 || header.Tickets is not (0 or 1))
+        // In a whole run the pre-senior cap makes 0 and 1 equivalent after issuance, even if camp hid the count.
+        if (header.DeckId != 3 || header.Tickets is not (0 or 1)
+            || !(autonomous && data.IsWholeRun) && (header.KnownParts & PioneerKnownParts.Tickets) == 0)
             return false;
         var milestone = 0;
         foreach (var threshold in state.GetSection(PioneerStateSection.Thresholds))
@@ -788,6 +813,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             target[offsets[i / 4]] = plan[i + 3];
         }
         header.Tickets = 1;
+        header.KnownParts |= PioneerKnownParts.Tickets;
         state.TurnBoard = null;
         return true;
     }

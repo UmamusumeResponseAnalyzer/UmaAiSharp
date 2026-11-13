@@ -125,11 +125,15 @@ public static class SimulationRunner
         ISimulationScenario<TState, TDecision, TAction, TOutcome> scenario,
         ITrajectoryPolicy<TDecision, TAction, TCursor> policy, in TState root, ulong seed, int samples,
         ExecutionMemoryPlan memory, TrajectoryExecution<TState, TAction, TCursor>[] workspaces,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, TrajectoryResult<TOutcome>[]? prefix = null)
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
-        var blocks = (samples - 1) / LogicalBlockSize + 1;
+        var offset = prefix?.Length ?? 0;
+        var added = samples - offset;
+        var blockSize = Math.Min(LogicalBlockSize, (added - 1) / workspaces.Length + 1);
+        var blocks = (added - 1) / blockSize + 1;
         var slots = new TrajectoryResult<TOutcome>[samples];
+        prefix?.CopyTo(slots, 0);
         var source = root;
         var nextBlock = -1;
         Parallel.For(0, workspaces.Length, new ParallelOptions { MaxDegreeOfParallelism = workspaces.Length }, worker =>
@@ -139,8 +143,8 @@ public static class SimulationRunner
             {
                 var block = Interlocked.Increment(ref nextBlock);
                 if (block >= blocks) break;
-                var first = block * LogicalBlockSize;
-                var end = (int)Math.Min(samples, (long)first + LogicalBlockSize);
+                var first = offset + block * blockSize;
+                var end = (int)Math.Min(samples, (long)first + blockSize);
                 for (var index = first; index < end; index++)
                 {
                     if (cancellationToken.IsCancellationRequested)

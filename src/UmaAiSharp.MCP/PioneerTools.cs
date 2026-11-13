@@ -44,7 +44,7 @@ public static class PioneerTools
             model: PioneerModel.Resolve(model));
 
     [McpServerTool(Name = "pioneer_recommend", UseStructuredContent = true, Destructive = false, OpenWorld = false)]
-    [Description("比较合法根候选和育成目标。seed 为无符号十进制字符串，samples 为每候选样本数，workers 为 1 至 32。model 可选 precise 或 fast。")]
+    [Description("比较合法根候选和育成目标。seed 为无符号十进制字符串，samples 为每候选首批样本数，自主训练回合按配对分差加样。workers 为 1 至 32。model 可选 precise 或 fast。")]
     public static ToolResult Recommend(string inputPath, string goalPath, string candidatesPath, string seed, int samples, int workers,
         string outputPath, CancellationToken cancellationToken, string? masterPath = null, string? rulesPath = null, string model = "precise")
         => PioneerRecommendation.Run(inputPath, goalPath, candidatesPath, ToolArguments.Seed(seed), samples,

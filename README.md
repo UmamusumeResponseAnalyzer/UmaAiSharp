@@ -1,6 +1,6 @@
 # UmaAiSharp
 
-C# / .NET 10 育成模拟与行动评估工程，包含确定性多线程执行、固定样本根搜索、Pioneer 机制、目标评价和实包审计。
+C# / .NET 10 育成模拟与行动评估工程，包含确定性多线程执行、根搜索、Pioneer 机制、目标评价和实包审计。
 
 ## 构建
 
@@ -29,7 +29,7 @@ dotnet test UmaAiSharp.slnx --no-restore -m:1 -nodeReuse:false
 
 `pioneer_forecast` 从抓包前缀比较训练、休息、岛训练、外出、比赛、保健室、建设规划或已揭示事件选项，通过明确标注的经验过渡模型预测到终局。当前角色成长与六卡效果由 master 编译，不要求模型包含相同配置；缺失机制保留停止。输入、实测覆盖及适用限制见[条件经验预测](docs/conditional-forecast.md)。完整机制模拟及独立推荐质量验收尚未完成。
 
-规则资源 v12 可通过 `pioneer_import_capture` → `pioneer_recommend` 比较合法训练、岛训练、建设、恢复及比赛，并模拟两次继承到第 78 回合。属性条件在终局判定。候选先比较联合达标率，再比较达标轨迹的平均五维评分。精确和快速公式模型可在执行时选定。见 [Pioneer MCP](docs/pioneer-mcp.md#规则资源-v12-自主整局)。
+规则资源 v12 可通过 `pioneer_import_capture` → `pioneer_recommend` 比较合法训练、岛训练、建设、恢复及比赛，并模拟两次继承到第 78 回合。属性条件在终局判定。候选先比较联合达标率，再比较达标轨迹的平均终局总分。总分包含五维评分和本次模拟新增技能 Pt 的购技评分估计。精确和快速公式模型可在执行时选定。见 [Pioneer MCP](docs/pioneer-mcp.md#规则资源-v12-自主整局)。
 
 `pioneer_calibrate_events`提取去除事件所属支援加成的基础资源样本，提供同类事件统计参数及排除计数。`pioneer_build_model`将已校准资源绑定到未来转移，按当前卡组与羁绊重新结算。用法和适用边界见[事件基础资源模型](docs/event-statistical-model.md)。
 
@@ -68,6 +68,14 @@ Pioneer 入口、普通／合宿训练回合、已揭示事件选项、真实失
 | Tests | 输入边界、规则局部样例、轨迹隔离和确定性不变量 |
 
 PioneerAiPlugin 在 URA 的训练面板显示行动建议，在「建设规划」工作区显示有序方案排名。两处都使用自主整局模拟和 `goalPath`，可用 `model` 选取公式。维护者使用 `tools/UmaAiSharp.Pioneer.DataGenerator`，依次传入 master、规则资源输出路径、回合校准文件和继承校准文件，生成插件内置规则。
+
+在 UmaAiSharp 根目录为已准备好规则资源、且已按 `win-x64` 还原当前运行时依赖的插件项目打包。URA SDK 将 ZIP 写入 `artifacts/PioneerAiPlugin.zip`，供手动安装。
+
+```powershell
+$pluginProject = '<PioneerAiPlugin.csproj 的绝对路径>'
+$packageTargets = (Resolve-Path tools/PioneerAiPlugin.Package.targets).Path
+dotnet build $pluginProject --no-restore -c Release -m:1 -p:RuntimeIdentifier=win-x64 -p:SelfContained=false -p:PlatformTarget=AnyCPU -p:ManagePackageVersionsCentrally=false "-p:CustomAfterMicrosoftCommonTargets=$packageTargets"
+```
 
 实施结果、核心缺口和延期项分别列在 [实施报告](docs/implementation-status.md)。完整实包与派生材料保留在被忽略的 `artifacts/` 中，按本地研究数据处理。
 

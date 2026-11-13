@@ -112,7 +112,8 @@ public sealed partial class PioneerScenario
             throw new InvalidOperationException("URA 决赛须在剧本完成后依次结算预赛、半决赛和决赛。");
         var rules = data.TurnRules!;
         ApplyProgressionReward(state, 10 * rules.RaceRewardPercent / 100, (40 + 20 * round) * rules.RaceRewardPercent / 100);
-        header.Fans += rules.DrawUraFans(turn, ref random);
+        var fans = random.At(turn, PioneerDraw.RaceFans);
+        header.Fans += rules.DrawUraFans(turn, ref fans);
         header.CompletedUraRaces++;
     }
 

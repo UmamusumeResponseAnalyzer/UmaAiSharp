@@ -234,7 +234,8 @@ public sealed partial class PioneerScenario
         var count = TrainingBoard.Positions((byte)hintMask, hints);
         if (!all && count > 1)
         {
-            hints[0] = hints[random.NextInt(count)];
+            hints[0] = hints[data.IsWholeRun
+                ? random.At(state.Header.Turn, PioneerDraw.HintSelection).NextScaled(count) : random.NextInt(count)];
             count = 1;
         }
         var bonds = state.MutableSection(PioneerStateSection.SupportBonds);
@@ -244,7 +245,9 @@ public sealed partial class PioneerScenario
             bonds[position] = Math.Min(100, bonds[position] + 5);
             if (rules.Hints is not { } pool) continue;
             ref var header = ref state.Mutable;
-            var gain = pool.Draw(position, bonds[position], state.MutableSection(PioneerStateSection.HintLevels), ref random);
+            var reward = data.IsWholeRun ? random.At(header.Turn, PioneerDraw.HintReward, position) : random;
+            var gain = pool.Draw(position, bonds[position], state.MutableSection(PioneerStateSection.HintLevels), ref reward);
+            if (!data.IsWholeRun) random = reward;
             if (gain == default) continue;
             var after = HintRewardPool.ApplyAttributeReward(header.Resources, header.Limits, gain);
             header.Resources = after.Resources;

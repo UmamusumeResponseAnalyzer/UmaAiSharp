@@ -59,19 +59,27 @@ public sealed class GoalTests
     }
 
     [Fact]
-    public void RecommendationUsesAverageAttributeRatingOfSuccessfulTrajectories()
+    public void RecommendationUsesTotalRatingOfSuccessfulTrajectoriesAfterComparingFeasibility()
     {
         var goal = PowerGoal();
-        var highPower = Result(1300, 1300, power: 1900) with { VerifiedAttributeRating = 19000 };
-        var highRating = Result(1300, 1300, power: 1500) with { VerifiedAttributeRating = 24000 };
-        var missed = Result(1100, 1300) with { VerifiedAttributeRating = 30000 };
-        var stronger = GoalEvaluator.Summarize(goal, [highPower, missed]);
-        var higherRated = GoalEvaluator.Summarize(goal, [highRating, missed]);
-        var reliable = GoalEvaluator.Summarize(goal, [highPower, highPower]);
+        var moreAttributes = Result(1300, 1300, power: 1900) with
+        {
+            VerifiedAttributeRating = 24000, EstimatedFutureSkillRating = 1000,
+        };
+        var moreSkills = Result(1300, 1300, power: 1500) with
+        {
+            VerifiedAttributeRating = 22000, EstimatedFutureSkillRating = 4000,
+        };
+        var missed = Result(1100, 1300) with { VerifiedAttributeRating = 30000, EstimatedFutureSkillRating = 10000 };
+        var stronger = GoalEvaluator.Summarize(goal, [moreAttributes, missed]);
+        var higherRated = GoalEvaluator.Summarize(goal, [moreSkills, missed]);
+        var reliable = GoalEvaluator.Summarize(goal, [moreAttributes, moreAttributes]);
 
-        Assert.Equal(24000m, higherRated.MeanSuccessfulAttributeRating);
-        Assert.True(GoalEvaluator.Compare(higherRated, stronger, rankByAttributeRating: true) > 0);
-        Assert.True(GoalEvaluator.Compare(reliable, higherRated, rankByAttributeRating: true) > 0);
+        Assert.Equal(22000m, higherRated.MeanSuccessfulAttributeRating);
+        Assert.Equal(4000m, higherRated.MeanSuccessfulFutureSkillRating);
+        Assert.Equal(26000m, higherRated.MeanSuccessfulTotalRating);
+        Assert.True(GoalEvaluator.Compare(higherRated, stronger, rankByTotalRating: true) > 0);
+        Assert.True(GoalEvaluator.Compare(reliable, higherRated, rankByTotalRating: true) > 0);
     }
 
     [Theory]

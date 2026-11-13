@@ -85,7 +85,7 @@ public sealed class CompiledGoal
         if (utilities.Length != PriorityCount)
             throw new ArgumentException("效用缓冲区长度必须等于目标优先级数量。", nameof(utilities));
         Validate(result);
-        if (result.FailedCareerGoalId.HasValue || !Feasible(result.Attributes)) return false;
+        if (!IsFeasible(result)) return false;
         for (var priority = 0; priority < PriorityCount; priority++) utilities[priority] = Utility(priority, result);
         return true;
     }
@@ -107,10 +107,11 @@ public sealed class CompiledGoal
         return feasible;
     }
 
-    bool Feasible(AttributeValues attributes)
+    internal bool IsFeasible(TerminalMetrics result)
     {
+        if (result.FailedCareerGoalId.HasValue) return false;
         foreach (var constraint in constraints)
-            if (constraint.Violation(attributes) != 0) return false;
+            if (constraint.Violation(result.Attributes) != 0) return false;
         return true;
     }
 
@@ -154,5 +155,7 @@ public sealed class CompiledGoal
         }
         if (result.FutureGainedSkillPoints < 0 || result.VerifiedAttributeRating < 0)
             throw new ArgumentException("获得的技能Pt或评价分不能为负数。", nameof(result));
+        if (result.EstimatedFutureSkillRating < 0)
+            throw new ArgumentException("新增技能评分不能为负数。", nameof(result));
     }
 }

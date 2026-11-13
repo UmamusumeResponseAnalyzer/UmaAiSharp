@@ -68,9 +68,9 @@ public sealed class PioneerRuntimeData
         if (trainingHistory is not null && (!outcomes.IsEmpty || TrainingStart is not
             { SuccessfulOrdinaryTrainingCounts: null, PendingStoryIds.IsEmpty: true }))
             throw new InvalidDataException("训练历史估计仅用于未给定完整历史的自主训练面板。");
-        if (turnRules?.WholeRun == true && (constructionMaster is null || checkpointMaster is null
+        if (turnRules?.WholeRun == true && (constructionMaster is null || checkpointMaster is null || turnRules.Hints is null
             || TrainingStart is not { Development: not null, CheckpointResults: not null, DirectorBond: not null }))
-            throw new InvalidDataException("整局训练起点缺少设施、评审历史、理事长羁绊或相应规则。");
+            throw new InvalidDataException("整局训练起点缺少设施、评审历史、理事长羁绊、Hint 奖池或相应规则。");
         var previous = -1;
         foreach (var outcome in outcomes)
         {

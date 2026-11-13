@@ -27,23 +27,34 @@ public sealed class PioneerJointPlacement
     }
 
     public TrainingBoard Sample(Span<SupportPlacement> placements, ref SimulationRandom random,
-        ReadOnlySpan<int> facilityHintPercent = default)
+        ReadOnlySpan<int> facilityHintPercent = default, bool paired = false)
     {
         if (placements.Length != Members.Length)
             throw new ArgumentException("联合分配结果缓冲区必须与按target_id排序的成员数一致。", nameof(placements));
         var hints = 0;
+        var hintRandom = paired ? random.Fork(1) : random;
         if (facilityHintPercent.IsEmpty)
             for (var index = 0; index < 6; index++)
-                if (Members[index].Appeared && Members[index].Distribution.SampleHint(ref random)) hints |= 1 << index;
+            {
+                var member = Members[index];
+                if (!member.Appeared) continue;
+                var hint = paired ? hintRandom.Fork((ulong)index) : default;
+                ref var draw = ref (paired ? ref hint : ref random);
+                if (member.Distribution.SampleHint(ref draw, paired: paired)) hints |= 1 << index;
+            }
         Span<int> counts = stackalloc int[5];
+        var attempt = 0UL;
         while (true)
         {
+            var positions = paired ? random.Fork(2 + attempt++) : random;
             var board = new TrainingBoard();
             counts.Clear();
             for (var index = 0; index < Members.Length; index++)
             {
                 var member = Members[index];
-                var training = member.Distribution.SamplePosition(member.Appeared, ref random);
+                var position = paired ? positions.Fork((ulong)member.TargetId) : default;
+                ref var draw = ref (paired ? ref position : ref random);
+                var training = member.Distribution.SamplePosition(member.Appeared, ref draw, paired);
                 var hint = index < 6 && training >= 0 && (hints & (1 << index)) != 0;
                 placements[index] = new(training, hint);
                 if (training < 0) continue;
@@ -60,7 +71,10 @@ public sealed class PioneerJointPlacement
                 for (var index = 0; index < 6; index++)
                 {
                     var training = placements[index].TrainingIndex;
-                    if (training < 0 || !Members[index].Distribution.SampleHint(ref random, facilityHintPercent[training])) continue;
+                    if (training < 0) continue;
+                    var hint = paired ? hintRandom.Fork((ulong)index) : default;
+                    ref var draw = ref (paired ? ref hint : ref random);
+                    if (!Members[index].Distribution.SampleHint(ref draw, facilityHintPercent[training], paired)) continue;
                     placements[index] = placements[index] with { HasHint = true };
                     board = board.With(training, board[training] with { HintMask = (byte)(board[training].HintMask | (1 << index)) });
                 }

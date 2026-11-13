@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <DeployUraPluginToLocalAppDataOnBuild>false</DeployUraPluginToLocalAppDataOnBuild>
+    <UraPluginPackagePath Condition="'$(MSBuildProjectName)' == 'PioneerAiPlugin'">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'artifacts', 'PioneerAiPlugin.zip'))</UraPluginPackagePath>
+  </PropertyGroup>
+</Project>

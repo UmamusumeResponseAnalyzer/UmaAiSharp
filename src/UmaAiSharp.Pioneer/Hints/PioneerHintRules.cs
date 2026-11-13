@@ -14,6 +14,7 @@ public sealed class PioneerHintRules
     readonly Card[] cards = new Card[6];
     readonly Dictionary<HintSkill, int> slots = [];
     readonly List<int> initialLevels = [];
+    internal int SupportPoolSize { get; }
     public int StateCapacity => initialLevels.Count;
     public long SharedMemoryBytes => 512L + 64L * initialLevels.Count + cards.Sum(card => 4L * (card.SkillSlots?.Length ?? 0));
 
@@ -24,15 +25,18 @@ public sealed class PioneerHintRules
         var learned = skills.Where(skill => ownedIds.Contains(skill.Id))
             .Select(skill => new HintSkill(skill.GroupId, skill.Rarity)).Distinct().ToImmutableArray();
         foreach (var hint in progress.Levels) initialLevels[Slot(hint.Skill)] = hint.Level;
+        var supportSkills = new HashSet<HintSkill>();
         foreach (var support in deck)
         {
             if (support.TrainingCommandId == 0) continue;
             var pool = catalog.Single(card => card.CardId == support.CardId);
+            supportSkills.UnionWith(pool.Skills);
             var entries = HintRewardPool.Evaluate(pool.Skills, progress.Levels, learned);
             cards[support.Position - 1] = new(support,
                 [.. entries.Where(entry => entry.Exclusion == HintPoolExclusion.None).Select(entry => Slot(entry.Skill))],
                 pool.AttributeReward);
         }
+        SupportPoolSize = supportSkills.Count;
     }
 
     // Deck pools and both inheritance lotteries use the same level for a given skill group and rarity.
@@ -70,7 +74,7 @@ public sealed class PioneerHintRules
         Span<int> available = stackalloc int[pool.Length];
         foreach (var slot in pool)
             if (levels[slot] < 5) available[eligible++] = slot;
-        var draw = random.NextInt(eligible + 1);
+        var draw = random.NextScaled(eligible + 1);
         if (draw == eligible) return attributes;
         // The extra Hint applies to the skill branch. Observed double awards use different skills.
         for (var i = 0; i < count; i++)
@@ -79,7 +83,7 @@ public sealed class PioneerHintRules
             levels[slot] = Math.Min(5, Math.Max(0, levels[slot]) + level);
             available[draw] = available[--eligible];
             if (eligible == 0 || i + 1 == count) break;
-            draw = random.NextInt(eligible);
+            draw = random.NextScaled(eligible);
         }
         return default;
     }

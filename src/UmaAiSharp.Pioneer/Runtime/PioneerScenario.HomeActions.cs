@@ -48,6 +48,7 @@ public sealed partial class PioneerScenario
         if (data.OutcomeAt(state.Header.ActionOrdinal) is not (null or PioneerConditionalOutcome.TurnArrival))
             return Missing(state, PioneerStopCode.OutcomeIdentityMismatch);
         ref var header = ref state.Mutable;
+        var paired = autonomous && data.IsWholeRun;
         var source = PioneerArrivalSource.Outing;
         var points = 0;
         switch (action.Kind)
@@ -62,7 +63,7 @@ public sealed partial class PioneerScenario
                 break;
             case PioneerActionKind.Outing when action.CommandId == 301:
                 // shortcut: UmaAi's ordinary outing prior, until a Pioneer outing sample covers command 301.
-                var recover = random.NextInt(2) == 0;
+                var recover = (paired ? random.At(header.Turn, PioneerDraw.Outing).NextInt(2) : random.NextInt(2)) == 0;
                 ApplyMotivationGain(state, recover ? 1 : 2);
                 if (recover) header.Resources = header.Resources with { Vital = Math.Min(header.Limits.Vital, header.Resources.Vital + 10) };
                 break;
@@ -106,13 +107,13 @@ public sealed partial class PioneerScenario
                 else
                 {
                     var (value, bonus) = OptionalRaceReward(race.Grade, rules.RaceRewardPercent);
-                    var attributeIndex = random.NextInt(5);
+                    var attributeIndex = paired ? random.At(header.Turn, PioneerDraw.RaceAttribute).NextInt(5) : random.NextInt(5);
                     ApplyProgressionReward(state, new(attributeIndex == 0 ? value : 0, attributeIndex == 1 ? value : 0,
                         attributeIndex == 2 ? value : 0, attributeIndex == 3 ? value : 0, attributeIndex == 4 ? value : 0, 0, bonus));
                     header.Resources = header.Resources with { Vital = Math.Max(0, header.Resources.Vital - 15) };
                 }
                 // 3,677 observed wins. The multiplier pools the measured win-margin and activated-skill bonuses.
-                var draw = random.NextInt(3677);
+                var draw = paired ? random.At(header.Turn, PioneerDraw.RaceFans).NextInt(3677) : random.NextInt(3677);
                 var percent = draw switch { < 29 => 100, < 187 => 102, < 598 => 104, < 1030 => 106, < 1327 => 108, < 2376 => 109, _ => 111 };
                 header.Fans += checked((int)(((long)race.FirstPlaceFans * rules.FanRewardPercent * percent + 5000) / 10000));
                 if (!race.Target && autonomous && data.IsWholeRun)
@@ -122,7 +123,7 @@ public sealed partial class PioneerScenario
                     {
                         100 => (264, 895), 200 => (15, 56), 300 => (24, 69), _ => (20, 50),
                     };
-                    if (random.NextInt(windows) < bonusWindows) header.Fans += 500;
+                    if (random.At(header.Turn, PioneerDraw.RaceBonus).NextScaled(windows) < bonusWindows) header.Fans += 500;
                 }
                 header.RaceGrade = Math.Max(3, header.RaceGrade);
                 var counts = state.MutableSection(PioneerStateSection.CareerRaceCounts);
@@ -261,7 +262,8 @@ public sealed partial class PioneerScenario
         foreach (var friend in home.Friends)
         {
             if (friend.CharacterId != 9049 || (participants & (1 << (friend.Position - 1))) == 0) continue;
-            var stamina = data.TurnRules!.DrawTuckerRepeat(island, ref random);
+            var repeat = random.At(state.Header.Turn, PioneerDraw.TuckerRepeat, friend.Position);
+            var stamina = data.TurnRules!.DrawTuckerRepeat(island, ref repeat);
             if (stamina == 0) return;
             ApplyProgressionReward(state, new(0, stamina, 0, 0, 0, 0, 0));
             AppendTuckerGrants(state, data.TurnRules.OrdinarySupportMask, TemporarySupportGrantSource.TuckerEvent, 20, 809049032);
@@ -288,6 +290,8 @@ public sealed partial class PioneerScenario
         }
     }
 
+    static int FriendUnlockChance(int bond) => bond >= 60 ? 25 : 10;
+
     bool DrawFriendUnlock(PioneerState state, ref SimulationRandom random)
     {
         if (data.TrainingStart?.HomeActions is not { } home) return false;
@@ -297,9 +301,9 @@ public sealed partial class PioneerScenario
             var index = friend.Position - 1;
             var mask = 1 << index;
             if (friend.CharacterId != 9049 || ((header.UnseenFriendMask | header.UnlockedFriendMask) & mask) != 0) continue;
-            var high = state.GetSection(PioneerStateSection.SupportBonds)[index] >= 60;
+            var bond = state.GetSection(PioneerStateSection.SupportBonds)[index];
             // UmaAi-rust's ordinary event opportunity. Only the manual outing eligibility carries over.
-            if (random.NextInt(100) >= (high ? 25 : 10)) continue;
+            if (random.At(header.Turn, PioneerDraw.FriendUnlock, friend.Position).NextInt(100) >= FriendUnlockChance(bond)) continue;
             header.UnlockedFriendMask |= mask;
             return true;
         }

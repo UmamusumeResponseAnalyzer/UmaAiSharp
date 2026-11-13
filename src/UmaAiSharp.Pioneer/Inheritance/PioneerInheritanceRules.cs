@@ -119,6 +119,7 @@ public sealed class PioneerInheritanceRules
         var resultOverflow = default(AttributeValues);
         for (var candidate = 0; candidate < candidateCount; candidate++)
         {
+            var candidateRandom = random.Fork((ulong)candidate);
             attributes[0] = resources.Speed; attributes[1] = resources.Stamina; attributes[2] = resources.Power;
             attributes[3] = resources.Guts; attributes[4] = resources.Wisdom;
             caps[0] = limits.Speed; caps[1] = limits.Stamina; caps[2] = limits.Power;
@@ -139,16 +140,18 @@ public sealed class PioneerInheritanceRules
                     if (System.Numerics.BitOperations.PopCount(triggeredGroups & addon.Groups) < addon.RequiredGroups) continue;
                     opportunity = addon.Opportunity;
                 }
-                if (opportunity.Probability != 1000000 && random.NextInt(1000000) >= opportunity.Probability) continue;
+                var factorRandom = candidateRandom.Fork((ulong)index);
+                if (factorRandom.NextInt(1000000) >= opportunity.Probability) continue;
                 triggeredGroups |= opportunity.AddonGroup;
-                var draw = random.NextInt(opportunity.TotalWeight);
+                var draw = factorRandom.NextInt(opportunity.TotalWeight);
                 foreach (var bundle in opportunity.Bundles)
                 {
                     if ((draw -= bundle.Weight) >= 0) continue;
                     foreach (var effect in bundle.Effects)
                         if (effect.Target is >= 61 and <= 65) caps[effect.Target - 61] += effect.Value;
-                    foreach (var effect in bundle.Effects)
+                    for (var effectIndex = 0; effectIndex < bundle.Effects.Length; effectIndex++)
                     {
+                        var effect = bundle.Effects[effectIndex];
                         switch (effect.Target)
                         {
                             case >= 1 and <= 5:
@@ -158,12 +161,15 @@ public sealed class PioneerInheritanceRules
                                 points += effect.Value;
                                 break;
                             case 7:
-                                Gain(attributes, caps, overflow, random.NextInt(5), effect.Value);
+                                Gain(attributes, caps, overflow, factorRandom.Fork((ulong)effectIndex).NextInt(5), effect.Value);
                                 break;
                             case 41:
                                 ref var level = ref rolledHints[effect.HintIndex];
                                 if (effect.Owned || level == 5)
-                                    Gain(attributes, caps, overflow, random.NextInt(5), DrawHintConversion(ref random));
+                                {
+                                    var conversion = factorRandom.Fork((ulong)effectIndex);
+                                    Gain(attributes, caps, overflow, conversion.NextInt(5), DrawHintConversion(ref conversion));
+                                }
                                 else
                                     level = Math.Min(5, Math.Max(0, level) + effect.Count);
                                 break;

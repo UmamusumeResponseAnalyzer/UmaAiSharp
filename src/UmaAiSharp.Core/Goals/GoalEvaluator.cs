@@ -12,9 +12,12 @@ public sealed record GoalSummary(
     decimal MeanConstraintViolation,
     ImmutableArray<decimal> UnconditionalUtilities,
     decimal? MeanSuccessfulAttributeRating = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int FailedCareerSampleCount = 0)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int FailedCareerSampleCount = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] decimal? MeanSuccessfulFutureSkillRating = null)
 {
     public decimal SuccessRate => (decimal)SuccessCount / SampleCount;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? MeanSuccessfulTotalRating => MeanSuccessfulAttributeRating + MeanSuccessfulFutureSkillRating;
     // Exact one-sided binomial bound: P(0 successes | p) = (1-p)^n = 0.05.
     public double? ZeroSuccessProbabilityUpperBound95 => SuccessCount == 0 ? 1 - Math.Pow(0.05, 1.0 / SampleCount) : null;
 }
@@ -43,17 +46,20 @@ public static class GoalEvaluator
         var unconditionalTotals = new decimal[goal.PriorityCount];
         var violationTotal = 0m;
         long? ratingTotal = 0;
+        long? skillRatingTotal = 0;
         foreach (var result in results)
         {
             if (goal.Accumulate(result, totals, unconditionalTotals, ref violationTotal))
             {
                 successes = checked(successes + 1);
                 ratingTotal += result.VerifiedAttributeRating;
+                skillRatingTotal += result.EstimatedFutureSkillRating;
             }
             if (result.FailedCareerGoalId.HasValue) failedCareer++;
             count = checked(count + 1);
         }
-        return SummarizeTotals(goal, count, successes, totals, unconditionalTotals, violationTotal, ratingTotal, failedCareer);
+        return SummarizeTotals(goal, count, successes, totals, unconditionalTotals, violationTotal, ratingTotal,
+            failedCareer, skillRatingTotal);
     }
 
     public static GoalSummary Summarize(CompiledGoal goal, SimulationBatch<TerminalMetrics> batch)
@@ -68,20 +74,23 @@ public static class GoalEvaluator
         var unconditionalTotals = new decimal[goal.PriorityCount];
         var violationTotal = 0m;
         long? ratingTotal = 0;
+        long? skillRatingTotal = 0;
         foreach (ref readonly var sample in batch.Results.AsSpan())
         {
             if (goal.Accumulate(sample.Outcome, totals, unconditionalTotals, ref violationTotal))
             {
                 successes = checked(successes + 1);
                 ratingTotal += sample.Outcome.VerifiedAttributeRating;
+                skillRatingTotal += sample.Outcome.EstimatedFutureSkillRating;
             }
             if (sample.Outcome.FailedCareerGoalId.HasValue) failedCareer++;
         }
-        return SummarizeTotals(goal, batch.Results.Length, successes, totals, unconditionalTotals, violationTotal, ratingTotal, failedCareer);
+        return SummarizeTotals(goal, batch.Results.Length, successes, totals, unconditionalTotals, violationTotal,
+            ratingTotal, failedCareer, skillRatingTotal);
     }
 
     static GoalSummary SummarizeTotals(CompiledGoal goal, int count, int successes, decimal[] totals,
-        decimal[] unconditionalTotals, decimal violationTotal, long? ratingTotal, int failedCareer)
+        decimal[] unconditionalTotals, decimal violationTotal, long? ratingTotal, int failedCareer, long? skillRatingTotal)
     {
         if (count == 0) throw new ArgumentException("没有完整轨迹，无法形成达标率和条件效用。");
         for (var index = 0; index < totals.Length; index++)
@@ -90,20 +99,21 @@ public static class GoalEvaluator
             unconditionalTotals[index] /= count;
         }
         return new(goal.Identity, count, successes, successes == 0 ? null : totals.ToImmutableArray(),
-            violationTotal / count, unconditionalTotals.ToImmutableArray(), successes == 0 ? null : ratingTotal / (decimal)successes, failedCareer);
+            violationTotal / count, unconditionalTotals.ToImmutableArray(), successes == 0 ? null : ratingTotal / (decimal)successes,
+            failedCareer, successes == 0 ? null : skillRatingTotal / (decimal)successes);
     }
 
-    public static int Compare(GoalSummary left, GoalSummary right, bool rankByAttributeRating = false)
+    public static int Compare(GoalSummary left, GoalSummary right, bool rankByTotalRating = false)
     {
         if (left.GoalIdentity != right.GoalIdentity)
             throw new ArgumentException("不同目标的结果不能直接比较。");
         var feasibility = ((long)left.SuccessCount * right.SampleCount)
             .CompareTo((long)right.SuccessCount * left.SampleCount);
         if (feasibility != 0) return feasibility;
-        if (rankByAttributeRating && left.SuccessCount != 0)
+        if (rankByTotalRating && left.SuccessCount != 0)
         {
-            if (left.MeanSuccessfulAttributeRating is not { } leftRating || right.MeanSuccessfulAttributeRating is not { } rightRating)
-                throw new ArgumentException("达标轨迹缺少终局属性评分。");
+            if (left.MeanSuccessfulTotalRating is not { } leftRating || right.MeanSuccessfulTotalRating is not { } rightRating)
+                throw new ArgumentException("达标轨迹缺少终局五维评分或新增技能评分。");
             return leftRating.CompareTo(rightRating);
         }
         if (left.SuccessCount == 0)

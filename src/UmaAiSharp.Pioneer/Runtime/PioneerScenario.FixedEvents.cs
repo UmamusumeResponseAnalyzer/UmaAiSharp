@@ -15,7 +15,8 @@ public sealed partial class PioneerScenario
             || DrawFriendUnlock(state, ref random)) return;
 
         ref var progress = ref header.OrdinaryStories;
-        var draw = random.NextInt(100);
+        var story = random.At(header.Turn, PioneerDraw.OrdinaryStory);
+        var draw = story.NextInt(100);
         if (draw < 35 && data.TurnRules!.OrdinarySupportMask != 0)
         {
             Span<int> eligible = stackalloc int[3];
@@ -24,7 +25,7 @@ public sealed partial class PioneerScenario
             if (progress.Second < progress.First) eligible[count++] = 2;
             if (progress.Third < progress.Second) eligible[count++] = 3;
             if (count == 0) return;
-            switch (eligible[random.NextInt(count)])
+            switch (eligible[story.NextScaled(count)])
             {
                 case 1:
                     progress = progress with { First = progress.First + 1 };
@@ -46,7 +47,7 @@ public sealed partial class PioneerScenario
             var count = 0;
             for (var i = 0; i < 7; i++)
                 if ((header.TraineeStoryMask & (1 << i)) == 0) eligible[count++] = i;
-            var index = eligible[random.NextInt(count)];
+            var index = eligible[story.NextScaled(count)];
             progress = progress with { Trainee = progress.Trainee + 1 };
             header.TraineeStoryMask |= 1 << index;
             if (index >= 5)
@@ -96,8 +97,9 @@ public sealed partial class PioneerScenario
                 break;
             case (40 or 64, false):
                 // Camp ending gives +5 to three distinct attributes. Use uniform groups as a prior.
-                var excluded = random.NextInt(5);
-                var other = random.NextInt(4);
+                var camp = random.At(turn, PioneerDraw.FixedEvent);
+                var excluded = camp.NextInt(5);
+                var other = camp.NextInt(4);
                 if (other >= excluded) other++;
                 ApplyProgressionReward(state, new(Gain(0), Gain(1), Gain(2), Gain(3), Gain(4), 0, 0));
                 int Gain(int index) => index == excluded || index == other ? 0 : 5;
@@ -107,7 +109,7 @@ public sealed partial class PioneerScenario
                 break;
             case (49, false):
                 // The mandatory New Year lottery's five results, weighted by 148 fit windows.
-                var draw = random.NextInt(148);
+                var draw = random.At(turn, PioneerDraw.FixedEvent).NextInt(148);
                 if (draw < 27)
                 {
                     ApplyProgressionReward(state, 10, 0);

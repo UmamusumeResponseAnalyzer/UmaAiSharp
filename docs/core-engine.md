@@ -1,6 +1,6 @@
 # 确定性单轨执行内核
 
-Core 执行显式场景与策略，支持结构体状态、独占工作区、精确分叉、固定任务批处理和固定样本根候选搜索。游戏规则与随机事件概率由场景提供。运行平台要求 x64 与 AVX2；AVX512 是可选能力标记，Core 没有另写复制算法，连续缓冲区交由 `Span.CopyTo` 等标准操作处理。
+Core 执行显式场景与策略，支持结构体状态、独占工作区、精确分叉、固定任务批处理和根候选搜索。游戏规则与随机事件概率由场景提供。运行平台要求 x64 与 AVX2；AVX512 是可选能力标记，Core 没有另写复制算法，连续缓冲区交由 `Span.CopyTo` 等标准操作处理。
 
 ## 场景与所有权
 
@@ -47,7 +47,7 @@ var result = SimulationRunner.Continue(scenario, policy, ref execution);
 
 `SimulationRandom` 是只含 `ulong` 状态的值类型，调用链始终按 `ref` 传递。算法保持 `splitmix64-v1`，样本派生保持 `sample-domain-mix-v1`；`NextInt` 的拒绝采样和上界为1时的抽数行为保持原样。策略随机消耗不能影响规则流。
 
-`RunBatch` 同步执行固定数量样本。任务块固定为64个逻辑样本，worker只领取执行任务；编号、种子及结果位置不由领取顺序决定。每个worker复用一个独占状态和策略游标，结果写入原始 `sampleIndex` 槽。每个结果保存两条 RNG 的末态。
+`RunBatch` 同步执行固定数量样本。固定批次按每块 64 个逻辑样本分配工作区。分批根搜索可复用为后续大批准备的工作区，并把较小的新增区间拆给多个 worker。编号、种子及结果位置由逻辑样本决定。每个 worker 复用一个独占状态和策略游标，结果写入原始 `sampleIndex` 槽。每个结果保存两条 RNG 的末态。
 
 ```csharp
 var batch = SimulationRunner.RunBatch(scenario, policy, root, seed, samples, workerCount);

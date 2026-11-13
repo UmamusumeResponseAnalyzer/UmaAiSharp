@@ -1,3 +1,4 @@
+using System.Numerics;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Ending;
@@ -11,7 +12,27 @@ public sealed partial class PioneerScenario
 {
     static readonly int[] PolicyAttributeScores = Enumerable.Range(0, 2401).Select(ScoringCandidates.StatusToPoint).ToArray();
 
-    PioneerRuntimeAction? SuggestAction(PioneerState state)
+    public bool HasFirstStepAdvantage(in PioneerState state, in PioneerRuntimeAction left, in PioneerRuntimeAction right)
+    {
+        if (left == right || left.Kind is not (PioneerActionKind.Train or PioneerActionKind.IslandTraining
+            or PioneerActionKind.Rest or PioneerActionKind.Outing)
+            || right.Kind is not (PioneerActionKind.Train or PioneerActionKind.IslandTraining or PioneerActionKind.Rest
+                or PioneerActionKind.Outing or PioneerActionKind.Race))
+            return false;
+        Span<FirstStepValue> values = stackalloc FirstStepValue[2];
+        _ = SuggestAction(state, values, left, right);
+        var (preferred, alternative) = (values[0], values[1]);
+        var gap = preferred.Score - alternative.Score;
+        var scale = .15 * Math.Max(Math.Abs(preferred.Reward), Math.Abs(alternative.Reward));
+        // Count a next-turn placement lead when the rest of the action already has the better value.
+        var nextBoardGap = preferred.NextBoardBenefit - alternative.NextBoardBenefit;
+        return gap > 0 && (gap >= scale || nextBoardGap > 0 && gap >= nextBoardGap);
+    }
+
+    readonly record struct FirstStepValue(double Score, double Reward, double NextBoardBenefit);
+
+    PioneerRuntimeAction? SuggestAction(PioneerState state, Span<FirstStepValue> comparison = default,
+        PioneerRuntimeAction left = default, PioneerRuntimeAction right = default)
     {
         ref readonly var current = ref state.Header;
         if (current.Stage is PioneerStage.RestConfirmation or PioneerStage.TrainingLevelConfirmation or PioneerStage.ConstructionEvent
@@ -38,35 +59,40 @@ public sealed partial class PioneerScenario
         var target = period?.TargetPt ?? 0;
         var daysToReview = period is null ? 0 : period.CheckPointTurn - turn;
         var recovery = period is null || daysToReview != 0 ? null : data.Checkpoints!.Master.PointBonuses[checkpoint + 1];
-        var forecast = ProjectedAttributeGain(current);
         Span<double> attributeWeights = stackalloc double[5];
+        Span<int> attributeForecast = stackalloc int[5];
+        attributeForecast.Fill(ProjectedAttributeGain(current));
         attributeWeights.Fill(1);
         Span<double> ordinaryUses = stackalloc double[5];
-        trainingProjection?.ValueAttributes(state, attributeWeights, ordinaryUses);
+        trainingProjection?.ValueAttributes(state, attributeWeights, ordinaryUses, attributeForecast);
         var nextCamp = turn is >= 34 and <= 36 ? 37 : turn is >= 58 and <= 60 ? 61 : 0;
         var inCamp = CampCommands(current);
         var daysToCamp = nextCamp == 0 ? 0 : nextCamp - turn;
         var actionAfterThisTurn = turn + 1;
         while (actionAfterThisTurn < 78 && rules.ScheduledRace(actionAfterThisTurn) is not null) actionAfterThisTurn++;
+        var campAhead = inCamp && actionAfterThisTurn < 78 && IsCamp(actionAfterThisTurn);
         var mood = current.Motivation;
-        var hasMigraine = state.GetSection(PioneerStateSection.CharacterEffects).Contains(5);
+        var effects = state.GetSection(PioneerStateSection.CharacterEffects);
+        var hasMigraine = effects.Contains(5);
+        var positiveThinking = effects.Contains(25);
+        // shortcut: estimate the useful training turns before another recovery opportunity.
+        var moodStepValue = Math.Min(turnsLeft, turn <= 12 ? 8 : 6) * (turn <= 12 ? 4.5 : 3.2);
+        var mildMoodLoss = mood - MotivationRules.Apply(mood, -1, positiveThinking, hasMigraine).Value;
+        var severeMoodLoss = mood - MotivationRules.Apply(mood, -3, positiveThinking, hasMigraine).Value;
         var bonds = state.GetSection(PioneerStateSection.SupportBonds);
         var tickets = current.Tickets;
         var nextThreshold = int.MaxValue;
         foreach (var threshold in state.GetSection(PioneerStateSection.Thresholds))
             if (threshold > points) nextThreshold = Math.Min(nextThreshold, threshold);
-        var futureIslandTurns = 0;
-        // shortcut: estimate the next ticket issue from typical development points per turn.
-        var lastIslandTurn = nextThreshold == int.MaxValue ? 72
-            : Math.Min(72, turn + Math.Max(1, (nextThreshold - points + 59) / 60));
-        for (var day = turn + 1; tickets > 0 && day <= lastIslandTurn; day++)
-            if (!IsCamp(day) && rules.ScheduledRace(day) is null) futureIslandTurns++;
         var deferredConstruction = current.DeferredConstruction;
         var islandValue = 0.0;
-        var islandReserve = 0.0;
-        var islandTicketConflict = false;
         var islandPoints = 0;
         var islandAvailable = false;
+        var islandParticipants = 0;
+        var otherIslandValue = 0.0;
+        var tuckerMask = rules.TuckerMask;
+        var tuckerSlot = BitOperations.TrailingZeroCount((uint)tuckerMask);
+        var ticketValue = 0.0;
         var careerCounts = state.GetSection(PioneerStateSection.CareerRaceCounts);
         var fanTarget = 0;
         var fanDeadline = 73;
@@ -84,13 +110,24 @@ public sealed partial class PioneerScenario
             }
         try
         {
+            if (nextThreshold != int.MaxValue && !deferredConstruction)
+            {
+                var firstUse = actionAfterThisTurn;
+                while (firstUse <= 72 && (IsCamp(firstUse) || rules.ScheduledRace(firstUse) is not null)) firstUse++;
+                if (firstUse <= 72)
+                {
+                    ticketValue = TicketValue(state, nextThreshold, attributeForecast, attributeWeights);
+                    if (!inCamp) ticketValue /= firstUse - turn;
+                }
+            }
             if (TryPreviewIsland(state, out var island))
             {
                 islandAvailable = true;
                 islandPoints = IslandDevelopmentPoints(state);
-                islandValue = AttributeGain(current, forecast, island.Common, island.Scenario, attributeWeights)
+                for (var i = 0; i < 6; i++) islandParticipants |= current.IslandBoard[i].SupportMask;
+                islandValue = AttributeGain(current, attributeForecast, island.Common, island.Scenario, attributeWeights)
                     + SkillValue(island.Common.SkillPoints + island.Scenario.SkillPoints)
-                    + Math.Min(1, turnsLeft / 38.0) * BondGain(63, bonds, 10);
+                    + Math.Min(1, turnsLeft / 38.0) * BondGain(rules.OrdinarySupportMask, bonds, 10 + (current.HasCharm ? 2 : 0));
                 var eligible = 0;
                 var rainbow = 0;
                 foreach (var card in data.TrainingStart!.Deck)
@@ -101,18 +138,18 @@ public sealed partial class PioneerScenario
                     if ((current.IslandBoard.Outdoor[index].SupportMask & (1 << (card.Position - 1))) != 0)
                         rainbow |= 1 << index;
                 }
-                var colors = System.Numerics.BitOperations.PopCount((uint)rainbow);
-                // shortcut: value a better rainbow board and the chance to replace a low-vitality turn.
+                var colors = BitOperations.PopCount((uint)rainbow);
                 var premium = 31 * Math.Clamp(eligible / 2.0 - colors, 0, 2);
-                islandReserve = Math.Min(240, (.66 * islandValue + .85 * Math.Max(0, vital - 40) + premium)
-                    * Math.Clamp((futureIslandTurns - tickets + 1) / 2.0, 0, 1));
-                islandTicketConflict = futureIslandTurns < tickets && (nextThreshold != int.MaxValue || turn >= 65);
+                otherIslandValue = Math.Min(240, .66 * islandValue + premium);
             }
 
             foreach (var candidate in Candidates(state))
             {
                 var action = candidate.Action;
+                if (!comparison.IsEmpty && action != left && action != right) continue;
                 var score = double.NegativeInfinity;
+                var reward = 0.0;
+                var nextBoardBenefit = 0.0;
                 switch (action.Kind)
                 {
                     case PioneerActionKind.Race:
@@ -128,12 +165,11 @@ public sealed partial class PioneerScenario
                         var power = Display(current.Resources.Power, gain);
                         var guts = Display(current.Resources.Guts, gain);
                         var wisdom = Display(current.Resources.Wisdom, gain);
-                        var raceValue = AttributeGain(current, forecast, new(speed, stamina, power, guts, wisdom, 0, 0), default, attributeWeights) / 5;
-                        score = raceValue + SkillValue(skill) + Progress(racePoints, false)
-                            + Vitality(Math.Max(0, vital - 15), racePoints) - Vitality(vital, 0);
+                        var raceValue = AttributeGain(current, attributeForecast, new(speed, stamina, power, guts, wisdom, 0, 0), default, attributeWeights) / 5;
+                        reward = raceValue + SkillValue(skill) + Progress(racePoints, false);
                         var shortage = fanTarget - current.Fans;
                         if (shortage > 0 && expectedFans > 0 && turn <= fanDeadline)
-                            score += Math.Min(shortage, expectedFans) / (double)shortage
+                            reward += Math.Min(shortage, expectedFans) / (double)shortage
                                 * (18 + 160.0 / (1 + fanDeadline - turn));
                         for (var i = 0; i < careerCounts.Length; i++)
                         {
@@ -150,8 +186,9 @@ public sealed partial class PioneerScenario
                                 }
                                 if (rules.OptionalRaces(day, current.RaceGrade).Any(option => option.Grade <= goal.MaximumGrade)) slots++;
                             }
-                            score += 20 + (slots <= needed ? 1000 : 120.0 / (1 + slots - needed));
+                            reward += 20 + (slots <= needed ? 1000 : 120.0 / (1 + slots - needed));
                         }
+                        score = reward + Vitality(Math.Max(0, vital - 15), racePoints) - Vitality(vital, 0);
                         break;
                     }
                     case PioneerActionKind.Train:
@@ -165,52 +202,76 @@ public sealed partial class PioneerScenario
                                 current.CheckpointBonusPercent, preview.Friendship)
                             : 0;
                         var firstFriend = (placement.SupportMask & current.UnseenFriendMask) != 0;
-                        var benefit = AttributeGain(current, forecast, gains.Common, gains.Scenario, attributeWeights)
+                        var bondGain = data.TrainingDeck!.TrainingBondBonus(placement.SupportMask) + (current.HasCharm ? 2 : 0);
+                        var hints = placement.HintMask & rules.OrdinarySupportMask;
+                        var hintBond = hints == 0 ? 0
+                            : BondGain(hints, bonds, 7 + bondGain + 5) - BondGain(hints, bonds, 7 + bondGain);
+                        if (hintBond > 0 && !AllCampHints(state, action.CommandId))
+                            hintBond /= BitOperations.PopCount((uint)hints);
+                        var tuckerValue = TuckerTrainingValue(placement.SupportMask, bondGain, island: false, attributeForecast, attributeWeights,
+                            out nextBoardBenefit);
+                        var upgrade = 0.0;
+                        if (!inCamp && trainingProjection is { } projection)
+                            upgrade = projection.UpgradeValue(state, index, ordinaryUses[index], attributeWeights);
+                        reward = AttributeGain(current, attributeForecast, gains.Common, gains.Scenario, attributeWeights)
                             + SkillValue(gains.Common.SkillPoints + gains.Scenario.SkillPoints)
-                            + Vitality(afterVital, development) - Vitality(vital, 0)
-                            + Math.Min(1, turnsLeft / 38.0) * BondGain(placement.SupportMask, bonds, 7)
+                            + Math.Min(1, turnsLeft / 38.0)
+                                * (BondGain(placement.SupportMask & rules.OrdinarySupportMask, bonds, 7 + bondGain) + hintBond)
                             + (firstFriend ? Motivation(1) + 12 : 0)
                             + (placement.Director && turn < 55 && current.DirectorBond < 60 ? 3 : 0)
+                            + tuckerValue + upgrade
                             + Progress(development, false);
-                        if (!inCamp && trainingProjection is { } projection)
-                            benefit += projection.UpgradeValue(state, index, ordinaryUses[index], attributeWeights);
+                        var benefit = reward + Vitality(afterVital, development) - Vitality(vital, 0);
                         var failure = preview.FailureRate / 100.0;
-                        score = (1 - failure) * benefit - failure * (18 + Motivation(1) + failure * (45 + 2 * Motivation(1)));
+                        var mild = 18 + mildMoodLoss * moodStepValue;
+                        var severe = 63 + severeMoodLoss * moodStepValue;
+                        score = (1 - failure) * benefit - failure * ((1 - failure) * mild + failure * severe);
                         break;
                     case PioneerActionKind.IslandTraining when islandAvailable:
-                        score = islandValue + Vitality(vital, islandPoints) - Vitality(vital, 0) + Progress(islandPoints, true);
+                        reward = islandValue + Progress(islandPoints, true)
+                            + TuckerTrainingValue(islandParticipants, current.HasCharm ? 2 : 0, island: true, attributeForecast, attributeWeights,
+                                out nextBoardBenefit);
+                        score = reward + Vitality(vital, islandPoints) - Vitality(vital, 0);
                         break;
                     case PioneerActionKind.Rest:
                         var camp = action.CommandId == RestRules.CampCommand;
-                        score = Vitality(Math.Min(maxVital, vital + (camp ? 40 : rules.ExpectedOrdinaryRest)), 0)
-                            - Vitality(vital, 0) + (camp ? Motivation(1) : 0) + Progress(0, false);
+                        var rested = camp ? Vitality(Math.Min(maxVital, vital + 40), 0)
+                            : (1 - rules.LongRestProbability) * Vitality(Math.Min(maxVital, vital + 50), 0)
+                                + rules.LongRestProbability * Vitality(Math.Min(maxVital, vital + 70), 0);
+                        reward = rested - Vitality(vital, 0) + (camp ? Motivation(1) : 0);
+                        score = reward + Progress(0, false);
                         break;
                     case PioneerActionKind.Treat:
                         score = Math.Min(25, turnsLeft) + Vitality(Math.Min(maxVital, vital + 20), 0)
                             - Vitality(vital, 0) + Progress(0, false);
                         break;
                     case PioneerActionKind.Outing when action.CommandId == 301:
-                        score = (Motivation(1) + Motivation(2)) / 2
-                            + (Vitality(Math.Min(maxVital, vital + 10), 0) - Vitality(vital, 0)) / 2 + Progress(0, false);
+                        reward = (Motivation(1) + Motivation(2)) / 2
+                            + (Vitality(Math.Min(maxVital, vital + 10), 0) - Vitality(vital, 0)) / 2;
+                        score = reward + Progress(0, false);
                         break;
                     case PioneerActionKind.Outing:
                         var position = action.SupportPosition - 1;
                         var friend = data.TrainingStart!.HomeActions!.Friends.Single(item => item.Position == action.SupportPosition);
                         var step = (current.FriendOutings >> (position * 3)) & 7;
-                        var (recoveredVital, maximum, reward) = FriendOuting(data.TrainingStart.Deck[position], friend.CharacterId, step);
+                        var (recoveredVital, maximum, outingReward) = FriendOuting(data.TrainingStart.Deck[position], friend.CharacterId, step);
                         var (recovered, _) = VitalRules.Apply(vital, maxVital, recoveredVital, maximum);
                         var tucker = friend.CharacterId == 9049;
                         var outingDevelopment = tucker && turn is >= 8 and <= 60 ? 80 : 0;
                         var specialty = tucker && actionAfterThisTurn == turn + 1 && turnsLeft > 0
                             ? TuckerOutingSpecialty(step) * .09 : 0;
+                        nextBoardBenefit = specialty;
                         // The outing's extra recovery option is worth saving while normal recovery can already cover this board.
                         var waitValue = Math.Max(0, recoveredVital - (maxVital - vital)) * Math.Min(.16, turnsLeft / 70.0);
-                        score = AttributeGain(current, forecast, DisplayGains(current.Resources, reward), default, attributeWeights)
+                        reward = AttributeGain(current, attributeForecast, DisplayGains(current.Resources, outingReward), default, attributeWeights)
                             + Vitality(recovered, outingDevelopment) - Vitality(vital, 0)
-                            + Motivation(1) + specialty + Progress(outingDevelopment, false) - waitValue
+                            + Motivation(1) + specialty
                             + Math.Min(1, turnsLeft / 45.0) * maximum;
+                        score = reward + Progress(outingDevelopment, false) - waitValue;
                         break;
                 }
+                if (!comparison.IsEmpty)
+                    comparison[action == left ? 0 : 1] = new(score, reward, nextBoardBenefit);
                 if (score <= best) continue;
                 best = score;
                 bestAction = action;
@@ -226,17 +287,51 @@ public sealed partial class PioneerScenario
                     (long)Math.Max(0, points + development - target) * recovery.PtRate / 1000));
             var campReserve = daysToCamp > 0 && actionAfterThisTurn <= nextCamp
                 ? .70 / daysToCamp * Math.Min(value, 90) : 0;
-            var urgency = inCamp && (actionAfterThisTurn is >= 38 and <= 40 or >= 62 and <= 64) ? .18 : 0;
-            return Math.Min(1, turnsLeft / 4.0) * ((1.03 + urgency) * Math.Min(value, 50)
-                + .47 * Math.Clamp(value - 50, 0, 25) + .13 * Math.Max(0, value - 75) + campReserve);
+            // Preserve the next camp board by carrying enough vitality to cover an ordinary camp training.
+            var campBoard = campAhead ? .85 * Math.Clamp(value - 45, 0, 25) : 0;
+            return Math.Min(1, turnsLeft / 4.0) * (1.03 * Math.Min(value, 50)
+                + .47 * Math.Clamp(value - 50, 0, 25) + .13 * Math.Max(0, value - 75) + campReserve + campBoard);
         }
 
         double Motivation(int increase)
         {
-            if (hasMigraine || mood >= 5 || turnsLeft == 0) return 0;
-            // shortcut: estimate the useful training turns before another recovery opportunity.
-            var productiveTurns = Math.Min(turnsLeft, turn <= 12 ? 8 : 6);
-            return Math.Min(5 - mood, increase) * productiveTurns * (turn <= 12 ? 4.5 : 3.2);
+            return (MotivationRules.Apply(mood, increase, positiveThinking, hasMigraine).Value - mood) * moodStepValue;
+        }
+
+        double TuckerTrainingValue(int participants, int bonusBond, bool island, ReadOnlySpan<int> forecasts,
+            ReadOnlySpan<double> weights, out double nextBoard)
+        {
+            nextBoard = 0;
+            if ((participants & tuckerMask) == 0) return 0;
+            var tuckerBond = state.GetSection(PioneerStateSection.SupportBonds)[tuckerSlot];
+            var first = (state.Header.UnseenFriendMask & tuckerMask) != 0;
+            var gain = (island ? 7 : 4) + bonusBond;
+            var value = first ? 0 : AttributeGain(state.Header, forecasts,
+                new(0, (int)Math.Round(rules.ExpectedTuckerRepeat(island)), 0, 0, 0, 0, 0), default, weights);
+            if (!first && (state.Header.UnlockedFriendMask & tuckerMask) == 0 && turn < 25 && tuckerBond < 60)
+            {
+                // Value the expected time saved before the first outing, accounting for unlocks below 60.
+                var steps = (60 - tuckerBond + 3) / 4;
+                var remaining = Math.Max(0, (60 - tuckerBond - gain + 3) / 4);
+                var before = ExpectedUnlockTurns(steps);
+                var after = ExpectedUnlockTurns(remaining);
+                var firstOuting = FriendOuting(data.TrainingStart!.Deck[tuckerSlot], 9049, 0);
+                var outingValue = AttributeGain(state.Header, forecasts, DisplayGains(state.Header.Resources, firstOuting.Gains),
+                    default, weights) + firstOuting.Recovery * .47 + firstOuting.MaxVital * 3;
+                value += (before - after) / (1 + before) * outingValue;
+
+                static double ExpectedUnlockTurns(int trainings)
+                {
+                    // shortcut: space friend trainings three turns apart while approaching the high-probability tier.
+                    var low = FriendUnlockChance(0) / 100.0;
+                    var high = FriendUnlockChance(60) / 100.0;
+                    return 1 / low + Math.Pow(1 - low, 3 * trainings) * (1 / high - 1 / low);
+                }
+            }
+            if (actionAfterThisTurn != turn + 1 || turnsLeft == 0) return value;
+            nextBoard = trainingProjection?.TuckerSpecialtyValue(state, participants & rules.OrdinarySupportMask,
+                island ? 10 + bonusBond : 7 + bonusBond, forecasts, weights) ?? 0;
+            return value + nextBoard;
         }
 
         double Progress(int gain, bool spendTicket)
@@ -244,14 +339,54 @@ public sealed partial class PioneerScenario
             var crosses = turn is >= 5 and <= 60 && points + gain >= nextThreshold && (!inCamp || !deferredConstruction);
             var assessment = gain == 0 ? 0 : Math.Min(gain, Math.Max(0, target - points))
                 * (daysToReview <= 3 ? .18 : .09);
-            var issue = crosses && (tickets == 0 || spendTicket) ? 27 : 0;
+            var issue = crosses && (tickets == 0 || spendTicket) ? Math.Min(32, ticketValue) : 0;
             var carry = 0.0;
-            if (spendTicket && !crosses)
-                carry = islandReserve;
-            if (!spendTicket && islandAvailable && (crosses || islandTicketConflict))
-                carry += Math.Min(105, .65 * islandValue);
+            if (islandAvailable)
+            {
+                var nextIssue = nextThreshold == int.MaxValue ? 72
+                    : Math.Min(72, turn + Math.Max(1, (nextThreshold - points + 59) / 60));
+                var chances = 0;
+                for (var day = turn + 1; day <= nextIssue; day++)
+                    if (!IsCamp(day) && rules.ScheduledRace(day) is null) chances++;
+                if (spendTicket && !crosses)
+                    carry = otherIslandValue * Math.Clamp((chances - tickets + 1) / 2.0, 0, 1);
+                else if (!spendTicket && (crosses || chances < tickets))
+                    carry = Math.Min(105, .65 * islandValue);
+            }
             return assessment + issue - carry;
         }
+    }
+
+    double TicketValue(PioneerState state, int threshold, ReadOnlySpan<int> forecasts, ReadOnlySpan<double> weights)
+    {
+        var header = state.Header;
+        var master = data.Construction!.Data;
+        var facilities = state.GetSection(PioneerStateSection.FacilityStates);
+        var plan = state.GetSection(PioneerStateSection.ConstructionSteps);
+        var built = 0;
+        for (var i = 0; i < facilities.Length; i += 2)
+            if (master.StatesById[(facilities[i], facilities[i + 1])].FacilityLv > 0)
+                built |= 1 << (facilities[i] - 101);
+        var spent = 0;
+        for (var i = 0; i < plan.Length; i += 4)
+        {
+            spent += master.UpgradesByEdge[(plan[i + 1], plan[i + 2], plan[i + 3])].Cost;
+            if (spent > threshold) break;
+            built |= 1 << (plan[i + 1] - 101);
+        }
+
+        // shortcut: value access to one useful board using built training types and the useful part of the all-deck bond gain.
+        var value = 0.0;
+        for (var i = 0; i < 5; i++)
+        {
+            if ((built & (1 << i)) == 0) continue;
+            var basis = TrainingBaseTable.GetOrdinary(TrainingFacilityRules.Command(101 + i), 1);
+            value += AttributeGain(header, forecasts, DisplayGains(header.Resources, basis), default, weights) + SkillValue(basis.SkillPoints);
+        }
+        var house = (built & 32) != 0;
+        if (built == 0) return 0;
+        var bond = BondGain(data.TurnRules!.OrdinarySupportMask, state.GetSection(PioneerStateSection.SupportBonds), 10);
+        return .30 * value + (house ? 6 : 0) + .22 * bond * Math.Min(1, (77 - header.Turn) / 38.0);
     }
 
     // shortcut: use high reviews and the closing award when projecting remaining raw room.
@@ -273,16 +408,20 @@ public sealed partial class PioneerScenario
 
     static double AttributeGain(in PioneerStateHeader current, int forecast, TrainingValues common, TrainingValues scenario,
         ReadOnlySpan<double> weights = default)
+        => AttributeGain(current, [forecast, forecast, forecast, forecast, forecast], common, scenario, weights);
+
+    static double AttributeGain(in PioneerStateHeader current, ReadOnlySpan<int> forecasts, TrainingValues common,
+        TrainingValues scenario, ReadOnlySpan<double> weights)
     {
         var values = current.Resources;
         var limits = current.Limits;
-        return Value(values.Speed, limits.Speed, common.Speed + scenario.Speed) * (weights.IsEmpty ? 1 : weights[0])
-            + Value(values.Stamina, limits.Stamina, common.Stamina + scenario.Stamina) * (weights.IsEmpty ? 1 : weights[1])
-            + Value(values.Power, limits.Power, common.Power + scenario.Power) * (weights.IsEmpty ? 1 : weights[2])
-            + Value(values.Guts, limits.Guts, common.Guts + scenario.Guts) * (weights.IsEmpty ? 1 : weights[3])
-            + Value(values.Wisdom, limits.Wisdom, common.Wisdom + scenario.Wisdom) * (weights.IsEmpty ? 1 : weights[4]);
+        return Value(values.Speed, limits.Speed, common.Speed + scenario.Speed, forecasts[0]) * (weights.IsEmpty ? 1 : weights[0])
+            + Value(values.Stamina, limits.Stamina, common.Stamina + scenario.Stamina, forecasts[1]) * (weights.IsEmpty ? 1 : weights[1])
+            + Value(values.Power, limits.Power, common.Power + scenario.Power, forecasts[2]) * (weights.IsEmpty ? 1 : weights[2])
+            + Value(values.Guts, limits.Guts, common.Guts + scenario.Guts, forecasts[3]) * (weights.IsEmpty ? 1 : weights[3])
+            + Value(values.Wisdom, limits.Wisdom, common.Wisdom + scenario.Wisdom, forecasts[4]) * (weights.IsEmpty ? 1 : weights[4]);
 
-        double Value(int before, int cap, int gain)
+        static double Value(int before, int cap, int gain, int forecast)
         {
             gain = Math.Min(gain, cap - before);
             if (gain == 0) return 0;
