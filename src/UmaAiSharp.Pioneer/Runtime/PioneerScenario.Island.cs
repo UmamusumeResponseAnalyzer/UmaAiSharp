@@ -188,16 +188,11 @@ public sealed partial class PioneerScenario
             return Partial(state, PioneerStopCode.ConstructionSettlementRequired, turnKnown: true);
         GrantTuckerSpecialty(state, mask, TemporarySupportGrantSource.IslandTraining);
         if (wholeRun) ApplyTuckerRepeat(state, mask & ~firstFriends, island: true, ref random);
-        var hintMask = 0;
-        for (var i = 0; i < 6; i++) hintMask |= header.IslandBoard[i].HintMask;
-        if (autonomous && hintMask != 0)
+        if (autonomous)
         {
-            var all = 0;
-            foreach (var facility in input.Facilities)
-                if (facility.Id != 106 && facility.Effects.Any(effect => effect is { Type: 102, Condition: 3 }))
-                    all |= header.IslandBoard[facility.Id - 101].HintMask;
+            var (all, one) = IslandHintMasks(header.IslandBoard, input.Facilities);
             SettleTrainingHint(state, all, all: true, ref random);
-            SettleTrainingHint(state, hintMask & ~all, all: false, ref random);
+            SettleTrainingHint(state, one, all: false, ref random);
         }
         return AdvanceTurn(state, PioneerArrivalSource.IslandTraining, ref random);
     }
@@ -229,6 +224,18 @@ public sealed partial class PioneerScenario
         if (data.TurnRules is not { Hints: not null } rules || command < 3601) return false;
         return rules.CurrentFacilities(state).Any(facility => facility.Effects.Any(effect => effect.Type == 102
             && effect.Condition == 2 && effect.Target == command));
+    }
+
+    static (int All, int One) IslandHintMasks(in PioneerIslandBoard board, ImmutableArray<TrainingFacility> facilities)
+    {
+        var mask = 0;
+        for (var i = 0; i < 6; i++) mask |= board[i].HintMask;
+        if (mask == 0) return default;
+        var all = 0;
+        foreach (var facility in facilities)
+            if (facility.Id != 106 && facility.Effects.Any(effect => effect is { Type: 102, Condition: 3 }))
+                all |= board[facility.Id - 101].HintMask;
+        return (all, mask & ~all);
     }
 
     void SettleTrainingHint(PioneerState state, int hintMask, bool all, ref SimulationRandom random)

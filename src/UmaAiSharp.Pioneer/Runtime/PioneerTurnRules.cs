@@ -2,8 +2,10 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Events;
+using UmaAiSharp.Pioneer.Ending;
 using UmaAiSharp.Pioneer.Hints;
 using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Pioneer.Scoring;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Runtime;
@@ -71,6 +73,9 @@ public sealed class PioneerTurnRules
     internal bool WholeRun => !uraFirstPlaceFans.IsDefaultOrEmpty;
     internal PioneerInheritanceRules? Inheritance { get; }
     internal PioneerHintRules? Hints { get; }
+    internal FutureSkillRating? SkillRating { get; }
+    internal int EndingHintSlot { get; }
+    internal int UniqueSkillLevelRating { get; }
     internal PioneerOrdinaryStoryProgress InitialStories { get; }
     internal const int BoardWorkspaceBytes = 8192;
 
@@ -78,7 +83,8 @@ public sealed class PioneerTurnRules
         PioneerStart.TrainingTurn start, int appearedSupportMask, ImmutableArray<int> appearedProjectMembers,
         ImmutableArray<TrainingFacility> facilities, ImmutableArray<ForecastFacilityBase> facilityBases = default,
         ImmutableArray<int> uraFirstPlaceFans = default, PioneerInheritanceRules? inheritance = null, PioneerHintRules? hints = null,
-        PioneerOrdinaryStoryProgress initialStories = default, ImmutableArray<PioneerRaceOption>[]? raceCalendar = null)
+        PioneerOrdinaryStoryProgress initialStories = default, ImmutableArray<PioneerRaceOption>[]? raceCalendar = null,
+        PioneerSkillRatingData? skillRating = null)
     {
         if (calibration.OrdinaryRest.IsDefaultOrEmpty || calibration.Arrivals.IsDefaultOrEmpty || calibration.Placement.IsDefaultOrEmpty
             || calibration.OrdinaryRest.Any(row => row.StoryEpisode is not (701 or 718) || row.Count <= 0)
@@ -116,6 +122,16 @@ public sealed class PioneerTurnRules
         this.uraFirstPlaceFans = uraFirstPlaceFans;
         Inheritance = inheritance;
         Hints = hints;
+        if (WholeRun)
+        {
+            var progress = start.HintProgress ?? throw new InvalidDataException("整局规则缺少起点技能状态。");
+            if (hints is null || skillRating is null) throw new InvalidDataException("整局规则缺少技能评分数据。");
+            EndingHintSlot = hints.Slot(PioneerEndingSettlement.HighHint.Skill);
+            SkillRating = new(skillRating, progress, hints, start.CardId, start.Environment.Current, start.CharacterEffects.AsSpan());
+            var unique = progress.OwnedSkills.SingleOrDefault(skill => skill.Id is >= 10_000 and < 200_000);
+            UniqueSkillLevelRating = unique is null ? 0
+                : ScoringCandidates.SkillToPoint(new(unique.Id, 0, []), 1, ReadOnlySpan<int>.Empty, ReadOnlySpan<int>.Empty);
+        }
         InitialStories = initialStories;
         if (!calibration.TuckerRepeat.IsDefault)
             foreach (var row in calibration.TuckerRepeat)
@@ -177,6 +193,7 @@ public sealed class PioneerTurnRules
     }
 
     internal long SharedMemoryBytes => 4096L + (Inheritance?.SharedMemoryBytes ?? 0) + (Hints?.SharedMemoryBytes ?? 0)
+        + (SkillRating?.SharedMemoryBytes ?? 0)
         + 128L * (arrivals.Count + trainingCoefficients.Count)
         + facilityStates.Values.Sum(facility => 96L + 32L * facility.Effects.Length) + 32L * (facilityBases.IsDefault ? 0 : facilityBases.Length)
         + raceCalendar.Sum(day => day.IsDefault ? 0L : 48L * day.Length) + 48L * racesByProgram.Count

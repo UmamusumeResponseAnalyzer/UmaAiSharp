@@ -9,6 +9,7 @@ using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Events;
 using UmaAiSharp.Pioneer.Hints;
 using UmaAiSharp.Pioneer.Runtime;
+using UmaAiSharp.Pioneer.Scoring;
 using UmaAiSharp.Pioneer.Training;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
@@ -91,8 +92,7 @@ public sealed class PioneerAutonomousSession
         return RootSearch.Evaluate(scenario, new PioneerContinuationPolicy(), root,
             candidates, goal.Compiled, seed, samples, workers, cancellationToken,
             candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes), rankByTotalRating: true,
-            hasFirstStepAdvantage: root.Header.Stage == PioneerStage.TrainingTurn
-                ? (state, left, right) => scenario.HasFirstStepAdvantage(state, left, right) : null);
+            adaptiveSampling: root.Header.Stage == PioneerStage.TrainingTurn);
     }
 
     internal static ImmutableArray<PioneerStoryOccurrence>? ResolveStories(ImmutableArray<PioneerStoryOccurrence>? stories,
@@ -124,7 +124,10 @@ public sealed class PioneerAutonomousSession
             Development = development,
             HintProgress = new([.. Objects(Array(chara, "skill_tips_array"), "skill_tips_array").Select(hint => new HintLevel(
                 new(Int(hint, "group_id"), Int(hint, "rarity")), Int(hint, "level")))],
-                [.. Objects(Array(chara, "skill_array"), "skill_array").Select(skill => Int(skill, "skill_id"))]),
+                [.. Objects(Array(chara, "skill_array"), "skill_array").Select(skill =>
+                    new OwnedScoringSkill(Int(skill, "skill_id"), Int(skill, "level")))],
+                [.. Array(chara, "disable_skill_id_array").Select(id => id!.GetValue<int>())],
+                Int(chara, "talent_level"), PioneerInheritanceCapture.ReadAptitudes(chara)),
             ObservedIsland = generatedTurn is null && training.RawPlayingState == 1 && training.PendingStoryIds.IsEmpty
                 ? compiler.ReadIslandBoard(frame) : null,
             CheckpointResults = [.. Objects(Array(pioneer, "check_point_info_array"), "check_point_info_array")

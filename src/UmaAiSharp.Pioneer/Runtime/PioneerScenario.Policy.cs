@@ -12,27 +12,7 @@ public sealed partial class PioneerScenario
 {
     static readonly int[] PolicyAttributeScores = Enumerable.Range(0, 2401).Select(ScoringCandidates.StatusToPoint).ToArray();
 
-    public bool HasFirstStepAdvantage(in PioneerState state, in PioneerRuntimeAction left, in PioneerRuntimeAction right)
-    {
-        if (left == right || left.Kind is not (PioneerActionKind.Train or PioneerActionKind.IslandTraining
-            or PioneerActionKind.Rest or PioneerActionKind.Outing)
-            || right.Kind is not (PioneerActionKind.Train or PioneerActionKind.IslandTraining or PioneerActionKind.Rest
-                or PioneerActionKind.Outing or PioneerActionKind.Race))
-            return false;
-        Span<FirstStepValue> values = stackalloc FirstStepValue[2];
-        _ = SuggestAction(state, values, left, right);
-        var (preferred, alternative) = (values[0], values[1]);
-        var gap = preferred.Score - alternative.Score;
-        var scale = .15 * Math.Max(Math.Abs(preferred.Reward), Math.Abs(alternative.Reward));
-        // Count a next-turn placement lead when the rest of the action already has the better value.
-        var nextBoardGap = preferred.NextBoardBenefit - alternative.NextBoardBenefit;
-        return gap > 0 && (gap >= scale || nextBoardGap > 0 && gap >= nextBoardGap);
-    }
-
-    readonly record struct FirstStepValue(double Score, double Reward, double NextBoardBenefit);
-
-    PioneerRuntimeAction? SuggestAction(PioneerState state, Span<FirstStepValue> comparison = default,
-        PioneerRuntimeAction left = default, PioneerRuntimeAction right = default)
+    PioneerRuntimeAction? SuggestAction(PioneerState state)
     {
         ref readonly var current = ref state.Header;
         if (current.Stage is PioneerStage.RestConfirmation or PioneerStage.TrainingLevelConfirmation or PioneerStage.ConstructionEvent
@@ -128,6 +108,13 @@ public sealed partial class PioneerScenario
                 islandValue = AttributeGain(current, attributeForecast, island.Common, island.Scenario, attributeWeights)
                     + SkillValue(island.Common.SkillPoints + island.Scenario.SkillPoints)
                     + Math.Min(1, turnsLeft / 38.0) * BondGain(rules.OrdinarySupportMask, bonds, 10 + (current.HasCharm ? 2 : 0));
+                if (rules.SkillRating is not null)
+                {
+                    var (all, one) = IslandHintMasks(current.IslandBoard, rules.CurrentFacilities(state));
+                    var hintBondGain = 15 + (current.HasCharm ? 2 : 0);
+                    islandValue += ExpectedHintValue(state, all, true, hintBondGain, attributeForecast, attributeWeights)
+                        + ExpectedHintValue(state, one, false, hintBondGain, attributeForecast, attributeWeights);
+                }
                 var eligible = 0;
                 var rainbow = 0;
                 foreach (var card in data.TrainingStart!.Deck)
@@ -146,10 +133,8 @@ public sealed partial class PioneerScenario
             foreach (var candidate in Candidates(state))
             {
                 var action = candidate.Action;
-                if (!comparison.IsEmpty && action != left && action != right) continue;
                 var score = double.NegativeInfinity;
                 var reward = 0.0;
-                var nextBoardBenefit = 0.0;
                 switch (action.Kind)
                 {
                     case PioneerActionKind.Race:
@@ -204,17 +189,18 @@ public sealed partial class PioneerScenario
                         var firstFriend = (placement.SupportMask & current.UnseenFriendMask) != 0;
                         var bondGain = data.TrainingDeck!.TrainingBondBonus(placement.SupportMask) + (current.HasCharm ? 2 : 0);
                         var hints = placement.HintMask & rules.OrdinarySupportMask;
+                        var allHints = hints != 0 && AllCampHints(state, action.CommandId);
                         var hintBond = hints == 0 ? 0
                             : BondGain(hints, bonds, 7 + bondGain + 5) - BondGain(hints, bonds, 7 + bondGain);
-                        if (hintBond > 0 && !AllCampHints(state, action.CommandId))
+                        if (hintBond > 0 && !allHints)
                             hintBond /= BitOperations.PopCount((uint)hints);
-                        var tuckerValue = TuckerTrainingValue(placement.SupportMask, bondGain, island: false, attributeForecast, attributeWeights,
-                            out nextBoardBenefit);
+                        var tuckerValue = TuckerTrainingValue(placement.SupportMask, bondGain, island: false, attributeForecast, attributeWeights);
                         var upgrade = 0.0;
                         if (!inCamp && trainingProjection is { } projection)
                             upgrade = projection.UpgradeValue(state, index, ordinaryUses[index], attributeWeights);
                         reward = AttributeGain(current, attributeForecast, gains.Common, gains.Scenario, attributeWeights)
                             + SkillValue(gains.Common.SkillPoints + gains.Scenario.SkillPoints)
+                            + ExpectedHintValue(state, hints, allHints, 12 + bondGain, attributeForecast, attributeWeights)
                             + Math.Min(1, turnsLeft / 38.0)
                                 * (BondGain(placement.SupportMask & rules.OrdinarySupportMask, bonds, 7 + bondGain) + hintBond)
                             + (firstFriend ? Motivation(1) + 12 : 0)
@@ -229,8 +215,7 @@ public sealed partial class PioneerScenario
                         break;
                     case PioneerActionKind.IslandTraining when islandAvailable:
                         reward = islandValue + Progress(islandPoints, true)
-                            + TuckerTrainingValue(islandParticipants, current.HasCharm ? 2 : 0, island: true, attributeForecast, attributeWeights,
-                                out nextBoardBenefit);
+                            + TuckerTrainingValue(islandParticipants, current.HasCharm ? 2 : 0, island: true, attributeForecast, attributeWeights);
                         score = reward + Vitality(vital, islandPoints) - Vitality(vital, 0);
                         break;
                     case PioneerActionKind.Rest:
@@ -260,7 +245,6 @@ public sealed partial class PioneerScenario
                         var outingDevelopment = tucker && turn is >= 8 and <= 60 ? 80 : 0;
                         var specialty = tucker && actionAfterThisTurn == turn + 1 && turnsLeft > 0
                             ? TuckerOutingSpecialty(step) * .09 : 0;
-                        nextBoardBenefit = specialty;
                         // The outing's extra recovery option is worth saving while normal recovery can already cover this board.
                         var waitValue = Math.Max(0, recoveredVital - (maxVital - vital)) * Math.Min(.16, turnsLeft / 70.0);
                         reward = AttributeGain(current, attributeForecast, DisplayGains(current.Resources, outingReward), default, attributeWeights)
@@ -270,8 +254,6 @@ public sealed partial class PioneerScenario
                         score = reward + Progress(outingDevelopment, false) - waitValue;
                         break;
                 }
-                if (!comparison.IsEmpty)
-                    comparison[action == left ? 0 : 1] = new(score, reward, nextBoardBenefit);
                 if (score <= best) continue;
                 best = score;
                 bestAction = action;
@@ -299,9 +281,8 @@ public sealed partial class PioneerScenario
         }
 
         double TuckerTrainingValue(int participants, int bonusBond, bool island, ReadOnlySpan<int> forecasts,
-            ReadOnlySpan<double> weights, out double nextBoard)
+            ReadOnlySpan<double> weights)
         {
-            nextBoard = 0;
             if ((participants & tuckerMask) == 0) return 0;
             var tuckerBond = state.GetSection(PioneerStateSection.SupportBonds)[tuckerSlot];
             var first = (state.Header.UnseenFriendMask & tuckerMask) != 0;
@@ -329,7 +310,7 @@ public sealed partial class PioneerScenario
                 }
             }
             if (actionAfterThisTurn != turn + 1 || turnsLeft == 0) return value;
-            nextBoard = trainingProjection?.TuckerSpecialtyValue(state, participants & rules.OrdinarySupportMask,
+            var nextBoard = trainingProjection?.TuckerSpecialtyValue(state, participants & rules.OrdinarySupportMask,
                 island ? 10 + bonusBond : 7 + bonusBond, forecasts, weights) ?? 0;
             return value + nextBoard;
         }
@@ -456,7 +437,32 @@ public sealed partial class PioneerScenario
         return below + (gain > below ? Math.Max(1, (gain - below) / 2) : 0);
     }
 
-    static double SkillValue(int points) => .025 * points;
+    static double SkillValue(double points) => .025 * points;
+
+    double ExpectedHintValue(PioneerState state, int mask, bool all, int bondGain,
+        ReadOnlySpan<int> forecasts, ReadOnlySpan<double> weights)
+    {
+        var rules = data.TurnRules!;
+        mask &= rules.OrdinarySupportMask;
+        if (mask == 0 || rules.SkillRating is not { } rating) return 0;
+        var levels = state.GetSection(PioneerStateSection.HintLevels);
+        var aptitudes = state.GetSection(PioneerStateSection.InheritanceAptitudes);
+        var bonds = state.GetSection(PioneerStateSection.SupportBonds);
+        var discount = FutureSkillRating.PurchaseDiscount(state.GetSection(PioneerStateSection.CharacterEffects));
+        ref readonly var current = ref state.Header;
+        var count = BitOperations.PopCount((uint)mask);
+        var value = 0.0;
+        while (mask != 0)
+        {
+            var position = BitOperations.TrailingZeroCount((uint)mask);
+            mask &= mask - 1;
+            var (attributes, probability, skillPoints) = rules.Hints!.ExpectedReward(position, Math.Min(100, bonds[position] + bondGain),
+                levels, aptitudes, current.Resources, discount, rating);
+            value += probability * (AttributeGain(current, forecasts, DisplayGains(current.Resources, attributes), default, weights)
+                + SkillValue(attributes.SkillPoints)) + SkillValue(skillPoints);
+        }
+        return all ? value : value / count;
+    }
 
     static double BondGain(int mask, ReadOnlySpan<int> bonds, int gain)
     {

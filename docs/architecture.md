@@ -48,7 +48,7 @@ Pioneer 自主整局的规则身份 `pioneer-whole-run-v8` 使用样本规则种
 | `futureGainedSkillPoints` | 从模拟起点之后累计获得的技能 Pt，可为 `null` |
 | `futureOverflow` | 从模拟起点之后真实被上限截断的五维累计值，可为 `null` |
 | `verifiedAttributeRating` | 经验证的属性评价分，可为 `null` |
-| `estimatedFutureSkillRating` | 自主整局新增技能 Pt 的预计购技评分，取终局预算与起点预算各自对应的购技评分之差 |
+| `estimatedFutureSkillRating` | 自主整局终局与起点的可购技能评分差，加上已接入的固有升级评分。购技估计使用当时的预算、Hint 和适性 |
 
 五维对象必须显式包含 `speed`、`stamina`、`power`、`guts`、`wisdom`。可空指标未知时写 `null`，`estimatedFutureSkillRating` 和 `failedCareerGoalId` 可省略。重复字段、未知字段或错误类型均拒绝。目标需要的指标未知时拒绝评价。当前没有从实包净差自动推导累计溢出或累计技能 Pt。
 

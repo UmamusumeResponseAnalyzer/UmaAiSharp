@@ -79,16 +79,25 @@ public static class ScoringCandidates
 
     public static int SkillToPoint(ScoringSkillDefinition skill, int level,
         ImmutableArray<int> runningStyleAptitudes, ImmutableArray<int> distanceAptitudes)
+        => SkillToPoint(skill, level, runningStyleAptitudes.AsSpan(), distanceAptitudes.AsSpan());
+
+    internal static int SkillToPoint(ScoringSkillDefinition skill, int level,
+        ReadOnlySpan<int> runningStyleAptitudes, ReadOnlySpan<int> distanceAptitudes)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(level);
         if (skill.Id is > 1000000 and < 2000000) return 0;
         if (skill.Id is >= 100000 and < 200000) return checked(170 * level);
         if (skill.Id is >= 10000 and < 100000) return checked(120 * level);
         var score = (decimal)skill.Grade;
-        var styles = skill.Tags.Where(tag => tag is >= 101 and <= 104).Select(tag => runningStyleAptitudes[tag - 101]).ToArray();
-        var distances = skill.Tags.Where(tag => tag is >= 201 and <= 204).Select(tag => distanceAptitudes[tag - 201]).ToArray();
-        if (styles.Length != 0) score *= Multiplier(styles.Max());
-        if (distances.Length != 0) score *= Multiplier(distances.Max());
+        var style = -1;
+        var distance = -1;
+        foreach (var tag in skill.Tags)
+        {
+            if (tag is >= 101 and <= 104) style = Math.Max(style, runningStyleAptitudes[tag - 101]);
+            if (tag is >= 201 and <= 204) distance = Math.Max(distance, distanceAptitudes[tag - 201]);
+        }
+        if (style >= 0) score *= Multiplier(style);
+        if (distance >= 0) score *= Multiplier(distance);
         return checked((int)Math.Round(score, MidpointRounding.ToEven));
     }
 

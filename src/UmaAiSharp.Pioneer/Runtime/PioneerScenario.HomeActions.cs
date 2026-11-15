@@ -101,8 +101,7 @@ public sealed partial class PioneerScenario
                 }
                 if (race.Target)
                 {
-                    ApplyProgressionReward(state, 3 * rules.RaceRewardPercent / 100, 45 * rules.RaceRewardPercent / 100);
-                    if (autonomous && data.IsWholeRun) header.DirectorBond = Math.Min(100, header.DirectorBond + 4);
+                    ApplyCareerGoalReward(state);
                 }
                 else
                 {
@@ -223,9 +222,17 @@ public sealed partial class PioneerScenario
             var goal = rules.CareerGoals[i];
             if (state.Header.Turn != goal.Deadline) continue;
             if (state.Header.Fans < goal.FanTarget || counts[i] < goal.RaceCount) return goal.Id;
-            ApplyProgressionReward(state, 3 * rules.RaceRewardPercent / 100, 45 * rules.RaceRewardPercent / 100);
+            ApplyCareerGoalReward(state);
         }
         return null;
+    }
+
+    void ApplyCareerGoalReward(PioneerState state)
+    {
+        var percent = data.TurnRules!.RaceRewardPercent;
+        ApplyProgressionReward(state, 3 * percent / 100, 45 * percent / 100);
+        if (autonomous && data.IsWholeRun)
+            state.Mutable.DirectorBond = Math.Min(100, state.Header.DirectorBond + 4);
     }
 
     static TransitionResult EndCareer(PioneerState state, int goalId)

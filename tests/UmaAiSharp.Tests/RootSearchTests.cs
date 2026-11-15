@@ -33,32 +33,20 @@ public sealed class RootSearchTests
     }
 
     [Fact]
-    public void PairedSearchExtendsOnlyUnresolvedCandidatesAndProtectsTheSpecificTrainingPair()
+    public void PairedSearchExtendsOnlyUnresolvedCandidatesAndRanksByTerminalRating()
     {
-        var scenario = new Scenario(scoreTerminal: true, stableChallenger: true);
+        var scenario = new Scenario(scoreTerminal: true);
         RootCandidate<int>[] candidates = [.. Candidates, new(40, 3)];
         var result = RootSearch.Evaluate(scenario, new Policy(), CreateRoot(), candidates, Goal(1189), 12345, 32, 32,
-            rankByTotalRating: true, hasFirstStepAdvantage: (_, left, right) => left == 0 && right is 1 or 2);
-        Assert.Equal(20, result.FirstStepPromotedCandidateId);
-        Assert.Equal(new[] { 10, 20, 30, 40 }, result.Ranking);
-        Assert.True(result.Candidates[1].Summary!.MeanSuccessfulTotalRating > result.Candidates[0].Summary!.MeanSuccessfulTotalRating);
-        Assert.Equal(4096, result.Candidates[0].Batch.Results.Length);
+            rankByTotalRating: true, adaptiveSampling: true);
+        Assert.Equal(10, result.RecommendedCandidateId);
+        Assert.Equal(new[] { 10, 30, 20, 40 }, result.Ranking);
+        Assert.Equal(4096, result.Candidates[1].Batch.Results.Length);
         Assert.InRange(result.Candidates[3].Batch.Results.Length, 32, 4095);
         var fixedSamples = RootSearch.Evaluate(scenario, new Policy(), CreateRoot(), candidates, Goal(1189), 12345, 4096, 1,
             rankByTotalRating: true);
         foreach (var (adaptive, fixedResult) in result.Candidates.Zip(fixedSamples.Candidates))
             Assert.Equal(fixedResult.Batch.Results.Take(adaptive.Batch.Results.Length), adaptive.Batch.Results);
-
-        var withHigherGoal = RootSearch.Evaluate(scenario, new Policy(), CreateRoot(), Candidates, Goal(1201), 12345, 32, 4,
-            rankByTotalRating: true, hasFirstStepAdvantage: (_, left, right) => left == 0 && right is 1 or 2);
-        Assert.Null(withHigherGoal.FirstStepPromotedCandidateId);
-        Assert.Equal(10, withHigherGoal.RecommendedCandidateId);
-
-        var unrelatedThird = RootSearch.Evaluate(new Scenario(scoreTerminal: true, stableChallenger: true, uncertainLeader: true),
-            new Policy(), CreateRoot(), candidates, Goal(1189), 12345, 32, 4, rankByTotalRating: true,
-            hasFirstStepAdvantage: (_, left, right) => left == 3 && right == 1);
-        Assert.Equal(new[] { 40, 30, 10, 20 }, unrelatedThird.Ranking);
-        Assert.Equal(40, unrelatedThird.FirstStepPromotedCandidateId);
     }
 
     [Fact]
@@ -191,7 +179,7 @@ public sealed class RootSearchTests
             => cursor.Count == 6 ? null : new(SimulationStopReason.ScriptMismatch, cursor.Count);
     }
 
-    sealed class Scenario(bool scoreTerminal = false, bool stableChallenger = false, bool uncertainLeader = false)
+    sealed class Scenario(bool scoreTerminal = false)
         : ISimulationScenario<State, int, int, TerminalMetrics>
     {
         public int CreatedWorkspaces;
@@ -240,10 +228,8 @@ public sealed class RootSearchTests
             var rating = !scoreTerminal ? (int?)null : state.RootAction switch
             {
                 0 => 1000,
-                1 when uncertainLeader => 1100 + 300 * (state.History[0] - 3),
-                3 when uncertainLeader => 1090,
                 1 => state.History[0] == 5 ? 5000 : 0,
-                2 => stableChallenger ? 1060 : 900,
+                2 => 1060,
                 _ => 100,
             };
             return new(state.Attributes, Caps, points, new(0, 0, 0, 0, 0), rating,

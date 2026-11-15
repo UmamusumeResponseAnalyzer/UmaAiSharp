@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
+using UmaAiSharp.Pioneer.Hints;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Ending;
@@ -12,6 +13,7 @@ public static class PioneerEndingSettlement
 {
     public const string Version = "jp-pioneer-high-ending-observed-candidate-v1";
     internal const int HighAttribute = 55, HighSkillPoints = 540;
+    internal static readonly HintLevel HighHint = new(new(21036, 2), 1);
 
     public static PioneerEndingReward ApplyCandidate(PioneerEndingContext context, TrainingValues before, TrainingLimits limits)
     {
@@ -25,7 +27,7 @@ public static class PioneerEndingSettlement
             Attribute(before.Speed, limits.Speed), Attribute(before.Stamina, limits.Stamina),
             Attribute(before.Power, limits.Power), Attribute(before.Guts, limits.Guts), Attribute(before.Wisdom, limits.Wisdom),
             before.Vital, checked(before.SkillPoints + HighSkillPoints));
-        return new(after, 21036, 2, 1);
+        return new(after, HighHint.Skill.GroupId, HighHint.Skill.Rarity, HighHint.Level);
     }
 
     static int Attribute(int before, int cap)

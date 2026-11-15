@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using UmaAiSharp.Pioneer.Game;
@@ -6,6 +7,7 @@ using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Hints;
 using UmaAiSharp.Pioneer.Inheritance;
 using UmaAiSharp.Pioneer.Runtime;
+using UmaAiSharp.Pioneer.Scoring;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Offline;
@@ -62,7 +64,34 @@ public static class PioneerMasterReader
             calibration is null ? null : ConstructionData(db, sha), calibration, storyProgress,
             calibration is null ? null : ReadProgression(db),
             calibration is null ? null : ReadInheritance(db, inheritance ?? throw new InvalidDataException("整局规则缺少继承校准。")),
-            calibration is null ? default : ReadHintPools(db), traineeRandomStories);
+            calibration is null ? default : ReadHintPools(db), traineeRandomStories,
+            calibration is null ? null : ReadSkillRating(db));
+    }
+
+    static PioneerSkillRatingData ReadSkillRating(SqliteConnection db)
+    {
+        using var query = db.CreateCommand();
+        query.CommandText = """
+            SELECT s.id,s.group_id,s.rarity,s.group_rate,s.grade_value,s.tag_id,
+                p.need_skill_point,COALESCE(p.status_type,0),COALESCE(p.status_value,0),COALESCE(p.solvable_type,0)
+            FROM skill_data s LEFT JOIN single_mode_skill_need_point p ON p.id=s.id
+            ORDER BY s.id
+            """;
+        var skills = ImmutableArray.CreateBuilder<PioneerSkillRule>();
+        using (var rows = query.ExecuteReader())
+            while (rows.Read())
+            {
+                var tags = rows.GetString(5);
+                skills.Add(new(rows.GetInt32(0), rows.GetInt32(1), rows.GetInt32(2), rows.GetInt32(3), rows.GetInt32(4),
+                    rows.IsDBNull(6) ? null : rows.GetInt32(6), rows.GetInt32(7), rows.GetInt32(8), rows.GetInt32(9),
+                    tags.Length == 0 ? [] : [.. tags.Split('/').Select(tag => int.Parse(tag, CultureInfo.InvariantCulture))]));
+            }
+        var talents = ReadIntegers(db, """
+            SELECT c.id card_id,a.skill_id,a.need_rank
+            FROM card_data c JOIN available_skill_set a ON a.available_skill_set_id=c.available_skill_set_id
+            ORDER BY c.id,a.need_rank,a.skill_id
+            """);
+        return new(skills.ToImmutable(), [.. talents.Select(row => new PioneerSkillTalent(row["card_id"], row["skill_id"], row["need_rank"]))]);
     }
 
     static ImmutableArray<PioneerCardHints> ReadHintPools(SqliteConnection db)

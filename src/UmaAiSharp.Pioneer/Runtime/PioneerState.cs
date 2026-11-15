@@ -42,6 +42,7 @@ public struct PioneerStateHeader
     public bool DeferredConstruction, PioneerCompleted;
     public int UnseenFriendMask, UnlockedFriendMask, FriendOutings;
     public long FutureGainedSkillPoints;
+    internal int FutureSkillUpgradeRating;
     public AttributeValues FutureOverflow;
     public bool TrainingSucceeded;
     internal bool TrainingFailureIllness;

@@ -135,6 +135,11 @@ public sealed partial class PioneerScenario
             _ => (35, 300), // shortcut: lower grade prior until captures cover multiple low evaluations.
         };
         ApplyProgressionReward(state, attribute, skill);
+        if (high == 5)
+        {
+            ref var hint = ref state.MutableSection(PioneerStateSection.HintLevels)[data.TurnRules!.EndingHintSlot];
+            hint = Math.Max(hint, PioneerEndingSettlement.HighHint.Level);
+        }
 
         var start = data.TrainingStart!;
         foreach (var card in start.Deck)

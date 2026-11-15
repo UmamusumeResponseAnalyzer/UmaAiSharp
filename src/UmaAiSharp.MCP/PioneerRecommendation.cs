@@ -45,8 +45,7 @@ public static class PioneerRecommendation
             compiledGoal, seed, samples, workers, cancellationToken,
             candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes),
             rankByTotalRating: wholeRun,
-            hasFirstStepAdvantage: wholeRun && loaded.Root.Header.Stage == PioneerStage.TrainingTurn
-                ? (state, left, right) => scenario.HasFirstStepAdvantage(state, left, right) : null);
+            adaptiveSampling: wholeRun && loaded.Root.Header.Stage == PioneerStage.TrainingTurn);
         var elapsed = Stopwatch.GetElapsedTime(timer);
         var bytes = GC.GetTotalAllocatedBytes(true) - allocated;
         var action = result.RecommendedCandidateId is { } recommended
@@ -67,7 +66,7 @@ public static class PioneerRecommendation
         return ToolResult.Report(output, new
         {
             recommendedCandidateId = result.RecommendedCandidateId,
-            recommendedAction = action, recommendationEvaluation = evaluation, result.FirstStepPromotedCandidateId,
+            recommendedAction = action, recommendationEvaluation = evaluation,
             samplesPerCandidate = samples, result.SampleLimitPerCandidate, candidateCount = candidates.Length,
             stops = ToolResult.SearchStops(result)
         }, ToolResult.SearchStatus(result.Status));

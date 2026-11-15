@@ -29,7 +29,7 @@ dotnet test UmaAiSharp.slnx --no-restore -m:1 -nodeReuse:false
 
 `pioneer_forecast` 从抓包前缀比较训练、休息、岛训练、外出、比赛、保健室、建设规划或已揭示事件选项，通过明确标注的经验过渡模型预测到终局。当前角色成长与六卡效果由 master 编译，不要求模型包含相同配置；缺失机制保留停止。输入、实测覆盖及适用限制见[条件经验预测](docs/conditional-forecast.md)。完整机制模拟及独立推荐质量验收尚未完成。
 
-规则资源 v12 可通过 `pioneer_import_capture` → `pioneer_recommend` 比较合法训练、岛训练、建设、恢复及比赛，并模拟两次继承到第 78 回合。属性条件在终局判定。候选先比较联合达标率，再比较达标轨迹的平均终局总分。总分包含五维评分和本次模拟新增技能 Pt 的购技评分估计。精确和快速公式模型可在执行时选定。见 [Pioneer MCP](docs/pioneer-mcp.md#规则资源-v12-自主整局)。
+规则资源 v13 可通过 `pioneer_import_capture` → `pioneer_recommend` 比较合法训练、岛训练、建设、恢复及比赛，并模拟两次继承到第 78 回合。属性条件在终局判定。候选先比较联合达标率，再比较达标轨迹的平均终局总分。总分计入五维、按实际 Pt 和 Hint 估计的可购技能增量及已接入的固有升级。精确和快速公式模型可在执行时选定。见 [Pioneer MCP](docs/pioneer-mcp.md#规则资源-v13-自主整局)。
 
 `pioneer_calibrate_events`提取去除事件所属支援加成的基础资源样本，提供同类事件统计参数及排除计数。`pioneer_build_model`将已校准资源绑定到未来转移，按当前卡组与羁绊重新结算。用法和适用边界见[事件基础资源模型](docs/event-statistical-model.md)。
 

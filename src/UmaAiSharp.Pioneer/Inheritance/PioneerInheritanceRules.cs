@@ -34,7 +34,6 @@ public sealed class PioneerInheritanceRules
     readonly int[] saturatedHintWeights;
     readonly int saturatedHintWeightSum;
     readonly int candidateCount;
-    readonly ImmutableArray<int> initialAptitudes;
     public long SharedMemoryBytes => 512L + (opportunities.Length + addons.Length) * 72L
         + opportunities.Concat(addons.Select(addon => addon.Opportunity)).Sum(opportunity =>
             opportunity.Bundles.Sum(bundle => 48L + 32L * bundle.Effects.Length));
@@ -60,8 +59,7 @@ public sealed class PioneerInheritanceRules
         if (addonGroups.Count > 64) throw new InvalidDataException("继承附加条件超过64个不同触发组。");
         var relevant = inherited.Concat(activeAddons.Select(addon => factors[addon.FactorId])).Distinct().ToArray();
         var owned = ownedSkills.ToHashSet();
-        initialAptitudes = context.Aptitudes;
-        if (initialAptitudes.Length != AptitudeTargets.Length || initialAptitudes.Any(value => value is < 1 or > 8))
+        if (context.Aptitudes.Length != AptitudeTargets.Length || context.Aptitudes.Any(value => value is < 1 or > 8))
             throw new InvalidDataException("途中继承需要十项适性，等级范围为1至8。");
         candidateCount = context.HasUmaPlan ? 2 : 1;
         saturatedHintWeights = data.Calibration.SaturatedHintWeights.ToArray();
@@ -99,8 +97,6 @@ public sealed class PioneerInheritanceRules
                 new(1000000, bundles, bundles.Sum(bundle => bundle.Weight), 0));
         })];
     }
-
-    internal ReadOnlySpan<int> InitialAptitudes => initialAptitudes.AsSpan();
 
     public void Apply(ref TrainingValues resources, ref TrainingLimits limits, Span<int> aptitudes, Span<int> hints,
         ref AttributeValues totalOverflow, ref SimulationRandom random)

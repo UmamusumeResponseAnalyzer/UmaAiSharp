@@ -10,7 +10,6 @@ public sealed record CandidateEvaluation<TAction>(RootCandidate<TAction> Candida
 public enum SearchStatus { Completed, Stopped, Cancelled }
 public sealed record RootSearchResult<TAction>(DecisionId Decision, SearchStatus Status,
     int? RecommendedCandidateId, int[] Ranking, CandidateEvaluation<TAction>[] Candidates,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? FirstStepPromotedCandidateId = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? SampleLimitPerCandidate = null) where TAction : notnull;
 
 public static class RootSearch
@@ -24,8 +23,7 @@ public static class RootSearch
         ITrajectoryPolicy<TDecision, TAction, TCursor> continuation, in TState root,
         ReadOnlySpan<RootCandidate<TAction>> candidates, CompiledGoal goal,
         ulong seed, int samplesPerCandidate, int workers, CancellationToken cancellationToken = default,
-        long? ownedActionPayloadBytes = null, bool rankByTotalRating = false,
-        Func<TState, TAction, TAction, bool>? hasFirstStepAdvantage = null)
+        long? ownedActionPayloadBytes = null, bool rankByTotalRating = false, bool adaptiveSampling = false)
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
         ExecutionPlatform.EnsureSupported();
@@ -48,27 +46,20 @@ public static class RootSearch
             if (scenario.ValidateAction(root, candidate.Action) is { } invalid)
                 throw new ArgumentException($"候选{candidate.Id}校验失败：{invalid.Reason}，代码{invalid.Code}，位置{invalid.Position}。", nameof(candidates));
         }
-        var paired = rankByTotalRating && hasFirstStepAdvantage is not null && actions.Length > 1;
+        var paired = rankByTotalRating && adaptiveSampling && actions.Length > 1;
         var sampleLimit = paired ? Math.Max(samplesPerCandidate, PairedSampleLimit) : samplesPerCandidate;
         var resultSize = Unsafe.SizeOf<TrajectoryResult<TerminalMetrics>>();
         var retainedResultBytes = checked((long)actions.Length * sampleLimit * (resultSize + 128L));
         // Extending a candidate holds its previous result array while copying the prefix.
         if (sampleLimit > samplesPerCandidate) retainedResultBytes += (long)sampleLimit * resultSize;
         var sharedBytes = checked(goal.SharedMemoryBytes + (ownedActionPayloadBytes ?? 0) + 128L
-            + actions.Length * (64L + Unsafe.SizeOf<RootCandidate<TAction>>()) + retainedResultBytes
-            + (paired ? actions.Length * (long)actions.Length * 32 : 0));
+            + actions.Length * (64L + Unsafe.SizeOf<RootCandidate<TAction>>()) + retainedResultBytes);
         var initialPolicy = new RootPolicy<TDecision, TAction, TCursor>(continuation, inspection.Decision.Id, actions[0].Action, sharedBytes);
         var (memory, workspaces) = SimulationRunner.CreateBatchWorkspaces(scenario, initialPolicy, root, sampleLimit, workers,
             samplesPerWorkspace: 1);
         var results = new CandidateEvaluation<TAction>[actions.Length];
         var active = Enumerable.Range(0, actions.Length).ToList();
         var retired = new List<int>();
-        var firstStep = new HashSet<(int Preferred, int Other)>();
-        if (paired)
-            for (var i = 0; i < actions.Length; i++)
-                for (var j = 0; j < actions.Length; j++)
-                    if (i != j && hasFirstStepAdvantage!(root, actions[i].Action, actions[j].Action))
-                        firstStep.Add((i, j));
         Comparison<int> compare = (left, right) =>
         {
             var comparison = GoalEvaluator.Compare(results[right].Summary!, results[left].Summary!, rankByTotalRating);
@@ -107,8 +98,7 @@ public static class RootSearch
             {
                 for (var j = active.Count - 1; j >= keep; j--)
                 {
-                    if (PairedLeadExceedsNoise(results[active[i]], results[active[j]], goal,
-                        firstStep.Contains((active[j], active[i])))) continue;
+                    if (PairedLeadExceedsNoise(results[active[i]], results[active[j]], goal)) continue;
                     keep = j + 1;
                     break;
                 }
@@ -122,76 +112,13 @@ public static class RootSearch
             samples = (int)Math.Min(sampleLimit, 4L * Math.Max(MinimumPairedSamples, samples));
         }
 
-        var ranking = new List<int>(actions.Length);
-        int? firstStepPromotedCandidateId = null;
-        if (paired && active.Count > 1)
-        {
-            var count = active.Count;
-            var blocked = new List<int>?[count];
-            var blockers = new int[count];
-            for (var i = 0; i < count; i++)
-            {
-                var leader = results[active[i]];
-                if (leader.Summary!.SuccessCount != samples) break;
-                for (var j = i + 1; j < count; j++)
-                {
-                    var preferred = results[active[j]];
-                    if (preferred.Summary!.SuccessCount != samples) break;
-                    if (!firstStep.Contains((active[j], active[i]))
-                        || HasReplicatedRatingLead(leader.Batch.Results, preferred.Batch.Results)) continue;
-                    (blocked[j] ??= []).Add(i);
-                    blockers[i]++;
-                }
-            }
-            // Resolve challenges to the sampled leader before considering unrelated candidates.
-            var challengesLeader = new bool[count];
-            challengesLeader[0] = true;
-            for (var i = 1; i < count; i++)
-                if (blocked[i] is { } opponents)
-                    foreach (var opponent in opponents)
-                        if (challengesLeader[opponent])
-                        {
-                            challengesLeader[i] = true;
-                            break;
-                        }
-            var winner = 0;
-            while (blockers[winner] != 0 || !challengesLeader[winner]) winner++;
-            // Preserve goal order for the remaining candidates wherever protection permits it.
-            for (var i = 0; i < count; i++)
-            {
-                var next = i == 0 ? winner : Array.IndexOf(blockers, 0);
-                ranking.Add(active[next]);
-                blockers[next] = -1;
-                if (blocked[next] is not { } released) continue;
-                foreach (var j in released) blockers[j]--;
-                firstStepPromotedCandidateId ??= actions[active[next]].Id;
-            }
-        }
-        else ranking.AddRange(active);
-        ranking.AddRange(retired);
-        return new(inspection.Decision.Id, status, results[ranking[0]].Candidate.Id,
-            [.. ranking.Select(index => results[index].Candidate.Id)], results, firstStepPromotedCandidateId,
-            paired ? sampleLimit : null);
-    }
-
-    static bool HasReplicatedRatingLead(ReadOnlySpan<TrajectoryResult<TerminalMetrics>> leader,
-        ReadOnlySpan<TrajectoryResult<TerminalMetrics>> preferred)
-    {
-        if (leader.Length < MinimumPairedSamples) return false;
-        var split = leader.Length / 2;
-        return Confirmed(leader[..split], preferred[..split]) && Confirmed(leader[split..], preferred[split..]);
-
-        static bool Confirmed(ReadOnlySpan<TrajectoryResult<TerminalMetrics>> a, ReadOnlySpan<TrajectoryResult<TerminalMetrics>> b)
-        {
-            var stats = new PairedDifference();
-            for (var i = 0; i < a.Length; i++)
-                stats.Add(TotalRating(a[i].Outcome) - TotalRating(b[i].Outcome));
-            return stats.HasLead;
-        }
+        active.AddRange(retired);
+        return new(inspection.Decision.Id, status, results[active[0]].Candidate.Id,
+            [.. active.Select(index => results[index].Candidate.Id)], results, paired ? sampleLimit : null);
     }
 
     static bool PairedLeadExceedsNoise<TAction>(CandidateEvaluation<TAction> leader, CandidateEvaluation<TAction> other,
-        CompiledGoal goal, bool protectFirstStep)
+        CompiledGoal goal)
         where TAction : notnull
     {
         var left = leader.Batch.Results;
@@ -199,7 +126,6 @@ public static class RootSearch
         var count = left.Length;
         if (count < MinimumPairedSamples) return false;
         var allFeasible = leader.Summary!.SuccessCount == count && other.Summary!.SuccessCount == count;
-        if (allFeasible && protectFirstStep) return HasReplicatedRatingLead(left, right);
         if (!allFeasible && leader.Summary.SuccessCount <= other.Summary!.SuccessCount) return false;
         var stats = new PairedDifference();
         for (var i = 0; i < count; i++)

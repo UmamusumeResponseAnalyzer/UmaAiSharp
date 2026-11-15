@@ -15,13 +15,12 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
 {
     static readonly PioneerEvent FirstYearConfirmation = new(211022, 0, 400000100, 6);
     readonly TrainingProjection? trainingProjection = autonomous && data.IsWholeRun ? new(data) : null;
-    public string RulesIdentity { get; } = !autonomous || data.TurnRules is null
-        ? data.RulesIdentity + "/" + data.Model.Identity
-        : data.RulesIdentity + "/" + data.Model.Identity + (data.TurnRules.WholeRun ? "/pioneer-whole-run-v8" : "/pioneer-direct-turn-v1");
+    public string RulesIdentity { get; } = data.RulesIdentity + "/" + data.Model.Identity
+        + (data.IsWholeRun ? "/pioneer-whole-run-v10" : autonomous && data.TurnRules is not null ? "/pioneer-direct-turn-v1" : "");
     public long SharedMemoryBytes => data.SharedMemoryBytes + (trainingProjection is null ? 0 : TrainingProjection.SharedMemoryBytes);
     public static long DecisionKey(int turn, int eventOrCommandId) => ((long)turn << 32) | (uint)eventOrCommandId;
     public PioneerState CreateWorkspace(in PioneerState source) => source.Clone();
-    public long GetWorkspaceBytes(in PioneerState state) => state.WorkspaceBytes;
+    public long GetWorkspaceBytes(in PioneerState state) => state.WorkspaceBytes + (data.TurnRules?.SkillRating?.ScratchBytes ?? 0);
     public void CopyState(in PioneerState source, ref PioneerState destination) => source.CopyInto(destination);
 
     public Inspection<PioneerDecisionView> Inspect(in PioneerState state, long decisionOrdinal)
@@ -213,8 +212,9 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var attributes = new AttributeValues(values.Speed, values.Stamina, values.Power, values.Guts, values.Wisdom);
         var futurePoints = checked((int)header.FutureGainedSkillPoints);
         var futureSkillRating = autonomous && data.IsWholeRun && header.FailedCareerGoal == 0
-            ? FutureSkillRating.Estimate(data.TrainingStart!.Environment.Current.SkillPoints, futurePoints,
-                data.TurnRules!.Hints!.SupportPoolSize)
+            ? data.TurnRules!.SkillRating!.Estimate(values, state.GetSection(PioneerStateSection.HintLevels),
+                state.GetSection(PioneerStateSection.InheritanceAptitudes), state.GetSection(PioneerStateSection.CharacterEffects))
+                + header.FutureSkillUpgradeRating
             : (int?)null;
         return new(attributes,
             new(limits.Speed, limits.Stamina, limits.Power, limits.Guts, limits.Wisdom),
@@ -273,6 +273,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             return Missing(state, PioneerStopCode.OutcomeIdentityMismatch);
         var index = TrainingFacilityRules.PrimaryTarget(TrainingBaseTable.OrdinaryCommand(commandId)) - 1;
         var placement = state.Header.TrainingBoard[index];
+        var withDirector = placement.Director && data.IsWholeRun;
         var preview = PreviewTraining(state, commandId);
         var count = checked(state.GetSection(PioneerStateSection.TrainingExecutionCounts)[index] + 1);
         // Commit the draw with the action; an unsupported settlement leaves its pending context unchanged.
@@ -285,6 +286,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var construction = false;
         var firstFriends = 0;
         ref var header = ref state.Mutable;
+        var attentionBonus = header.HasAttention ? 2 : 0;
         var pointsBefore = header.DevelopmentPoints;
         if (success)
         {
@@ -321,6 +323,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
                         + (card.TrainingCommandId == 0 ? 4L : 7L) + (charm ? 2 : 0) + bondBonus);
             header.Resources = values; header.DevelopmentPoints = points; header.FutureGainedSkillPoints = gained;
             header.FutureOverflow = overflow;
+            if (withDirector) header.DirectorBond = Math.Min(100, header.DirectorBond + 2 + attentionBonus);
             firstFriends = header.UnseenFriendMask & placement.SupportMask;
             ApplyFirstFriendTraining(state, firstFriends);
             Span<int> hints = stackalloc int[6];
@@ -352,12 +355,12 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
                 {
                     GrantTuckerSpecialty(state, placement.SupportMask, TemporarySupportGrantSource.TuckerTraining);
                     ApplyTuckerRepeat(state, placement.SupportMask & ~firstFriends, island: false, ref random);
-                    if (placement.Director) header.DirectorBond = Math.Min(100, header.DirectorBond + (header.HasAttention ? 9 : 7));
                 }
                 if (header.PendingTrainingLevelCommandId is null)
                     return Partial(state, PioneerStopCode.TrainingLevelHistoryRequired, turnKnown: true);
                 if (placement.HintMask != 0)
                     SettleTrainingHint(state, placement.HintMask, AllCampHints(state, commandId), ref random);
+                if (withDirector) header.DirectorBond = Math.Min(100, header.DirectorBond + 5 + attentionBonus);
             }
             else
             {
@@ -367,7 +370,8 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             }
             return AdvanceTurn(state, source, ref random);
         }
-        if (success && data.TurnRules is not null && placement.HintMask == 0 && header.PendingTrainingLevelCommandId is { } pendingLevel)
+        if (success && !withDirector && data.TurnRules is not null && placement.HintMask == 0
+            && header.PendingTrainingLevelCommandId is { } pendingLevel)
             return AdvanceTurn(state, pendingLevel != 0 ? PioneerArrivalSource.TrainingWithLevel
                 : data.CampCommands.IsEmpty ? PioneerArrivalSource.Training : PioneerArrivalSource.CampTraining, ref random);
         return Partial(state, success ? PioneerStopCode.TrainingEventsRequired : PioneerStopCode.TrainingFailureEventRequired, turnKnown: true);

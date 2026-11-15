@@ -46,9 +46,7 @@ public sealed class PioneerInheritanceCapture
     {
         var chara = common["chara_info"]!.AsObject();
         if (frozen is not { } family || family.Run != PioneerGameData.RunToken(chara)) return null;
-        return new(family.First, family.Second,
-            family.UmaPlan ?? true,
-            [.. AptitudeNames.Select(name => Int(chara, name))]);
+        return new(family.First, family.Second, family.UmaPlan ?? true, ReadAptitudes(chara));
     }
 
     public static PioneerInheritanceLottery[] RankLotteries(JsonObject common)
@@ -113,7 +111,9 @@ public sealed class PioneerInheritanceCapture
     static readonly string[] AptitudeNames =
     [
         "proper_ground_turf", "proper_ground_dirt",
-        "proper_distance_short", "proper_distance_mile", "proper_distance_middle", "proper_distance_long",
         "proper_running_style_nige", "proper_running_style_senko", "proper_running_style_sashi", "proper_running_style_oikomi",
+        "proper_distance_short", "proper_distance_mile", "proper_distance_middle", "proper_distance_long",
     ];
+
+    internal static ImmutableArray<int> ReadAptitudes(JsonObject chara) => [.. AptitudeNames.Select(name => Int(chara, name))];
 }

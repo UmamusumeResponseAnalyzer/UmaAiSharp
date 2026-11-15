@@ -258,12 +258,12 @@ public sealed class PioneerRuntimeData
         if (UsesStoryDecisions)
             capacity = checked(capacity + PioneerState.StoryOccurrenceSize * (TrainingStart is { } training
                 ? (training.ObservedStoryHistory?.Length ?? 0) + 80 - training.Turn : 1));
-        var aptitudes = TurnRules?.Inheritance;
+        var aptitudes = TurnRules?.WholeRun == true ? TrainingStart!.HintProgress!.Aptitudes : (ImmutableArray<int>?)null;
         var hintRules = TurnRules?.Hints;
         capacity = checked(capacity + (aptitudes is null ? 0 : UmaAiSharp.Pioneer.Inheritance.PioneerInheritanceRules.AptitudeTargets.Length)
             + (hintRules?.StateCapacity ?? 0) + (TurnRules?.CareerGoals.Length ?? 0));
         var state = new PioneerState(this, capacity);
-        if (aptitudes is not null) state.SetSection(PioneerStateSection.InheritanceAptitudes, aptitudes.InitialAptitudes);
+        if (aptitudes is { } initialAptitudes) state.SetSection(PioneerStateSection.InheritanceAptitudes, initialAptitudes.AsSpan());
         if (hintRules is not null) state.SetSection(PioneerStateSection.HintLevels, hintRules.InitialLevels);
         if (TurnRules is { } turnRules) state.SetSection(PioneerStateSection.CareerRaceCounts, turnRules.InitialCareerCounts.AsSpan());
         ref var header = ref state.Mutable;

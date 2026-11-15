@@ -134,7 +134,7 @@ public sealed partial class PioneerScenario
             case (51 or 72, true):
                 // The observed below-threshold consolation is +20 Pt.
                 if (header.Fans < (turn == 51 ? 60_000 : 120_000)) ApplyProgressionReward(state, 0, 20);
-                else state.AddCharacterEffect(turn == 51 ? 25 : 10);
+                else header.FutureSkillUpgradeRating += data.TurnRules!.UniqueSkillLevelRating;
                 break;
             case (55, true):
                 if (header.Fans < 70_000 || header.DirectorBond < 60)
