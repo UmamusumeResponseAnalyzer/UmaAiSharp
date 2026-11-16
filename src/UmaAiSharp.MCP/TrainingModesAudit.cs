@@ -11,7 +11,7 @@ using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.MCP.Evidence;
 
-public sealed record TrainingModesReport(string CandidateVersion, IReadOnlyList<SourceFingerprint> Inputs,
+public sealed record TrainingModesReport(IReadOnlyList<SourceFingerprint> Inputs,
     IReadOnlyDictionary<string, int> Counts, IReadOnlyList<TrainingFormulaCoverage> Coverage,
     IReadOnlyList<EvidenceIssue> Issues, IReadOnlyList<string> Limits);
 
@@ -201,7 +201,7 @@ public static class TrainingModesAudit
         foreach (var path in paths)
             if (Fingerprint(path.Item1, path.Item2).Sha256 != fingerprints.Single(value => value.Alias == path.Item2).Sha256)
                 throw new InvalidDataException("训练核验期间输入文件发生变化。");
-        var report = new TrainingModesReport(TrainingFormulaCandidate.Version, fingerprints, counts,
+        var report = new TrainingModesReport(fingerprints, counts,
             coverage.OrderBy(value => value.Key.Dimension, StringComparer.Ordinal).ThenBy(value => value.Key.Value, StringComparer.Ordinal)
                 .Select(value => new TrainingFormulaCoverage(value.Key.Dimension, value.Key.Value, value.Value)).ToArray(), issues,
             ["Refit14CandidateSelectedOnSameCorpusNotIndependentHoldout", "MultipleQuantizationOrdersRemainObservationallyEquivalent",

@@ -20,6 +20,9 @@ internal enum PioneerDraw
     Inheritance,
     Board,
     IslandBoard,
+    ExtraPractice,
+    TuckerSideStory,
+    CheckpointHint,
 }
 
 internal static class PioneerRandom

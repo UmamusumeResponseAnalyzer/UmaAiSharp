@@ -1,6 +1,6 @@
 # 三模式训练收益候选
 
-`TrainingFormulaCandidate` 从当前属性、上限、成长、干劲、支援面板/羁绊、当前人员分配、设施状态与已生效的黄金船效果生成普通、合宿、岛训练的两层收益。生成器不读取观测预览作为输入；`TrainingModesAudit` 另行读取预览作对照。候选版本为 `jp-training-refit14-d6x3-r5-candidate-v5`；扩展设施输入范围及验证限制见[训练公式说明](training-formula-evidence.md)。下列实包计数保持原核验快照口径。
+`TrainingFormulaCandidate` 从当前属性、上限、成长、干劲、支援面板/羁绊、当前人员分配、设施状态与已生效的黄金船效果生成普通、合宿、岛训练的两层收益。生成器不读取观测预览作为输入；`TrainingModesAudit` 另行读取预览作对照。扩展设施输入范围及验证限制见 [训练公式说明](training-formula-evidence.md)。下列实包计数保持原核验快照口径。
 
 ## 数值规则与输入边界
 
@@ -40,7 +40,7 @@ E = floor(L × 追加百分比 / 100)
 {
   "name": "evidence_training_modes",
   "arguments": {
-    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
+    "evidenceDirectory": "<审计导出目录>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "artifacts/evidence/training-modes-audit-new"
   }

@@ -25,7 +25,6 @@ public sealed record ResolvedTrainingSupport(int CardId, bool FriendshipEligible
 
 public static class TrainingSupportEffects
 {
-    public const string Version = "local-support-training-effects-v2";
 
     // Resolves effects at an already supplied card level; it does not draw locations or trigger friendship randomly.
     public static ResolvedTrainingSupport Resolve(TrainingSupport support, int commandId, int trainingLevel, int fans)

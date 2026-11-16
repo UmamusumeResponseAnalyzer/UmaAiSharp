@@ -16,23 +16,19 @@ public sealed class PioneerTrainingFlowTests
         using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-failure-snapshots.json")));
         var row = fixture.RootElement.GetProperty("windows")[index];
         var path = PioneerExecutionTests.Example(index == 0 ? "camp-failure-replay.json" : "ordinary-failure-replay.json");
-        var loaded = PioneerExecution.Load(path);
-        var failure = row.GetProperty("failureEvent").Deserialize<TrainingFailureEvent>(PioneerExecution.JsonOptions)!;
+        var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(path), PioneerExecution.JsonOptions)!;
+        var failure = row.GetProperty("failureEvent").Deserialize<TrainingFailureEvent>(PioneerExecution.JsonOptions);
         var current = new PioneerEvent(failure.EventId, failure.CharacterId, failure.StoryId, failure.PlayTiming);
         var command = row.GetProperty("commandId").GetInt32();
-        var data = loaded.Data;
-        var originalEffects = loaded.Root.GetSection(PioneerStateSection.CharacterEffects).ToArray();
+        var start = input.Start.Data.Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
+        var originalEffects = start.CharacterEffects.ToArray();
         if (positiveThinking)
-        {
-            var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(path), PioneerExecution.JsonOptions)!;
-            var start = input.Start.Data.Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
-            data = PioneerRuntimeData.Compile(start with { CharacterEffects = [originalEffects[0], 25, .. originalEffects[1..]],
-                SuccessfulOrdinaryTrainingCounts = [.. loaded.Root.GetSection(PioneerStateSection.TrainingExecutionCounts)] },
-                [new PioneerConditionalOutcome.TrainingFailure(0, failure),
-                    new PioneerConditionalOutcome.FailurePenalty(1, ResolvedFailureBranch.StaminaMinusFiveMotivationMinusOne)], "protected-failure");
-        }
+            start = start with { CharacterEffects = [originalEffects[0], 25, .. originalEffects[1..]] };
+        var data = PioneerRuntimeData.Compile(start with { Development = null },
+            [new PioneerConditionalOutcome.TrainingFailure(0, failure),
+                new PioneerConditionalOutcome.FailurePenalty(1, ResolvedFailureBranch.StaminaMinusFiveMotivationMinusOne)], "observed-failure");
         var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
-        var script = loaded.Script;
+        var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(input.Script, 0);
         Assert.Equal(PioneerStage.TrainingTurn, root.Header.Stage);
         var execution = SimulationRunner.CreateExecution(scenario, script, root, 83, 0);
         var initialRandom = execution.RulesRandom.State;

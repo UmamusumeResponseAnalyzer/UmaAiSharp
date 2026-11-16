@@ -35,8 +35,8 @@
 {
   "name": "evidence_island_action",
   "arguments": {
-    "researchDirectory": "artifacts/research/blockers/island-training/action-chains-20261108",
-    "framesPath": "artifacts/research/blockers/island-training/expansion-20261108/extract-01/frames.jsonl",
+    "researchDirectory": "<本次研究输入目录>",
+    "framesPath": "<本地响应帧.jsonl>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "artifacts/evidence/island-action-audit-new"
   }

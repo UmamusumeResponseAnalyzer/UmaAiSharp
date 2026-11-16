@@ -1,6 +1,5 @@
 {
-  "schemaVersion": 1,
-  "rulesIdentity": "local-master/4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "rulesIdentity": "pioneer-rules/c938910b40672ee64d64ea39634e75b41cb76bc8a4639a02bf0e4ef0c39bb298",
   "mode": "conditional",
   "start": {
     "kind": "trainingTurn",
@@ -461,7 +460,8 @@
           "hintPositions": [],
           "enabled": true,
           "failureCoefficient": 528,
-          "evaluationTrainingPercent": 20
+          "evaluationTrainingPercent": 20,
+          "director": true
         },
         {
           "commandId": 103,
@@ -485,7 +485,8 @@
           "hintPositions": [],
           "enabled": true,
           "failureCoefficient": 322,
-          "evaluationTrainingPercent": 20
+          "evaluationTrainingPercent": 20,
+          "reporter": true
         }
       ],
       "characterEffects": [
@@ -538,7 +539,495 @@
           "targetPt": 800
         }
       ],
-      "camp": null
+      "camp": null,
+      "successfulOrdinaryTrainingCounts": [
+        5,
+        1,
+        9,
+        0,
+        4
+      ],
+      "pendingTrainingLevelEvent": null,
+      "availableRestCommands": 1,
+      "pendingRestEvent": null,
+      "characterId": 1045,
+      "development": {
+        "turn": 30,
+        "rawPlayingState": 1,
+        "developmentPoints": 512,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": 0,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10131
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10210
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10320
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10410
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10520
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 1,
+              "facilityId": 103,
+              "previousStateId": 10310,
+              "targetStateId": 10320
+            },
+            {
+              "priority": 2,
+              "facilityId": 101,
+              "previousStateId": 10120,
+              "targetStateId": 10131
+            },
+            {
+              "priority": 3,
+              "facilityId": 105,
+              "previousStateId": 10520,
+              "targetStateId": 10531
+            },
+            {
+              "priority": 4,
+              "facilityId": 102,
+              "previousStateId": 10210,
+              "targetStateId": 10220
+            }
+          ]
+        },
+        "pendingStoryIds": []
+      },
+      "checkpointResults": [
+        2,
+        2
+      ],
+      "directorBond": 35,
+      "homeActions": {
+        "treatment": false,
+        "outing": true,
+        "friendOuting": true,
+        "friends": [
+          {
+            "position": 6,
+            "characterId": 9049,
+            "outingUnlocked": true,
+            "outings": 2
+          }
+        ],
+        "races": [
+          {
+            "programId": 171,
+            "grade": 200,
+            "firstPlaceFans": 5400,
+            "target": false,
+            "name": "スプリングステークス",
+            "requiredFans": 1750,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 186,
+            "grade": 300,
+            "firstPlaceFans": 3800,
+            "target": false,
+            "name": "ファルコンステークス",
+            "requiredFans": 1250,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 187,
+            "grade": 300,
+            "firstPlaceFans": 3500,
+            "target": false,
+            "name": "フラワーカップ",
+            "requiredFans": 750,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 188,
+            "grade": 300,
+            "firstPlaceFans": 3800,
+            "target": false,
+            "name": "毎日杯",
+            "requiredFans": 1250,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 202,
+            "grade": 400,
+            "firstPlaceFans": 2000,
+            "target": false,
+            "name": "若葉ステークス",
+            "requiredFans": 350,
+            "careerGoalId": 0
+          }
+        ],
+        "scheduledRaces": [
+          {
+            "turn": 44,
+            "race": {
+              "programId": 168,
+              "grade": 100,
+              "firstPlaceFans": 12000,
+              "target": true,
+              "name": "菊花賞",
+              "requiredFans": 7500,
+              "careerGoalId": 124
+            }
+          },
+          {
+            "turn": 48,
+            "race": {
+              "programId": 81,
+              "grade": 100,
+              "firstPlaceFans": 30000,
+              "target": true,
+              "name": "有馬記念",
+              "requiredFans": 25000,
+              "careerGoalId": 125
+            }
+          },
+          {
+            "turn": 54,
+            "race": {
+              "programId": 3,
+              "grade": 100,
+              "firstPlaceFans": 13500,
+              "target": true,
+              "name": "大阪杯",
+              "requiredFans": 20000,
+              "careerGoalId": 126
+            }
+          },
+          {
+            "turn": 56,
+            "race": {
+              "programId": 4,
+              "grade": 100,
+              "firstPlaceFans": 15000,
+              "target": true,
+              "name": "天皇賞（春）",
+              "requiredFans": 20000,
+              "careerGoalId": 127
+            }
+          },
+          {
+            "turn": 68,
+            "race": {
+              "programId": 76,
+              "grade": 100,
+              "firstPlaceFans": 15000,
+              "target": true,
+              "name": "天皇賞（秋）",
+              "requiredFans": 20000,
+              "careerGoalId": 128
+            }
+          },
+          {
+            "turn": 72,
+            "race": {
+              "programId": 81,
+              "grade": 100,
+              "firstPlaceFans": 30000,
+              "target": true,
+              "name": "有馬記念",
+              "requiredFans": 25000,
+              "careerGoalId": 129
+            }
+          }
+        ],
+        "unseenFriendMask": 0,
+        "grade": 3,
+        "blockedRaceTurns": 0,
+        "careerGoals": [],
+        "raceHistory": [
+          {
+            "turn": 12,
+            "programId": 1069,
+            "rank": 1
+          },
+          {
+            "turn": 28,
+            "programId": 199,
+            "rank": 1
+          }
+        ],
+        "strongBrianRoute": null
+      },
+      "observedGrants": [
+        {
+          "sourceTurn": 29,
+          "source": "islandTraining",
+          "storyId": null,
+          "position": 1,
+          "effectType": 19,
+          "value": 60
+        },
+        {
+          "sourceTurn": 29,
+          "source": "islandTraining",
+          "storyId": null,
+          "position": 2,
+          "effectType": 19,
+          "value": 60
+        },
+        {
+          "sourceTurn": 29,
+          "source": "islandTraining",
+          "storyId": null,
+          "position": 3,
+          "effectType": 19,
+          "value": 60
+        },
+        {
+          "sourceTurn": 29,
+          "source": "islandTraining",
+          "storyId": null,
+          "position": 4,
+          "effectType": 19,
+          "value": 60
+        },
+        {
+          "sourceTurn": 29,
+          "source": "islandTraining",
+          "storyId": null,
+          "position": 5,
+          "effectType": 19,
+          "value": 60
+        },
+        {
+          "sourceTurn": 29,
+          "source": "tuckerEvent",
+          "storyId": null,
+          "position": 1,
+          "effectType": 19,
+          "value": 20
+        },
+        {
+          "sourceTurn": 29,
+          "source": "tuckerEvent",
+          "storyId": null,
+          "position": 2,
+          "effectType": 19,
+          "value": 20
+        },
+        {
+          "sourceTurn": 29,
+          "source": "tuckerEvent",
+          "storyId": null,
+          "position": 3,
+          "effectType": 19,
+          "value": 20
+        },
+        {
+          "sourceTurn": 29,
+          "source": "tuckerEvent",
+          "storyId": null,
+          "position": 4,
+          "effectType": 19,
+          "value": 20
+        },
+        {
+          "sourceTurn": 29,
+          "source": "tuckerEvent",
+          "storyId": null,
+          "position": 5,
+          "effectType": 19,
+          "value": 20
+        }
+      ],
+      "hintProgress": {
+        "levels": [
+          {
+            "skill": {
+              "groupId": 20021,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20025,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20030,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20050,
+              "rarity": 1
+            },
+            "level": 2
+          },
+          {
+            "skill": {
+              "groupId": 20051,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20058,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20072,
+              "rarity": 2
+            },
+            "level": 2
+          },
+          {
+            "skill": {
+              "groupId": 20077,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20079,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20110,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20112,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20118,
+              "rarity": 1
+            },
+            "level": 4
+          },
+          {
+            "skill": {
+              "groupId": 20126,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20131,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20140,
+              "rarity": 1
+            },
+            "level": 5
+          },
+          {
+            "skill": {
+              "groupId": 20143,
+              "rarity": 1
+            },
+            "level": 2
+          },
+          {
+            "skill": {
+              "groupId": 20153,
+              "rarity": 1
+            },
+            "level": 2
+          },
+          {
+            "skill": {
+              "groupId": 20324,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20365,
+              "rarity": 1
+            },
+            "level": 2
+          },
+          {
+            "skill": {
+              "groupId": 90023,
+              "rarity": 1
+            },
+            "level": 2
+          },
+          {
+            "skill": {
+              "groupId": 90068,
+              "rarity": 1
+            },
+            "level": 2
+          }
+        ],
+        "ownedSkills": [
+          {
+            "id": 120451,
+            "level": 1
+          }
+        ],
+        "disabledSkillIds": [],
+        "talentLevel": 1,
+        "aptitudes": [
+          7,
+          1,
+          4,
+          7,
+          7,
+          1,
+          1,
+          1,
+          7,
+          7
+        ]
+      },
+      "reporterBond": 27
     }
   },
   "outcomes": [
@@ -572,7 +1061,6 @@
       "action": {
         "kind": "train",
         "commandId": 105,
-        "eventId": 0,
         "characterId": 0,
         "choiceNumber": 0
       }
@@ -581,15 +1069,29 @@
       "decisionId": {
         "kind": 2,
         "ordinal": 1,
-        "key": 128849025923
+        "key": 129350064593
       },
       "action": {
         "kind": "chooseEvent",
         "commandId": 0,
-        "eventId": 7043,
         "characterId": 1045,
-        "choiceNumber": 1
+        "choiceNumber": 1,
+        "storyId": 501045713
       }
     }
-  ]
+  ],
+  "placement": {
+    "appearedSupportMask": 63,
+    "appearedProjectMembers": [
+      1012,
+      1018,
+      1021,
+      1027,
+      1031,
+      1040,
+      1058,
+      1069,
+      1087
+    ]
+  }
 }

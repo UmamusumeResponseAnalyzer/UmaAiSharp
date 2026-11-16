@@ -10,8 +10,7 @@ using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.MCP.Evidence;
 
-public sealed record InitialStateAuditReport(string SchemaVersion, string RuleVersion,
-    IReadOnlyList<SourceFingerprint> Inputs, IReadOnlyDictionary<string, int> Counts,
+public sealed record InitialStateAuditReport(IReadOnlyList<SourceFingerprint> Inputs, IReadOnlyDictionary<string, int> Counts,
     IReadOnlyList<EvidenceIssue> Issues, IReadOnlyList<string> Limitations, string Status);
 
 public static class InitialStateAudit
@@ -226,7 +225,7 @@ public static class InitialStateAudit
             if (Fingerprint(input.Path, input.Alias).Sha256 != fingerprints.Single(value => value.Alias == input.Alias).Sha256)
                 throw new InvalidDataException("开局核验期间输入改变，本次输出不能作为稳定证据。");
         var mismatches = counts.Where(value => value.Key.EndsWith("Mismatch", StringComparison.Ordinal)).Sum(value => value.Value);
-        var report = new InitialStateAuditReport("1", InitialStateRules.Version, fingerprints, counts, issues,
+        var report = new InitialStateAuditReport(fingerprints, counts, issues,
             ["ResearchLocatorsNotIndependentHoldout", "RawPacketsDecodedAgain", "ComparedFieldsOnlyNotCompleteOpeningState",
                 "StartRarityTalentAndSupportExperienceAreInitializationInputs", "WholeParentFlatExtensionsRequired",
                 "LatestCapturedOwnParentsOnly", "NonemptyExtensionSettlementNotImplemented", "RarityOneToThreeTalentOneOnly",

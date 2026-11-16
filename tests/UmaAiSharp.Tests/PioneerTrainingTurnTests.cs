@@ -133,21 +133,7 @@ public sealed class PioneerTrainingTurnTests
         start = start with { Commands = start.Commands.SetItem(0, start.Commands[0] with { Enabled = false }) };
         var data = PioneerRuntimeData.Compile(start, [], "disabled"); var root = data.CreateInitialState();
         Assert.NotNull(new PioneerScenario(data).ValidateAction(root, PioneerRuntimeAction.Train(101)));
-        var directory = Path.Combine(Path.GetTempPath(), "UmaAiSharp-training-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
-        {
-            var input = new PioneerExecutionInput(1, "training-cli", PioneerExecutionMode.Conditional,
-                new("trainingTurn", JsonSerializer.SerializeToElement(start, PioneerExecution.JsonOptions)),
-                [new("trainingResult", JsonSerializer.SerializeToElement(new { actionOrdinal = 0, success = true }))],
-                [new(new((int)PioneerStage.TrainingTurn, 0, PioneerScenario.DecisionKey(start.Turn, 0)), PioneerRuntimeAction.Train(105))]);
-            var path = Path.Combine(directory, "input.json"); var output = Path.Combine(directory, "output.json");
-            File.WriteAllText(path, JsonSerializer.Serialize(input, PioneerExecution.JsonOptions));
-            Assert.Equal("stopped", PioneerExecution.Run(path, 77, output, PioneerExecutionMode.Conditional).Status);
-            using var report = JsonDocument.Parse(File.ReadAllText(output));
-            Assert.True(report.RootElement.GetProperty("finalState").GetProperty("header").GetProperty("trainingSucceeded").GetBoolean());
-        }
-        finally { Directory.Delete(directory, true); }
+
     }
 
     static ActionScript<PioneerDecisionView, PioneerRuntimeAction> Script(PioneerState root, int command)

@@ -1,7 +1,6 @@
 {
-  "schemaVersion": 1,
-  "rulesIdentity": "rest-action-evidence",
-  "mode": "autonomous",
+  "rulesIdentity": "pioneer-rules/c938910b40672ee64d64ea39634e75b41cb76bc8a4639a02bf0e4ef0c39bb298",
+  "mode": "conditional",
   "start": {
     "kind": "trainingTurn",
     "data": {
@@ -932,11 +931,420 @@
           }
         ]
       },
-      "successfulOrdinaryTrainingCounts": null,
+      "successfulOrdinaryTrainingCounts": [
+        11,
+        2,
+        6,
+        3,
+        1
+      ],
       "pendingTrainingLevelEvent": null,
       "availableRestCommands": 2,
       "pendingRestEvent": null,
-      "characterId": 1060
+      "characterId": 1060,
+      "development": {
+        "turn": 38,
+        "rawPlayingState": 1,
+        "developmentPoints": 101,
+        "planningCost": 600,
+        "deckId": 3,
+        "islandTrainingThresholds": [
+          300,
+          600
+        ],
+        "islandTrainingTickets": null,
+        "facilities": [
+          {
+            "facilityId": 101,
+            "stateId": 10131
+          },
+          {
+            "facilityId": 102,
+            "stateId": 10231
+          },
+          {
+            "facilityId": 103,
+            "stateId": 10320
+          },
+          {
+            "facilityId": 104,
+            "stateId": 10420
+          },
+          {
+            "facilityId": 105,
+            "stateId": 10510
+          },
+          {
+            "facilityId": 106,
+            "stateId": 10610
+          }
+        ],
+        "plan": {
+          "steps": [
+            {
+              "priority": 1,
+              "facilityId": 101,
+              "previousStateId": 10131,
+              "targetStateId": 10141
+            },
+            {
+              "priority": 2,
+              "facilityId": 103,
+              "previousStateId": 10320,
+              "targetStateId": 10331
+            },
+            {
+              "priority": 3,
+              "facilityId": 104,
+              "previousStateId": 10420,
+              "targetStateId": 10431
+            }
+          ]
+        },
+        "pendingStoryIds": []
+      },
+      "checkpointResults": [
+        2,
+        2,
+        2
+      ],
+      "directorBond": 49,
+      "homeActions": {
+        "treatment": false,
+        "outing": false,
+        "friendOuting": false,
+        "friends": [
+          {
+            "position": 6,
+            "characterId": 9049,
+            "outingUnlocked": true,
+            "outings": 5
+          }
+        ],
+        "races": [
+          {
+            "programId": 101,
+            "grade": 300,
+            "firstPlaceFans": 3900,
+            "target": false,
+            "name": "中京記念",
+            "requiredFans": 1250,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 102,
+            "grade": 300,
+            "firstPlaceFans": 3900,
+            "target": false,
+            "name": "アイビスサマーダッシュ",
+            "requiredFans": 1250,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 103,
+            "grade": 300,
+            "firstPlaceFans": 3600,
+            "target": false,
+            "name": "クイーンステークス",
+            "requiredFans": 1000,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 129,
+            "grade": 400,
+            "firstPlaceFans": 2300,
+            "target": false,
+            "name": "福島テレビオープン",
+            "requiredFans": 350,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 1130,
+            "grade": 300,
+            "firstPlaceFans": 2300,
+            "target": false,
+            "name": "マーキュリーカップ",
+            "requiredFans": 1000,
+            "careerGoalId": 0
+          }
+        ],
+        "scheduledRaces": [
+          {
+            "turn": 39,
+            "race": {
+              "programId": 104,
+              "grade": 300,
+              "firstPlaceFans": 4100,
+              "target": true,
+              "name": "小倉記念",
+              "requiredFans": 1500,
+              "careerGoalId": 159
+            }
+          },
+          {
+            "turn": 44,
+            "race": {
+              "programId": 1073,
+              "grade": 100,
+              "firstPlaceFans": 12000,
+              "target": true,
+              "name": "菊花賞",
+              "requiredFans": 7500,
+              "careerGoalId": 160
+            }
+          },
+          {
+            "turn": 48,
+            "race": {
+              "programId": 81,
+              "grade": 100,
+              "firstPlaceFans": 30000,
+              "target": true,
+              "name": "有馬記念",
+              "requiredFans": 25000,
+              "careerGoalId": 161
+            }
+          },
+          {
+            "turn": 60,
+            "race": {
+              "programId": 74,
+              "grade": 100,
+              "firstPlaceFans": 15000,
+              "target": true,
+              "name": "宝塚記念",
+              "requiredFans": 20000,
+              "careerGoalId": 162
+            }
+          },
+          {
+            "turn": 68,
+            "race": {
+              "programId": 76,
+              "grade": 100,
+              "firstPlaceFans": 15000,
+              "target": true,
+              "name": "天皇賞（秋）",
+              "requiredFans": 20000,
+              "careerGoalId": 163
+            }
+          },
+          {
+            "turn": 71,
+            "race": {
+              "programId": 118,
+              "grade": 300,
+              "firstPlaceFans": 4100,
+              "target": true,
+              "name": "中日新聞杯",
+              "requiredFans": 1500,
+              "careerGoalId": 164
+            }
+          },
+          {
+            "turn": 72,
+            "race": {
+              "programId": 81,
+              "grade": 100,
+              "firstPlaceFans": 30000,
+              "target": true,
+              "name": "有馬記念",
+              "requiredFans": 25000,
+              "careerGoalId": 165
+            }
+          }
+        ],
+        "unseenFriendMask": 0,
+        "grade": 3,
+        "blockedRaceTurns": 0,
+        "careerGoals": [],
+        "raceHistory": [
+          {
+            "turn": 12,
+            "programId": 1067,
+            "rank": 1
+          },
+          {
+            "turn": 26,
+            "programId": 195,
+            "rank": 1
+          }
+        ],
+        "strongBrianRoute": null
+      },
+      "observedGrants": [],
+      "hintProgress": {
+        "levels": [
+          {
+            "skill": {
+              "groupId": 20001,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20015,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20015,
+              "rarity": 2
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20025,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20036,
+              "rarity": 1
+            },
+            "level": 4
+          },
+          {
+            "skill": {
+              "groupId": 20037,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20043,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20051,
+              "rarity": 1
+            },
+            "level": 5
+          },
+          {
+            "skill": {
+              "groupId": 20057,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20058,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20060,
+              "rarity": 1
+            },
+            "level": 4
+          },
+          {
+            "skill": {
+              "groupId": 20073,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20121,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20124,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20131,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20153,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20157,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20165,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20324,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20365,
+              "rarity": 1
+            },
+            "level": 2
+          },
+          {
+            "skill": {
+              "groupId": 20365,
+              "rarity": 2
+            },
+            "level": 3
+          }
+        ],
+        "ownedSkills": [
+          {
+            "id": 10601,
+            "level": 1
+          }
+        ],
+        "disabledSkillIds": [],
+        "talentLevel": 1,
+        "aptitudes": [
+          7,
+          1,
+          2,
+          7,
+          7,
+          4,
+          2,
+          6,
+          7,
+          7
+        ]
+      },
+      "reporterBond": 9
     }
   },
   "outcomes": [],
@@ -950,10 +1358,23 @@
       "action": {
         "kind": "rest",
         "commandId": 3606,
-        "eventId": 0,
         "characterId": 0,
         "choiceNumber": 0
       }
     }
-  ]
+  ],
+  "placement": {
+    "appearedSupportMask": 63,
+    "appearedProjectMembers": [
+      1021,
+      1027,
+      1030,
+      1031,
+      1040,
+      1057,
+      1069,
+      1102,
+      1130
+    ]
+  }
 }

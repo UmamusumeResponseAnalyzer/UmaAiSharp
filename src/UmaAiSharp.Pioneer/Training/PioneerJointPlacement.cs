@@ -8,7 +8,6 @@ public sealed record PlacementMember(int TargetId, bool Appeared, PioneerPlaceme
 // Hint flags belong to the turn; capacity rejection redraws positions, not those flags.
 public sealed class PioneerJointPlacement
 {
-    public const string Version = "pioneer-joint-placement-v1";
     public ImmutableArray<PlacementMember> Members { get; }
     public long SharedMemoryBytes => checked(96L + 48L * Members.Length
         + Members.Select(member => member.Distribution).Distinct().Sum(distribution => distribution.SharedMemoryBytes));

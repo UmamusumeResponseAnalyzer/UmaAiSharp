@@ -1,5 +1,7 @@
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using UmaAiSharp.Core.Goals;
+using UmaAiSharp.Pioneer.Hints;
 using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;
 
@@ -10,11 +12,11 @@ public enum PioneerStateSection
     SupportBonds, IslandSupportFacilities, FacilityStates, FacilityGuests, TrainingLevels,
     CharacterEffects, HintCandidates, PendingStories, Thresholds, ConstructionSteps,
     TemporaryGrants, ProjectMembers, AddedProjectNpcs, TrainingExecutionCounts, SuccessfulOrdinaryTrainingCounts,
-    PartnerEvaluations, CheckpointResults, InheritanceAptitudes, HintLevels, StoryHistory, CareerRaceCounts,
+    PartnerEvaluations, CheckpointResults, InheritanceAptitudes, HintLevels, StoryHistory, CareerRaceCounts, RaceWins,
 }
 
 [InlineArray(SectionLengths.Count)]
-internal struct SectionLengths { public const int Count = 21; int first; }
+internal struct SectionLengths { public const int Count = 22; int first; }
 
 public struct PioneerStateHeader
 {
@@ -28,18 +30,19 @@ public struct PioneerStateHeader
     public TrainingValues Resources;
     public TrainingLimits Limits;
     public PioneerEvent Event;
-    public int ActionOrdinal, ConditionalOutcomeCount, RequiredChoice;
+    public int ActionOrdinal, ConditionalOutcomeCount, RequiredChoice, ObservedEventChoiceCount;
     public int StaminaExecutionCount, DevelopmentPoints, PlanningCost, DeckId, Tickets;
     public int CompletedCheckpoint, CheckpointResult, CheckpointBonusPercent;
     public bool HasCheckpointBonus, OutingUnlocked, DisplayConfirmed, HasCharm, HasAttention;
-    public int TuckerBond, TuckerStoryStep, DirectorBond;
+    public int TuckerBond, TuckerStoryStep, DirectorBond, ReporterBond;
+    public bool TuckerSideStorySeen;
     public int ProjectNpcCount, EvaluationTrainingPercent, CompletedUraRaces;
     public int CompletedInheritances;
     public int FailedCareerGoal;
     internal int RaceGrade;
     internal PioneerOrdinaryStoryProgress OrdinaryStories;
     internal int TraineeStoryMask;
-    public bool DeferredConstruction, PioneerCompleted;
+    public bool DeferredConstruction, PioneerCompleted, StrongBrianRoute;
     public int UnseenFriendMask, UnlockedFriendMask, FriendOutings;
     public long FutureGainedSkillPoints;
     internal int FutureSkillUpgradeRating;
@@ -72,6 +75,9 @@ public sealed class PioneerState
     // Includes a conservative allowance for this object and the array object on the supported runtime.
     public long WorkspaceBytes => Unsafe.SizeOf<PioneerStateHeader>() + Unsafe.SizeOf<SectionLengths>() + 4L * buffer.Length + 128
         + (Data.TurnRules is null ? 0 : PioneerTurnRules.BoardWorkspaceBytes);
+
+    public ImmutableArray<HintLevel> ReadHintLevels()
+        => Data.TurnRules?.Hints?.ReadLevels(GetSection(PioneerStateSection.HintLevels)) ?? [];
 
     internal PioneerState(PioneerRuntimeData data, int capacity)
     {
@@ -107,12 +113,13 @@ public sealed class PioneerState
     internal void RecordStory(PioneerStoryOccurrence story)
     {
         EnsureCapacity(checked(used + StoryOccurrenceSize));
-        var end = used - lengths[GrantSection];
-        buffer.AsSpan(end, lengths[GrantSection]).CopyTo(buffer.AsSpan(end + StoryOccurrenceSize));
+        var section = (int)PioneerStateSection.StoryHistory;
+        var end = Offset(section) + lengths[section];
+        buffer.AsSpan(end, used - end).CopyTo(buffer.AsSpan(end + StoryOccurrenceSize));
         Span<int> values = [story.StoryId, story.Turn, story.Phase, story.PlayTiming, story.CharacterId,
             story.SupportCardId, story.PartnerId, story.ChoiceNumber, story.ProgressStage, story.ProgressLength];
         values.CopyTo(buffer.AsSpan(end));
-        lengths[(int)PioneerStateSection.StoryHistory] += StoryOccurrenceSize;
+        lengths[section] += StoryOccurrenceSize;
         used += StoryOccurrenceSize;
     }
 

@@ -10,7 +10,24 @@ public readonly record struct TrainingFailureState(int CardId, int Turn, int Mot
 
 public static class TrainingFailureSettlement
 {
-    public const string Version = "jp-pioneer-observed-stamina-failure-v2";
+    internal const int LightAttributeLoss = 5;
+    internal const int WisdomRecovery = 5;
+
+    internal static TrainingValues ApplyLightPenalty(TrainingValues values, int training) => training switch
+    {
+        0 => values with { Speed = LoseAttribute(values.Speed, LightAttributeLoss) },
+        1 => values with { Stamina = LoseAttribute(values.Stamina, LightAttributeLoss) },
+        2 => values with { Power = LoseAttribute(values.Power, LightAttributeLoss) },
+        3 => values with { Guts = LoseAttribute(values.Guts, LightAttributeLoss) },
+        _ => throw new ArgumentOutOfRangeException(nameof(training)),
+    };
+
+    internal static int LoseAttribute(int displayed, int rawLoss)
+    {
+        var raw = displayed + Math.Max(0, displayed - 1200);
+        var after = Math.Max(0, raw - rawLoss);
+        return after > 1200 ? 1200 + (after - 1200) / 2 : after;
+    }
 
     // The failure and its event identity are explicit conditional inputs; this method does not draw either.
     public static TrainingFailureState BeginResolvedFailure(in TrainingFailureState before, ReadOnlySpan<int> supportBonds,
@@ -36,9 +53,9 @@ public static class TrainingFailureSettlement
 
     // Choice 1 has more than one displayed result. The already identified branch is mandatory.
     public static (TrainingFailureState State, bool ConsumePositiveThinking) ResolveChoice(in TrainingFailureState before,
-        int eventId, int choiceNumber, ResolvedFailureBranch branch, bool positiveThinking)
+        int storyId, int choiceNumber, ResolvedFailureBranch branch, bool positiveThinking)
     {
-        if (before.Stage != TrainingFailureStage.FailureChoice || before.PendingEvent?.EventId != eventId)
+        if (before.Stage != TrainingFailureStage.FailureChoice || before.PendingEvent?.StoryId != storyId)
             throw new IllegalActionException("失败选择与当前待处理事件不匹配，或已被消费。");
         if (choiceNumber != 1 || branch != ResolvedFailureBranch.StaminaMinusFiveMotivationMinusOne)
             throw new UnknownMechanismException("仅核验选择1中明确识别的耐力-5、干劲-1分支；其他展示或概率未知。");
@@ -46,7 +63,7 @@ public static class TrainingFailureSettlement
             throw new UnknownMechanismException("失败惩罚在低属性、低干劲或1200以上的结算边界尚未核验。");
         var motivation = MotivationRules.Apply(before.Motivation, -1, positiveThinking, false);
         return (before with { Turn = checked(before.Turn + 1), Motivation = motivation.Value,
-            Resources = before.Resources with { Stamina = before.Resources.Stamina - 5 },
+            Resources = ApplyLightPenalty(before.Resources, training: 1),
             PendingEvent = null, Stage = TrainingFailureStage.NextTurnEventsRequired }, motivation.ConsumePositiveThinking);
     }
 }

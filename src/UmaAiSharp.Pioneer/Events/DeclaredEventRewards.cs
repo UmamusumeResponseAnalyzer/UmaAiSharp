@@ -14,7 +14,6 @@ public readonly record struct EventResourceResult(TrainingValues Resources, Trai
 // Compiles the resource portion of a revealed reward. Other effects retain their original atoms.
 public sealed class DeclaredEventRewards
 {
-    public const string Version = "pioneer-declared-event-resources-v2";
     readonly TrainingValues gain;
     readonly int maximumVitalGain, motivationGain;
     readonly bool repeatedResource;

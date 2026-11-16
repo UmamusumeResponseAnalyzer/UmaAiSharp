@@ -26,7 +26,7 @@ internal static class PioneerGameJson
                     foreach (var property in info.Properties)
                         if (property.Set is not null
                             && !(info.Type == typeof(PioneerRuntimeAction) && property.Name is "plan" or "storyId" or "supportPosition")
-                            && !(info.Type == typeof(TrainingPlacement) && property.Name == "director"))
+                            && !(info.Type == typeof(TrainingPlacement) && property.Name is "director" or "reporter"))
                             property.IsRequired = true;
             } }
         },

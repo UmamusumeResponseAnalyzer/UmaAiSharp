@@ -6,7 +6,7 @@
 
 - `RulesIdentity` 标识实现和规则数据，资源来源与哈希单独记录。
 - `CreateWorkspace` 创建轨迹独占工作区；`CopyState(in source, ref destination)` 复用目标容量，复制有效状态。已揭示事实随副本保留，不能重新抽取。
-- `Inspect(in state, decisionOrdinal)` 返回下一决策、完整终局或明确停止。`DecisionId` 包含阶段、轨迹内递增序号和剧本身份键；Pioneer 的键包含回合和事件／命令编号。决策视图只在策略调用期间借用。
+- `Inspect(in state, decisionOrdinal)` 返回下一决策、完整终局或明确停止。`DecisionId` 包含阶段、轨迹内递增序号和剧本身份键；Pioneer 的键包含回合和故事／命令编号。决策视图只在策略调用期间借用。
 - `ValidateAction` 验证完整动作；不能只核验策略恰好枚举出的动作。建设计划必须保留顺序。
 - `ApplyAction(ref state, in action, ref random)` 消费一次选择，结算到下一个实际决策点，可能仍处于同一回合。`ResumeAutomatic` 处理已消费动作的后续结算；未知步骤不能重复应用已提交效果。
 - `GetOutcome` 只能读取完整终局。
@@ -19,13 +19,13 @@
 
 ## 确定性与多线程
 
-`SimulationRunner` 同步执行轨迹；每个 worker 独占可复用状态、策略游标和两条值类型随机流。规则随机流与策略随机流独立，种子只由根种子、样本编号、随机流域派生。PRNG 为固定实现的 `splitmix64-v1`，种子派生标识为 `sample-domain-mix-v1`，不使用 `System.Random`、时间或线程编号。
+`SimulationRunner` 同步执行轨迹；每个 worker 独占可复用状态、策略游标和两条值类型随机流。规则随机流与策略随机流独立，种子只由根种子、样本编号、随机流域派生。PRNG 为固定实现的 `splitmix64`，种子派生标识为 `sample-domain-mix`，不使用 `System.Random`、时间或线程编号。
 
 `RunBatch` 的样本数量由调用者显式指定，1..32 个 worker 领取连续的逻辑任务块。结果放回对应样本位置；评价器按输入顺序归约。调用者应按返回顺序评价，不按任务完成顺序累加。
 
 同一起点、规则、种子、策略及计算设置下，各 worker 数的逐样本结果必须相同。增加批量样本数时，已有样本前缀不改变。`ForkInto` 精确复制状态、执行位置、两条 RNG 和策略游标；`ResetSample` 按新的逻辑样本身份派生未来随机流。规则和策略不得使用全局可变随机源，也不能以调用次序决定内容。
 
-Pioneer 自主整局的规则身份 `pioneer-whole-run-v8` 使用样本规则种子派生回合与机制随机流。随机结果按当时状态的概率和可选项结算。自主整局结果中的 `randomState.rules` 记录用于派生的样本规则种子。
+Pioneer 自主整局使用样本规则种子派生回合与机制随机流。随机结果按当时状态的概率和可选项结算。自主整局结果中的 `randomState.rules` 记录用于派生的样本规则种子。
 
 该一致性要求针对完成的固定样本批次。按现实时间取消可能留下不同数量的已完成轨迹；取消结果显式标为停止，不能冒充等质量的完整批量结果。
 

@@ -44,16 +44,16 @@ public sealed class PioneerTurnRules
     readonly int restCount;
     internal double LongRestProbability { get; }
     internal double ExpectedTuckerRepeat(bool island) => tuckerRepeatStamina[island ? 1 : 0];
+    internal int TuckerRepeatStamina { get; }
     readonly FrozenDictionary<(PioneerArrivalSource Source, int Turn), (int NoReward,
         PioneerOrdinaryEventEffects[] Ordinary, int Total)> arrivals;
     readonly FrozenDictionary<(int Command, int Level), int> trainingCoefficients;
     readonly FrozenDictionary<(PlacementMemberKind Kind, bool Camp, int SeaHousePercent), PioneerPlacementFrequency> placements;
     readonly FrozenDictionary<(int Id, int StateId), TrainingFacility> facilityStates;
-    readonly (int OpportunityWeight, int NoEventWeight, ImmutableArray<PioneerTuckerStaminaFrequency> Rewards)[] tuckerRepeat = new
-        (int, int, ImmutableArray<PioneerTuckerStaminaFrequency>)[2];
+    readonly (int Opportunities, int Triggered)[] tuckerRepeat = new (int, int)[2];
     readonly double[] tuckerRepeatStamina = new double[2];
     readonly ImmutableArray<PioneerDirectorFrequency> director;
-    readonly ImmutableArray<ForecastFacilityBase> facilityBases;
+    readonly ImmutableArray<PioneerFacilityBase> facilityBases;
     readonly FrozenDictionary<int, (PioneerUraFanFrequency[] Frequencies, int Total)> uraFanAdjustments;
     readonly int appearedSupportMask, ordinarySupportMask, tuckerMask;
     readonly ImmutableArray<(int Position, SupportUniqueEffect Effect)> conditionalSpecialties;
@@ -62,6 +62,7 @@ public sealed class PioneerTurnRules
     internal int TuckerMask => tuckerMask;
     readonly ImmutableArray<int> uraFirstPlaceFans;
     readonly PioneerRaceOption?[] scheduledRaces = new PioneerRaceOption?[79];
+    readonly FrozenDictionary<int, (PioneerRaceOption Normal, PioneerRaceOption Strong)>? brianRaces;
     readonly ImmutableArray<PioneerRaceOption>[] raceCalendar;
     readonly FrozenDictionary<int, PioneerRaceOption> racesByProgram;
     readonly ulong blockedRaceTurns;
@@ -75,16 +76,25 @@ public sealed class PioneerTurnRules
     internal PioneerHintRules? Hints { get; }
     internal FutureSkillRating? SkillRating { get; }
     internal int EndingHintSlot { get; }
+    internal int LowEndingHintSlot { get; }
+    internal int HighFinalReviewHintSlot { get; }
+    internal int LowFinalReviewHintSlot { get; }
+    internal ImmutableArray<int> SeniorIslandHintSlots { get; }
+    internal int TuckerNewYearHintSlot { get; }
+    internal int TuckerUnlockHintSlot { get; }
+    internal int TuckerOutingWhiteHintSlot { get; }
+    internal int TuckerOutingGoldHintSlot { get; }
     internal int UniqueSkillLevelRating { get; }
     internal PioneerOrdinaryStoryProgress InitialStories { get; }
     internal const int BoardWorkspaceBytes = 8192;
 
     public PioneerTurnRules(PioneerTurnCalibration calibration, IEnumerable<(int Command, int Level, int Failure)> coefficients,
         PioneerStart.TrainingTurn start, int appearedSupportMask, ImmutableArray<int> appearedProjectMembers,
-        ImmutableArray<TrainingFacility> facilities, ImmutableArray<ForecastFacilityBase> facilityBases = default,
+        ImmutableArray<TrainingFacility> facilities, ImmutableArray<PioneerFacilityBase> facilityBases = default,
         ImmutableArray<int> uraFirstPlaceFans = default, PioneerInheritanceRules? inheritance = null, PioneerHintRules? hints = null,
         PioneerOrdinaryStoryProgress initialStories = default, ImmutableArray<PioneerRaceOption>[]? raceCalendar = null,
-        PioneerSkillRatingData? skillRating = null)
+        PioneerSkillRatingData? skillRating = null, ImmutableArray<HintSkill> seniorIslandHints = default,
+        IEnumerable<(int Turn, PioneerRaceOption Normal, PioneerRaceOption Strong)>? brianRoute = null)
     {
         if (calibration.OrdinaryRest.IsDefaultOrEmpty || calibration.Arrivals.IsDefaultOrEmpty || calibration.Placement.IsDefaultOrEmpty
             || calibration.OrdinaryRest.Any(row => row.StoryEpisode is not (701 or 718) || row.Count <= 0)
@@ -114,6 +124,8 @@ public sealed class PioneerTurnRules
         this.appearedSupportMask = appearedSupportMask;
         ordinarySupportMask = start.Deck.Where(card => card.TrainingCommandId != 0).Sum(card => 1 << (card.Position - 1));
         tuckerMask = start.Deck.Where(card => card.CardId == 30257).Sum(card => 1 << (card.Position - 1));
+        if (start.Deck.FirstOrDefault(card => card.CardId is 30257 or 10128) is { } tucker)
+            TuckerRepeatStamina = EventEffectScaling.FromSupport(tucker).Apply(2, 5);
         conditionalSpecialties = [.. start.Deck.SelectMany(card => card.UniqueEffects
             .Where(effect => effect.Type == 101 && (effect.Parameter1 == 19 || effect.Parameter3 == 19))
             .Select(effect => (card.Position, effect)))];
@@ -126,7 +138,25 @@ public sealed class PioneerTurnRules
         {
             var progress = start.HintProgress ?? throw new InvalidDataException("整局规则缺少起点技能状态。");
             if (hints is null || skillRating is null) throw new InvalidDataException("整局规则缺少技能评分数据。");
+            if (seniorIslandHints.IsDefault || seniorIslandHints.Length != 6)
+                throw new InvalidDataException("整局规则缺少第65回合的六项剧本提示。");
             EndingHintSlot = hints.Slot(PioneerEndingSettlement.HighHint.Skill);
+            LowEndingHintSlot = hints.Slot(PioneerEndingSettlement.LowFinalReviewHint.Skill);
+            HighFinalReviewHintSlot = hints.Slot(new(20051, 2));
+            LowFinalReviewHintSlot = hints.Slot(new(20051, 1));
+            SeniorIslandHintSlots = [.. seniorIslandHints.Select(hints.Slot)];
+            if (start.Deck.Any(card => card.CardId is 30257 or 10128))
+            {
+                TuckerNewYearHintSlot = hints.Slot(new(20324, 1));
+                TuckerUnlockHintSlot = hints.Slot(new(20038, 1));
+            }
+            if (start.Deck.Any(card => card.CardId == 30257))
+            {
+                TuckerOutingWhiteHintSlot = hints.Slot(new(20365, 1));
+                TuckerOutingGoldHintSlot = hints.Slot(new(20365, 2));
+            }
+            foreach (var group in PioneerScenario.GoalRaceHintGroups(start.CharacterId ?? start.CardId / 100))
+                hints.Slot(new(group, 1));
             SkillRating = new(skillRating, progress, hints, start.CardId, start.Environment.Current, start.CharacterEffects.AsSpan());
             var unique = progress.OwnedSkills.SingleOrDefault(skill => skill.Id is >= 10_000 and < 200_000);
             UniqueSkillLevelRating = unique is null ? 0
@@ -136,17 +166,13 @@ public sealed class PioneerTurnRules
         if (!calibration.TuckerRepeat.IsDefault)
             foreach (var row in calibration.TuckerRepeat)
             {
-                var outcomes = row.StaminaRewards.Sum(reward => reward.Count);
                 var index = row.Island ? 1 : 0;
-                tuckerRepeat[index] = (checked(row.Opportunities * outcomes),
-                    checked((row.Opportunities - row.Triggered) * outcomes),
-                    [.. row.StaminaRewards.Select(reward => reward with { Count = checked(reward.Count * row.Triggered) })]);
-                if (outcomes != 0)
-                    tuckerRepeatStamina[index] = row.Triggered / (double)row.Opportunities
-                        * row.StaminaRewards.Sum(reward => (long)reward.Gain * reward.Count) / outcomes;
+                tuckerRepeat[index] = (row.Opportunities, row.Triggered);
+                tuckerRepeatStamina[index] = TuckerRepeatStamina * (row.Triggered / (double)row.Opportunities);
             }
         director = calibration.Director;
         this.raceCalendar = raceCalendar ?? new ImmutableArray<PioneerRaceOption>[79];
+        brianRaces = brianRoute?.ToFrozenDictionary(race => race.Turn, race => (race.Normal, race.Strong));
         var homeActions = start.HomeActions;
         InitialGrade = homeActions?.Grade ?? 3;
         blockedRaceTurns = homeActions?.BlockedRaceTurns ?? 0;
@@ -177,12 +203,15 @@ public sealed class PioneerTurnRules
         facilityStates = facilities.ToFrozenDictionary(facility => (facility.Id, facility.StateId));
     }
 
-    internal PioneerRaceOption? ScheduledRace(int turn) => scheduledRaces[turn];
-    internal PioneerRaceOption RaceOption(int turn, int programId)
+    internal PioneerRaceOption? ScheduledRace(int turn, bool strongBrianRoute = false)
     {
-        if (scheduledRaces[turn] is { } scheduled && scheduled.ProgramId == programId) return scheduled;
-        return racesByProgram[programId];
+        if (scheduledRaces[turn] is { Target: true } revealed) return revealed;
+        if (brianRaces is not null && brianRaces.TryGetValue(turn, out var route))
+            return strongBrianRoute ? route.Strong : route.Normal;
+        return scheduledRaces[turn];
     }
+    internal PioneerRaceOption RaceOption(int programId) => racesByProgram[programId];
+    internal bool IsGradeOne(int programId) => racesByProgram.TryGetValue(programId, out var race) && race.Grade == 100;
     internal bool RaceBlocked(int turn)
         => turn is >= 13 and <= 72 && (blockedRaceTurns & (1UL << (turn - 13))) != 0;
 
@@ -300,19 +329,20 @@ public sealed class PioneerTurnRules
         if (!director.IsDefaultOrEmpty)
         {
             var directorRandom = paired ? random.Fork(0) : random;
-            Span<int> free = stackalloc int[5];
             foreach (var row in director)
             {
                 if (row.Camp != camp || (paired ? directorRandom.NextScaled(row.Boards) : directorRandom.NextInt(row.Boards)) >= row.Appearances)
                     continue;
-                var count = 0;
-                for (var i = 0; i < 5; i++)
-                    if (board[i].SupportCount + board[i].GuestCount < 5) free[count++] = i;
-                if (count == 0) continue;
-                var slot = free[paired ? directorRandom.NextScaled(count) : directorRandom.NextInt(count)];
-                board = board.With(slot, board[slot] with { Director = true });
+                board = PlaceTrainingNpc(board, reporter: false, paired, ref directorRandom);
             }
             if (!paired) random = directorRandom;
+        }
+        if (paired && !camp && state.Header.Turn is >= 14 and <= 72)
+        {
+            var reporterRandom = random.Fork(1);
+            // shortcut: 7,741 of 9,626 eligible boards. Use 80% until the placement distribution is identified.
+            if (reporterRandom.NextScaled(5) < 4)
+                board = PlaceTrainingNpc(board, reporter: true, paired, ref reporterRandom);
         }
         if (camp)
             foreach (var facility in rules.Facilities)
@@ -325,15 +355,24 @@ public sealed class PioneerTurnRules
         return board;
     }
 
-    internal int DrawTuckerRepeat(bool island, ref SimulationRandom random)
+    static TrainingBoard PlaceTrainingNpc(TrainingBoard board, bool reporter, bool paired, ref SimulationRandom random)
     {
-        var (total, noEvent, rewards) = tuckerRepeat[island ? 1 : 0];
-        if (total == 0) return 0;
-        var draw = random.NextScaled(total) - noEvent;
-        if (draw < 0) return 0;
-        foreach (var reward in rewards)
-            if ((draw -= reward.Count) < 0) return reward.Gain;
-        throw new InvalidOperationException("Tucker 同训耐力频数与抽样总数不一致。");
+        Span<int> free = stackalloc int[5];
+        var count = 0;
+        for (var i = 0; i < 5; i++)
+        {
+            var cell = board[i];
+            if (!cell.Director && !cell.Reporter && cell.SupportCount + cell.GuestCount < 5) free[count++] = i;
+        }
+        if (count == 0) return board;
+        var slot = free[paired ? random.NextScaled(count) : random.NextInt(count)];
+        return board.With(slot, reporter ? board[slot] with { Reporter = true } : board[slot] with { Director = true });
+    }
+
+    internal bool DrawTuckerRepeat(bool island, ref SimulationRandom random)
+    {
+        var (opportunities, triggered) = tuckerRepeat[island ? 1 : 0];
+        return triggered != 0 && random.NextScaled(opportunities) >= opportunities - triggered;
     }
 
     internal TrainingFacility Facility(int id, int stateId) => facilityStates[(id, stateId)];
@@ -370,7 +409,7 @@ public sealed class PioneerTurnRules
             var group = header.TrainingBoard[i];
             hints |= group.HintMask;
             if ((built & (1 << i)) == 0) continue;
-            outdoor = outdoor.With(i, group with { Director = false });
+            outdoor = outdoor.With(i, group with { Director = false, Reporter = false });
             used |= group.SupportMask;
             guests -= group.GuestCount;
         }
@@ -512,7 +551,7 @@ public sealed class PioneerTurnRules
         for (var i = 0; i < guests; i++) members[6 + i] = new(1000 + i, true, distribution!);
         var placement = new PioneerJointPlacement(members.MoveToImmutable());
         return new(placement, !camp ? [] : !WholeRun ? state.Data.CampCommands : [.. Enumerable.Range(3601, 5)
-            .Select(command => TrainingNumericKernel.CompileCamp(command, 5, TrainingBaseTable.FromFacilityRows(command, facilityBases, layout), layout))],
+            .Select(command => CompileCampTraining(command, layout))],
             layout, conditional);
 
         PioneerPlacementFrequency Frequency(PlacementMemberKind kind)
@@ -524,4 +563,7 @@ public sealed class PioneerTurnRules
             return new(kind, camp, seaHouse, pooled.Sum(row => row.Absent), pooled.Sum(row => row.Other));
         }
     }
+
+    internal CompiledCampTraining CompileCampTraining(int command, ImmutableArray<TrainingFacility> layout)
+        => TrainingNumericKernel.CompileCamp(command, 5, TrainingBaseTable.FromFacilityRows(command, facilityBases, layout), layout);
 }

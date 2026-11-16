@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
@@ -10,7 +9,7 @@ namespace UmaAiSharp.Pioneer.Game;
 public sealed class PioneerFacilityCompiler
 {
     readonly Dictionary<int, TrainingFacility> states;
-    readonly ImmutableArray<ForecastFacilityBase> bases;
+    readonly ImmutableArray<PioneerFacilityBase> bases;
 
     public PioneerFacilityCompiler(PioneerFacilityRulesData rules)
     {

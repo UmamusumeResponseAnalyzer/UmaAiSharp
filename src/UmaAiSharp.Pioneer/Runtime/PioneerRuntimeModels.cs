@@ -13,7 +13,7 @@ public enum PioneerStage
     FailureTraining = 1, FailureChoice, IslandTraining, ConstructionEvent, HintAttributeEvent,
     TuckerFriendEvent, TuckerPointEvent, TuckerSpecialtyEvent, ProjectMemberEvent,
     CheckpointEvent, CheckpointConfirmation, UnsupportedContinuation, ConstructionPlanning, TrainingTurn, DeclaredEvent,
-    CharacterEnding, Terminal, TrainingLevelConfirmation, RestConfirmation, TurnConfirmation,
+    CharacterEnding, Terminal, TrainingLevelConfirmation, RestConfirmation, TurnConfirmation, ObservedEvent, ReporterEnding,
 }
 
 public enum PioneerStopCode
@@ -27,7 +27,7 @@ public enum PioneerStopCode
     EventRewardOutcomeRequired, EventRewardRemainderRequired, TrainingLevelContinuationRequired,
     RestAvailabilityRequired, RestOutcomeRequired, RestContinuationRequired, RestCharacterRequired,
     NextTurnPhaseRequired, TurnArrivalOutcomeRequired, TurnEventDispatchRequired,
-    TrainingLevelHistoryRequired, ConstructionSettlementRequired = 1037,
+    TrainingLevelHistoryRequired, ConstructionSettlementRequired = 1037, ObservedEventResultRequired,
 }
 
 [Flags]
@@ -50,7 +50,9 @@ public sealed record TrainingCommandOption(int CommandId, int Level, int Executi
     ImmutableArray<int> SupportPositions, ImmutableArray<int> HintPositions, bool Enabled,
     int FailureCoefficient, int EvaluationTrainingPercent,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-    bool Director = false);
+    bool Director = false,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool Reporter = false);
 
 public sealed record CampTrainingConfiguration(ImmutableArray<int> OrdinaryLevels,
     ImmutableArray<TrainingValues> Bases, ImmutableArray<TrainingFacility> Facilities);
@@ -58,8 +60,11 @@ public sealed record CampTrainingConfiguration(ImmutableArray<int> OrdinaryLevel
 public readonly record struct PioneerEvent(int EventId, int CharacterId, int StoryId, int PlayTiming)
 {
     public const int TrainingHintStory = 801000003;
+    public const int ReporterEndingStory = 400000091;
+    public const int BrianRouteStory = 501016409;
 
     public static bool IsCharacterEndingStory(int storyId) => storyId is > 500000111 and < 600000000 && storyId % 1000 == 111;
+    internal static bool IsReporterTrainingStory(int storyId) => storyId is >= 400000031 and <= 400000034;
 }
 
 public readonly record struct PioneerStoryOccurrence(int StoryId, int Turn, int Phase, int PlayTiming,
@@ -75,7 +80,8 @@ public readonly record struct PioneerFriendProgress(int Position, int CharacterI
 public sealed record PioneerHomeActions(bool Treatment, bool Outing, bool FriendOuting, ImmutableArray<PioneerFriendProgress> Friends,
     ImmutableArray<PioneerRaceOption> Races, ImmutableArray<PioneerScheduledRace> ScheduledRaces, int UnseenFriendMask,
     int Grade = 3, ulong BlockedRaceTurns = 0,
-    ImmutableArray<PioneerCareerGoal>? CareerGoals = null, ImmutableArray<PioneerRaceHistory>? RaceHistory = null);
+    ImmutableArray<PioneerCareerGoal>? CareerGoals = null, ImmutableArray<PioneerRaceHistory>? RaceHistory = null,
+    bool? StrongBrianRoute = null);
 
 public readonly record struct PioneerIslandBoard(TrainingBoard Outdoor, TrainingPlacement House)
 {
@@ -85,6 +91,8 @@ public readonly record struct PioneerIslandBoard(TrainingBoard Outdoor, Training
 // Starts describe an observed current boundary. They contain neither future states nor future queues.
 public abstract record PioneerStart
 {
+    public sealed record ReporterEnding(int Turn, int RawPlayingState, int CharacterState, PioneerEvent Event,
+        TrainingValues Resources, TrainingLimits Limits, int Motivation, int ReporterBond, bool HasAttention) : PioneerStart;
     public sealed record CharacterEnding(int Turn, int RawPlayingState, int CharacterState, PioneerEvent Event,
         TrainingValues Resources, TrainingLimits Limits, int Motivation) : PioneerStart;
     public sealed record DeclaredEvent(int Turn, int RawPlayingState, PioneerEvent Event,
@@ -115,7 +123,8 @@ public abstract record PioneerStart
         [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         ImmutableArray<TemporarySupportGrant>? ObservedGrants = null,
         [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-        PioneerHintProgress? HintProgress = null) : PioneerStart;
+        PioneerHintProgress? HintProgress = null,
+        int? ReporterBond = null) : PioneerStart;
     public sealed record FailureTraining(TrainingFailureState State, int CommandId,
         ImmutableArray<int> SupportBonds, ImmutableArray<int> CharacterEffects) : PioneerStart;
     public sealed record IslandTraining(IslandActionState State, IslandTrainingInput Training) : PioneerStart;
@@ -142,20 +151,43 @@ public abstract record PioneerStart
 
 public abstract record PioneerConditionalOutcome(int ActionOrdinal)
 {
+    internal PioneerTurnObservation? FollowingFrame => this switch
+    {
+        TurnArrival arrival => arrival.Next,
+        TrainingResult training => training.Next,
+        ObservedEventResult result => result.Next,
+        TargetRaceWin race => race.Next,
+        FailurePenalty penalty => penalty.Next,
+        _ => null,
+    };
+
     public sealed record EventRewardResult(int AtAction, int ChoiceNumber, int BranchIndex) : PioneerConditionalOutcome(AtAction);
-    public sealed record TrainingResult(int AtAction, bool Success) : PioneerConditionalOutcome(AtAction);
+    public sealed record TrainingResult(int AtAction, bool Success, PioneerTurnObservation? Next = null) : PioneerConditionalOutcome(AtAction);
+    public sealed record ObservedEventResult(int AtAction, PioneerEvent Event, int ChoiceNumber, PioneerObservedEventChanges? Changes,
+        PioneerTurnObservation Next) : PioneerConditionalOutcome(AtAction);
+    public sealed record TargetRaceWin(int AtAction, int ProgramId, int FansGained, PioneerTurnObservation Next,
+        int PostRaceChoice = 0) : PioneerConditionalOutcome(AtAction);
     public sealed record RestEvent(int AtAction, PioneerEvent Event) : PioneerConditionalOutcome(AtAction);
-    public sealed record TurnArrival(int AtAction, PioneerArrival Arrival, TrainingBoard? Board, int? AvailableTrainingCommands,
-        int? AvailableRestCommands, PioneerEvent? Event = null, PioneerIslandBoard? IslandBoard = null) : PioneerConditionalOutcome(AtAction);
+    public sealed record TurnArrival(int AtAction, PioneerTurnObservation Next) : PioneerConditionalOutcome(AtAction);
     public sealed record TrainingFailure(int AtAction, TrainingFailureEvent Event) : PioneerConditionalOutcome(AtAction);
-    public sealed record FailurePenalty(int AtAction, ResolvedFailureBranch Branch) : PioneerConditionalOutcome(AtAction);
+    public sealed record FailurePenalty(int AtAction, ResolvedFailureBranch Branch, PioneerTurnObservation? Next = null) : PioneerConditionalOutcome(AtAction);
     public sealed record HintAttributeGroup(int AtAction, int GroupIndex) : PioneerConditionalOutcome(AtAction);
     public sealed record ProjectNpcSelection(int AtAction, ImmutableArray<int> NpcIds) : PioneerConditionalOutcome(AtAction);
 }
 
+public sealed record PioneerTurnObservation(PioneerArrival Arrival, TrainingBoard? Board = null, int? AvailableTrainingCommands = null,
+    int? AvailableRestCommands = null, PioneerEvent? Event = null, PioneerIslandBoard? IslandBoard = null,
+    int? Turn = null, int? RawPlayingState = null, int? ChoiceCount = null);
+
+public readonly record struct PioneerObservedBondChange(int TargetId, int Change);
+public sealed record PioneerObservedEventChanges(TrainingValues? Resources = null, TrainingLimits? Limits = null, int Motivation = 0,
+    int DevelopmentPoints = 0, int Fans = 0, ImmutableArray<PioneerObservedBondChange>? Bonds = null,
+    ImmutableArray<HintLevel>? Hints = null, ImmutableArray<int>? AddedEffects = null, ImmutableArray<int>? RemovedEffects = null,
+    ImmutableArray<TemporarySupportGrant>? Grants = null, ImmutableArray<int>? UnlockedFriends = null);
+
 public enum PioneerActionKind { Train = 1, IslandTraining, ChooseEvent, SubmitConstruction, Rest, Treat, Outing, Race }
 public readonly record struct PioneerRuntimeAction(PioneerActionKind Kind, int CommandId = 0,
-    int EventId = 0, int CharacterId = 0, int ChoiceNumber = 0, PioneerConstructionPlan? Plan = null,
+    int CharacterId = 0, int ChoiceNumber = 0, PioneerConstructionPlan? Plan = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     int StoryId = 0,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
@@ -167,7 +199,7 @@ public readonly record struct PioneerRuntimeAction(PioneerActionKind Kind, int C
     public static PioneerRuntimeAction Rest(int commandId) => new(PioneerActionKind.Rest, commandId);
     public static PioneerRuntimeAction Island() => new(PioneerActionKind.IslandTraining);
     public static PioneerRuntimeAction Choose(PioneerEvent current, int choice)
-        => new(PioneerActionKind.ChooseEvent, EventId: current.EventId, CharacterId: current.CharacterId, ChoiceNumber: choice,
+        => new(PioneerActionKind.ChooseEvent, CharacterId: current.CharacterId, ChoiceNumber: choice,
             StoryId: current.StoryId);
     public static PioneerRuntimeAction Submit(PioneerConstructionPlan plan) => new(PioneerActionKind.SubmitConstruction, Plan: plan);
 }

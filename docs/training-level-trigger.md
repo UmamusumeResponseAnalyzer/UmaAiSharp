@@ -1,7 +1,5 @@
 # 普通训练升级触发与确认
 
-规则身份为 `pioneer-training-level-trigger-v3`，执行器为 runtime v12／training-turn v12。
-
 成功普通训练增加对应的成功普通次数。累计次数达到4的正整数倍、且对应普通等级低于5时，登记单项升级。合宿训练和失败不增加该计数，不触发该项升级；第2／4次评审的全体升级由评审事件另行处理。
 
 `PioneerStateHeader.PendingTrainingLevelCommandId` 保存该里程碑：
@@ -24,19 +22,20 @@
 
 校准器按 `storyId` 复核同回合顺序。建设故事 `400011107` 与训练 Hint `801000003` 同现的 87 个升级前窗口均为建设在先。Hint 与 Tucker `809049032` 同现的 46 个窗口均为 Hint 在先。报告分别统计升级前、升级后及下回合首个故事。这些约束以完整训练窗口为观察边界。
 
-恢复过程遇到6处协议计数缺口、2处请求不符后，停止使用对应后续历史；另排除226个行动窗口中断和215个事件链未闭合窗口。排除记录与推导窗口保存在[研究输出](../artifacts/implementation/training-level-trigger-01/study-01/summary.json)，包含输入指纹。统计来自已有材料，筛选口径不等于独立留出育成。
+恢复过程遇到6处协议计数缺口、2处请求不符后，停止使用对应后续历史；另排除226个行动窗口中断和215个事件链未闭合窗口。排除记录与推导窗口保存在研究输出（历史输出 `artifacts/implementation/training-level-trigger-01/study-01/summary.json`），包含输入指纹。统计来自已有材料，筛选口径不等于独立留出育成。
 
-另对11个前态重新读取原始SQLite请求、行动响应及事件链，再用正式CLI从本局开局恢复历史。覆盖五种升级、Lv3／4、未达阈值、满级、合宿和失败；全部导入成功，升级确认前后等级变化匹配。[原包验证](../artifacts/implementation/training-level-trigger-01/export-01/verification.json)、[测试夹具](../tests/UmaAiSharp.Tests/Fixtures/training-level-triggers.json)。后续实包只用于断言，执行输入只包含行动前状态及成功／失败条件结果。
+另对11个前态重新读取原始SQLite请求、行动响应及事件链，再用正式CLI从本局开局恢复历史。覆盖五种升级、Lv3／4、未达阈值、满级、合宿和失败；全部导入成功，升级确认前后等级变化匹配。原包验证（历史输出 `artifacts/implementation/training-level-trigger-01/export-01/verification.json`）、[测试夹具](../tests/UmaAiSharp.Tests/Fixtures/training-level-triggers.json)。后续实包只用于断言，执行输入只包含行动前状态及成功／失败条件结果。
 
 日本攻略中的[四次训练升级说明](https://gamewith.jp/uma-musume/article/show/257618)和[Pioneer第2／4次评审升级说明](https://gamewith.jp/uma-musume/article/show/499493)与该解释相容；本实现的触发时点和排队边界依据上述本地轨迹。
 
-## 执行与后续接入
+## 条件回放
 
 ```json
 {
   "name": "pioneer_replay",
   "arguments": {
     "inputPath": "examples/pioneer/training-level-trigger-replay.json",
+    "rulesPath": "<pioneer_rules.br>",
     "seed": "71",
     "outputPath": "<新报告.json>"
   }
@@ -45,4 +44,4 @@
 
 该例在第16回合第4次成功速度训练后保存 `PendingTrainingLevelCommandId=101`，速度训练等级保持1。真实后续顺序为Hint、Tucker、升级。当前执行停在训练后事件窗口1019；后续调度需要先处理前面的事件，再揭示升级确认。条件输入只包含本次成功／失败。
 
-完整训练后事件调度、其他动作后事件及跨回合刷新继续接入；该里程碑给后续调度保留确定的待办事实。
+可用实际事件与后续面板补齐脚本继续条件回放。 [训练后事件条件回放](pioneer-mcp.md#训练后事件条件回放)

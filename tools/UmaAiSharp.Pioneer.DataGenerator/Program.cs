@@ -5,9 +5,9 @@ using UmaAiSharp.Pioneer.Offline;
 using UmaAiSharp.Pioneer.Inheritance;
 using UmaAiSharp.Pioneer.Runtime;
 
-if (args.Length is not (2 or 4))
+if (args.Length != 4)
 {
-    Console.Error.WriteLine("用法：UmaAiSharp.Pioneer.DataGenerator <master.mdb> <新输出文件.br> [turn-calibration.json inheritance-calibration.json]");
+    Console.Error.WriteLine("用法：UmaAiSharp.Pioneer.DataGenerator <master.mdb> <新输出文件.br> <turn-calibration.json> <inheritance-calibration.json>");
     return 2;
 }
 
@@ -15,23 +15,21 @@ try
 {
     var output = Path.GetFullPath(args[1]);
     if (File.Exists(output)) throw new IOException($"输出已存在，拒绝覆盖：{output}");
-    PioneerTurnCalibration? calibration = null;
-    PioneerInheritanceCalibration? inheritance = null;
-    if (args.Length == 4)
+    var json = new JsonSerializerOptions
     {
-        var json = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            RespectRequiredConstructorParameters = true,
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) },
-        };
-        using var fitted = File.OpenRead(args[2]);
-        calibration = JsonSerializer.Deserialize<PioneerTurnCalibration>(fitted, json) ?? throw new InvalidDataException("回合校准文件为空。");
-        using var fittedInheritance = File.OpenRead(args[3]);
-        inheritance = JsonSerializer.Deserialize<PioneerInheritanceCalibration>(fittedInheritance, json)
-            ?? throw new InvalidDataException("继承校准文件为空。");
-    }
-    var rules = PioneerMasterReader.ReadForecast(args[0], calibration, inheritance);
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        RespectRequiredConstructorParameters = true,
+        RespectNullableAnnotations = true,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        AllowDuplicateProperties = false,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) },
+    };
+    using var fitted = File.OpenRead(args[2]);
+    var calibration = JsonSerializer.Deserialize<PioneerTurnCalibration>(fitted, json) ?? throw new InvalidDataException("回合校准文件为空。");
+    using var fittedInheritance = File.OpenRead(args[3]);
+    var inheritance = JsonSerializer.Deserialize<PioneerInheritanceCalibration>(fittedInheritance, json)
+        ?? throw new InvalidDataException("继承校准文件为空。");
+    var rules = PioneerMasterReader.ReadRules(args[0], calibration, inheritance);
     using var resource = new MemoryStream();
     rules.Write(resource);
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);

@@ -1,6 +1,6 @@
 # 研究接入记录
 
-2026-11-08 收集九个研究会话的新报告并继续实现。产品复算、研究结论与独立验收分别记录；本轮资料已用于解释选择，独立留出育成数为 0。完整 Pioneer 自主育成尚未实现。
+2026-11-08 收集九个研究会话的新报告并继续实现。以下为当日的机制证据、样本分母和公开的核验边界。当日实包均来自推导资料。现行机制见 [实施状态](implementation-status.md)。
 
 ## 本轮接入
 
@@ -20,22 +20,20 @@
 
 ## 新报告索引
 
-全部相对于 artifacts/research/blockers/；研究材料不因产品接入而改写：
+以下记录各研究收集的实包证据。
 
-- [训练机制15](../artifacts/research/blockers/training-settlement/mechanisms-15/REPORT.md)：11,008 个严格实际行动，76 个显示非零失败率的机会、2次失败；保留两步结算和选项多个展示组。
-- [云端Hint](../artifacts/research/blockers/support-placement-hint/cloud-20261108-01/REPORT.md)：193局新账号材料，308个已学技能重叠窗口；局部复算见[Hint证据](hint-pool-evidence.md)。
-- [事件机制](../artifacts/research/blockers/events-history/mechanisms-20261108/REPORT.md)：217局、43,037个严格事件；Tucker解锁硬阈值60不成立，连续事件阶段证据不等于机会概率。
-- [继承扩展](../artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md)：221开局、顶层扩展位置映射；383/440个途中继承兼容解不是实际抽样顺序，57个完整Hint窗口仍有残差。
-- [建设扩展](../artifacts/research/blockers/construction-checkpoints/expansion-20261108/REPORT.md)：1,101个成功计划、13个延迟显示窗口和9个混合评审响应。
-- [岛训练行动链](../artifacts/research/blockers/island-training/action-chains-20261108/REPORT.md)：2,154条完整链；21条结束于同回合评审／演出，空事件队列不等于可训练；222条扣券后又因建设发券。
-- [比赛扩展](../artifacts/research/blockers/races/expansion-20261108/REPORT.md)：3,812条完整比赛链；2,483个直接Pt窗口；重试额度观察到3和5，没有真正目标失败／重试执行链。
-- [状态机扩展](../artifacts/research/blockers/state-machine-terminal/expansion-20261108/REPORT.md)：221开局、219finish；保留6个队列反例，不能强加“请求必取队首”。
-- [覆盖审计](../artifacts/research/blockers/coverage-validation/expansion-20261108/REPORT.md)：按依赖排序的核心缺口。该报告B01的祖辈嵌套缺失判断已由本轮顶层映射纠正；B06的902个Pt是此前产品基线，不能当作本轮研究分母。
+- 训练机制15（历史输出 `artifacts/research/blockers/training-settlement/mechanisms-15/REPORT.md`）：11,008 个严格实际行动，76 个显示非零失败率的机会、2次失败；保留两步结算和选项多个展示组。
+- 云端Hint（历史输出 `artifacts/research/blockers/support-placement-hint/cloud-20261108-01/REPORT.md`）：193局新账号材料，308个已学技能重叠窗口；局部复算见[Hint证据](hint-pool-evidence.md)。
+- 事件机制（历史输出 `artifacts/research/blockers/events-history/mechanisms-20261108/REPORT.md`）：217局、43,037个严格事件；Tucker解锁硬阈值60不成立，连续事件阶段证据不等于机会概率。
+- 继承扩展（历史输出 `artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md`）：221开局、顶层扩展位置映射；383/440个途中继承兼容解不是实际抽样顺序，57个完整Hint窗口仍有残差。
+- 建设扩展（历史输出 `artifacts/research/blockers/construction-checkpoints/expansion-20261108/REPORT.md`）：1,101个成功计划、13个延迟显示窗口和9个混合评审响应。
+- 岛训练行动链（历史输出 `artifacts/research/blockers/island-training/action-chains-20261108/REPORT.md`）：2,154条完整链；21条结束于同回合评审／演出，空事件队列不等于可训练；222条扣券后又因建设发券。
+- 比赛扩展（历史输出 `artifacts/research/blockers/races/expansion-20261108/REPORT.md`）：3,812条完整比赛链；2,483个直接Pt窗口；重试额度观察到3和5，没有真正目标失败／重试执行链。
+- 状态机扩展（历史输出 `artifacts/research/blockers/state-machine-terminal/expansion-20261108/REPORT.md`）：221开局、219finish；保留6个队列反例，不能强加“请求必取队首”。
+- 覆盖审计（历史输出 `artifacts/research/blockers/coverage-validation/expansion-20261108/REPORT.md`）：按依赖排序的核心缺口。该报告B01的祖辈嵌套缺失判断已由本轮顶层映射纠正；B06的902个Pt是此前产品基线，不能当作本轮研究分母。
 
 ## 验证口径
 
 扩大后的五库标准化快照有83,421个Pioneer观测，归属221局；事件研究的217局及云端Hint的193局是各自筛选分母，不相加当作独立验收数。新旧目录中包库别名发生过变化，关联使用完整输入指纹和记录身份。
 
 此前产品训练数值候选在272,902项可见层匹配；195,742项只有上层，11,976项因黄金船历史缺失排除。这个结果不是本轮岛训练行动数的分母，也不证明服务器算术顺序唯一。215个高评价结局数值夹具、219个finish对象核对同样不能替代终局生成。
-
-实现仅接受明确状态与条件结果。没有接入平均事件收益、默认随机概率、后续实包覆盖或自动补动作。统计估计仍保留条件、分母和反例；核心未知没有转移到可选延期清单。

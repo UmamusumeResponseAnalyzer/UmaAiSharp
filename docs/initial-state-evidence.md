@@ -12,7 +12,7 @@
 
 `InitialInheritanceRules.EvaluateListedFactors` 提供对应蓝/红分量。重复因子 ID 可以出现在不同谱系槽位，每槽独立贡献；同槽重复、缺少蓝/红或未知因子编号会失败。蓝/红原规则与来源见 [开局继承证据](initial-inheritance-evidence.md)。
 
-此前将 316 个祖辈的嵌套字段缺失计为扩展输入未知，属于适配层误判。[扩大研究](../artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md)的 896 份非空完整快照、801 条亲子边确认了扁平位置映射，其中 37 条亲子边还区分了子代创建后增加的强化。221 局选中亲本的 442 份顶层数组全部显式为空；非空扩展的实际开局/四月效果仍缺样本。
+此前将 316 个祖辈的嵌套字段缺失计为扩展输入未知，属于适配层误判。扩大研究（历史输出 `artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md`）的 896 份非空完整快照、801 条亲子边确认了扁平位置映射，其中 37 条亲子边还区分了子代创建后增加的强化。221 局选中亲本的 442 份顶层数组全部显式为空；非空扩展的实际开局/四月效果仍缺样本。
 
 ## 组合规则
 
@@ -20,7 +20,7 @@
 
 支援面板先根据稀有度和经验确定等级，对有效等级锚点线性插值取整；未解锁的项为零。初始属性使用 effect 9..13，直接固有同类相加。105 固有遍历全部六个卡位，包含自身：普通卡给对应训练属性增加 `value`，友人/团卡给五属性各增加 `value_1`。多个 105 分别贡献；扩大研究覆盖支援 30141 的 75 局，多个来源及团卡分支属于同参数机制的外推。
 
-固有分类依据 [支援研究类型表](../artifacts/research/blockers/support-placement-hint/REPORT.md)：102/103/104、106..114、116/117/120 是训练条件效果，118/119/122 是位置效果，121 是训练羁绊效果；它们不参与初始属性/羁绊。101 如嵌套初始效果则明确失败。115 全队初始羁绊的对象和上限未实包核验，当前入口明确拒绝；未知原子或固有类型不按零处理。
+固有分类依据 支援研究类型表（历史输出 `artifacts/research/blockers/support-placement-hint/REPORT.md`）：102/103/104、106..114、116/117/120 是训练条件效果，118/119/122 是位置效果，121 是训练羁绊效果；它们不参与初始属性/羁绊。101 如嵌套初始效果则明确失败。115 全队初始羁绊的对象和上限未实包核验，当前入口明确拒绝；未知原子或固有类型不按零处理。
 
 绿因子只取两个直接父母。先按 `succession_initial_factor` 的星数选择 `effect_id`，再取对应组的 `target_type=41` Hint 分量，通过 skill master 映射到 `(group_id, rarity)`。同组其他上限效果属于途中继承 bundle，不在开局执行。3 星的 selector 为 4，对应 Hint +3，不是 Hint +4；扩大研究已包含 10 个父母绿星 3 来源及 127 个蓝星 3 来源。两个父母若指向同一 Hint，合并语义未核验，明确失败。
 
@@ -38,7 +38,7 @@
 
 祖辈来源分量为育成角色、直接父母、该祖辈的三人关系，加父母与该祖辈共同 G1。直接父母来源分量为育成角色与父母关系、两个父母关系、所属两个祖辈的三人关系及对应 G1 边。合计两个父母分量后扣除重复计入的父母间关系与 G1 边。
 
-来源是 [继承研究](../artifacts/research/blockers/inheritance/REPORT.md) 与本地 master。研究中该候选与 79 个请求的 `current_succession_rank_point` 一致；该字段来自客户端请求，不是服务器随机继承概率的验证。未实现触发率、两次继承独立性、随机增量档位权重或满 Hint 转化规则。
+来源是 继承研究（历史输出 `artifacts/research/blockers/inheritance/REPORT.md`） 与本地 master。研究中该候选与 79 个请求的 `current_succession_rank_point` 一致；该字段来自客户端请求，不是服务器随机继承概率的验证。未实现触发率、两次继承独立性、随机增量档位权重或满 Hint 转化规则。
 
 ## 实包核验
 
@@ -46,8 +46,8 @@
 {
   "name": "evidence_initial_state",
   "arguments": {
-    "studyDirectory": "artifacts/research/blockers/inheritance/expansion-20261108/frozen-01",
-    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
+    "studyDirectory": "<本次研究清单目录>",
+    "evidenceDirectory": "<审计导出目录>",
     "captureDirectory": "<本地抓包目录>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "artifacts/evidence/initial-state-audit-03"
@@ -63,7 +63,7 @@
 
 `initial-state-audit.json` 汇总七组分量、无法评价的输入与不匹配；`initial-state-samples.jsonl` 保存预测分量、实包对应值和实际使用的原始快照位置。`CompleteFactorInput` 只表示六来源因子输入已完整解析，`ListedComponentsMatched` 只指参与比较的字段；它们均不能代替整局或完整开局验证。工具摘要分别返回核验状态和问题数。
 
-2026-11-08 的 [initial-state-audit-03](../artifacts/evidence/initial-state-audit-03/initial-state-audit.json)重新读取了 221 份 start 请求/响应和 442 个开局前最新自有亲本：
+2026-11-08 的 initial-state-audit-03（历史输出 `artifacts/evidence/initial-state-audit-03/initial-state-audit.json`）重新读取了 221 份 start 请求/响应和 442 个开局前最新自有亲本：
 
 | 比较项 | 结果 |
 |---|---:|
@@ -75,11 +75,11 @@
 
 本次报告唯一问题为 `CaptureChangedSinceResearch`：`packets-0002` 的当前 SHA-256 为 `be9a536045d6b41977ed97d006c102a2e8305420281a620ba3ae06103d96fb5c`，与冻结研究记录不同。核验仍从当前原始行重建输入，没有沿用研究预测；所有十份本次输入读前后哈希一致。该差异保留为输入来源提示，CLI 本次返回 1，不能将匹配计数写成无条件 `Passed`。
 
-历史 [initial-state-audit-02](../artifacts/evidence/initial-state-audit-02/initial-state-audit.json)复核旧 79 局五组分量，各 79/79；其中 `MissingAncestorExtensionCoverage` 是已定位的字段范围误判，不是游戏状态缺失。原始产物保留，不将历史计数改写成新实现的结果。
+历史 initial-state-audit-02（历史输出 `artifacts/evidence/initial-state-audit-02/initial-state-audit.json`）复核旧 79 局五组分量，各 79/79；其中 `MissingAncestorExtensionCoverage` 是已定位的字段范围误判，不是游戏状态缺失。原始产物保留，不将历史计数改写成新实现的结果。
 
 研究当前 master SHA-256 为 `4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886`。两大原包库 SHA-256 为 `ed9548f71bf6d6b85fad702942dfbf0c5157678e48a772400e409f8377df502b` 与 `f487db586de49cd35bb93ac489df49963794cf22cd732be3df077df594361982`；新旧匿名别名不同，不用裸别名跨批拼接。221 局含旧 79 局和本继承研究新增分析的 142 局，不是新的独立账号、谱系或预注册留出集。
 
-测试覆盖顶层扩展的代际映射与冲突拒绝、绿因子 selector 与途中 bundle 分离、105 编成计数、技能/羁绊投影、相性同角色与鞍点组去重，以及原始 SQLite 最新快照选择、缺字段、数值反例、错配、坏时间和重复捕获。本轮最终集中测试 234/234 通过，记录位于 [integration.trx](../artifacts/validation/research-followup-20261108-03/integration.trx)；测试数量不代替原包或完整育成验收。
+测试覆盖顶层扩展的代际映射与冲突拒绝、绿因子 selector 与途中 bundle 分离、105 编成计数、技能/羁绊投影、相性同角色与鞍点组去重，以及原始 SQLite 最新快照选择、缺字段、数值反例、错配、坏时间和重复捕获。本轮最终集中测试 234/234 通过，记录位于 integration.trx（历史输出 `artifacts/validation/research-followup-20261108-03/integration.trx`）；测试数量不代替原包或完整育成验收。
 
 自主模拟在第 31、55 回合训练面板前按六来源逐因子抽样，每项取 master 的完整效果档，记录显示属性、上限、适性、技能 Pt 和 Hint。蓝档权重由拟合局可独立分离的样本求得，其他档位用拟合局的联合相容解作经验先验，并保留未观测档位。满级 Hint 的 1–5 点转化、档位顺序和候选独立性属于经验假设。附加因子按 master 的同批触发组条件计算，待实包验证。
 

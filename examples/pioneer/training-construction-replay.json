@@ -1,6 +1,5 @@
 {
-  "schemaVersion": 1,
-  "rulesIdentity": "local-master/4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886",
+  "rulesIdentity": "pioneer-rules/c938910b40672ee64d64ea39634e75b41cb76bc8a4639a02bf0e4ef0c39bb298",
   "mode": "conditional",
   "start": {
     "kind": "trainingTurn",
@@ -440,7 +439,8 @@
           "hintPositions": [],
           "enabled": true,
           "failureCoefficient": 528,
-          "evaluationTrainingPercent": 20
+          "evaluationTrainingPercent": 20,
+          "director": true
         },
         {
           "commandId": 105,
@@ -466,7 +466,8 @@
           "hintPositions": [],
           "enabled": true,
           "failureCoefficient": 524,
-          "evaluationTrainingPercent": 20
+          "evaluationTrainingPercent": 20,
+          "reporter": true
         },
         {
           "commandId": 103,
@@ -621,7 +622,288 @@
           ]
         },
         "pendingStoryIds": []
-      }
+      },
+      "checkpointResults": [
+        2,
+        2
+      ],
+      "directorBond": 30,
+      "homeActions": {
+        "treatment": false,
+        "outing": true,
+        "friendOuting": true,
+        "friends": [
+          {
+            "position": 6,
+            "characterId": 9049,
+            "outingUnlocked": true,
+            "outings": 3
+          }
+        ],
+        "races": [
+          {
+            "programId": 198,
+            "grade": 400,
+            "firstPlaceFans": 1900,
+            "target": false,
+            "name": "ヒヤシンスステークス",
+            "requiredFans": 350,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 199,
+            "grade": 400,
+            "firstPlaceFans": 2000,
+            "target": false,
+            "name": "すみれステークス",
+            "requiredFans": 350,
+            "careerGoalId": 0
+          },
+          {
+            "programId": 203,
+            "grade": 400,
+            "firstPlaceFans": 2000,
+            "target": false,
+            "name": "マーガレットステークス",
+            "requiredFans": 350,
+            "careerGoalId": 0
+          }
+        ],
+        "scheduledRaces": [
+          {
+            "turn": 39,
+            "race": {
+              "programId": 104,
+              "grade": 300,
+              "firstPlaceFans": 4100,
+              "target": true,
+              "name": "小倉記念",
+              "requiredFans": 1500,
+              "careerGoalId": 159
+            }
+          },
+          {
+            "turn": 44,
+            "race": {
+              "programId": 1073,
+              "grade": 100,
+              "firstPlaceFans": 12000,
+              "target": true,
+              "name": "菊花賞",
+              "requiredFans": 7500,
+              "careerGoalId": 160
+            }
+          },
+          {
+            "turn": 48,
+            "race": {
+              "programId": 81,
+              "grade": 100,
+              "firstPlaceFans": 30000,
+              "target": true,
+              "name": "有馬記念",
+              "requiredFans": 25000,
+              "careerGoalId": 161
+            }
+          },
+          {
+            "turn": 60,
+            "race": {
+              "programId": 74,
+              "grade": 100,
+              "firstPlaceFans": 15000,
+              "target": true,
+              "name": "宝塚記念",
+              "requiredFans": 20000,
+              "careerGoalId": 162
+            }
+          },
+          {
+            "turn": 68,
+            "race": {
+              "programId": 76,
+              "grade": 100,
+              "firstPlaceFans": 15000,
+              "target": true,
+              "name": "天皇賞（秋）",
+              "requiredFans": 20000,
+              "careerGoalId": 163
+            }
+          },
+          {
+            "turn": 71,
+            "race": {
+              "programId": 118,
+              "grade": 300,
+              "firstPlaceFans": 4100,
+              "target": true,
+              "name": "中日新聞杯",
+              "requiredFans": 1500,
+              "careerGoalId": 164
+            }
+          },
+          {
+            "turn": 72,
+            "race": {
+              "programId": 81,
+              "grade": 100,
+              "firstPlaceFans": 30000,
+              "target": true,
+              "name": "有馬記念",
+              "requiredFans": 25000,
+              "careerGoalId": 165
+            }
+          }
+        ],
+        "unseenFriendMask": 0,
+        "grade": 3,
+        "blockedRaceTurns": 0,
+        "careerGoals": [],
+        "raceHistory": [
+          {
+            "turn": 12,
+            "programId": 1067,
+            "rank": 1
+          },
+          {
+            "turn": 26,
+            "programId": 195,
+            "rank": 1
+          }
+        ],
+        "strongBrianRoute": null
+      },
+      "observedGrants": [],
+      "hintProgress": {
+        "levels": [
+          {
+            "skill": {
+              "groupId": 20001,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20015,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20015,
+              "rarity": 2
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20025,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20043,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20051,
+              "rarity": 1
+            },
+            "level": 4
+          },
+          {
+            "skill": {
+              "groupId": 20057,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20058,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20060,
+              "rarity": 1
+            },
+            "level": 4
+          },
+          {
+            "skill": {
+              "groupId": 20121,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20131,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20153,
+              "rarity": 1
+            },
+            "level": 1
+          },
+          {
+            "skill": {
+              "groupId": 20165,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20324,
+              "rarity": 1
+            },
+            "level": 3
+          },
+          {
+            "skill": {
+              "groupId": 20365,
+              "rarity": 1
+            },
+            "level": 2
+          }
+        ],
+        "ownedSkills": [
+          {
+            "id": 10601,
+            "level": 1
+          }
+        ],
+        "disabledSkillIds": [],
+        "talentLevel": 1,
+        "aptitudes": [
+          7,
+          1,
+          2,
+          7,
+          7,
+          4,
+          2,
+          6,
+          7,
+          7
+        ]
+      },
+      "reporterBond": 9
     }
   },
   "outcomes": [
@@ -643,7 +925,6 @@
       "action": {
         "kind": "train",
         "commandId": 101,
-        "eventId": 0,
         "characterId": 0,
         "choiceNumber": 0
       }
@@ -652,15 +933,29 @@
       "decisionId": {
         "kind": 4,
         "ordinal": 1,
-        "key": 120259295355
+        "key": 120659095395
       },
       "action": {
         "kind": "chooseEvent",
         "commandId": 0,
-        "eventId": 211067,
         "characterId": 0,
-        "choiceNumber": 0
+        "choiceNumber": 0,
+        "storyId": 400011107
       }
     }
-  ]
+  ],
+  "placement": {
+    "appearedSupportMask": 63,
+    "appearedProjectMembers": [
+      1021,
+      1027,
+      1030,
+      1031,
+      1040,
+      1057,
+      1069,
+      1102,
+      1130
+    ]
+  }
 }

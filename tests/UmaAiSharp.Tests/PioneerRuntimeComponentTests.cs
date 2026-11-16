@@ -30,7 +30,7 @@ public sealed class PioneerRuntimeComponentTests
         foreach (var row in fixture["immediates"]!.AsArray())
         {
             var frame = frames[row!["before"]!.ToJsonString()];
-            var start = master.TrainingStart(frame, false, null);
+            var start = master.TrainingStart(frame);
             var data = PioneerRuntimeData.Compile(start, [new PioneerConditionalOutcome.TrainingResult(0, true)], MasterHash);
             var root = data.CreateInitialState(); var scenario = new PioneerScenario(data);
             foreach (var command in start.Commands)
@@ -154,7 +154,7 @@ public sealed class PioneerRuntimeComponentTests
                 { Effects = [.. start.Training.Facilities[0].Effects, new TrainingFacilityEffect(1, 0, 1, 1)] });
                 Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(start with
                 { Training = start.Training with { Facilities = inconsistent } }, [], "inconsistent-input"));
-                Assert.NotNull(scenario.ValidateAction(root, PioneerRuntimeAction.Island() with { EventId = 1 }));
+                Assert.NotNull(scenario.ValidateAction(root, PioneerRuntimeAction.Island() with { StoryId = 1 }));
             }
             count++;
         }
@@ -230,7 +230,7 @@ public sealed class PioneerRuntimeComponentTests
     }
 
     static ActionScript<PioneerDecisionView, PioneerRuntimeAction> EventScript(PioneerState root, PioneerEvent current)
-        => new([new(new((int)root.Header.Stage, 0, PioneerScenario.DecisionKey(root.Header.Turn, current.EventId)), PioneerRuntimeAction.Choose(current, 0))], 0);
+        => new([new(new((int)root.Header.Stage, 0, PioneerScenario.DecisionKey(root.Header.Turn, current.StoryId)), PioneerRuntimeAction.Choose(current, 0))], 0);
     static string RepoFile(string file, [CallerFilePath] string source = "")
         => System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(source)!, "../..", file));
 

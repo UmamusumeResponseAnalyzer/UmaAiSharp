@@ -20,7 +20,7 @@ public sealed record ConstructionChangeCoverage(string Endpoint, string Previous
 public sealed record ConstructionComponentChange(EvidenceReference Before, EvidenceReference After,
     string Endpoint, string PreviousStories, string SelectionEvidence, bool FacilitiesChanged,
     int? TicketsBefore, int? TicketsAfter);
-public sealed record ConstructionAuditReport(string SchemaVersion, IReadOnlyList<SourceFingerprint> Sources,
+public sealed record ConstructionAuditReport(IReadOnlyList<SourceFingerprint> Sources,
     int PlanObservations, int PartialPlanObservations, int ImmediatePointMismatches, int SettlementObservations,
     int RawPointMatches, int ReachedThresholdMatches, int CandidateFacilityMatches, int CandidateTicketMatches,
     int MatchedEventSelections, int EventAppearances, int AppearancesWithThresholdIncrease,
@@ -43,7 +43,6 @@ public static class ConstructionAudit
         var sourceReport = JsonSerializer.Deserialize<EvidenceReport>(
             File.ReadAllText(Path.Combine(input, "audit.json")), EvidenceJson.ReadOptions)
             ?? throw new InvalidDataException("建设核验缺少输入证据报告。");
-        if (sourceReport.SchemaVersion != "1") throw new InvalidDataException("建设核验不支持该证据报告版本。");
         var sourceHashes = sourceReport.Sources.ToDictionary(x => x.Alias, x => x.Sha256, StringComparer.Ordinal);
         if (!sourceHashes.TryGetValue("master", out var masterHash))
             throw new InvalidDataException("输入证据报告缺少 master 来源哈希。");
@@ -210,7 +209,7 @@ public static class ConstructionAudit
             }
             previous[observation.Source] = new(observation, state, common);
         }
-        var report = new ConstructionAuditReport("1", sourceReport.Sources, planObservations, partialPlanObservations, immediateMismatches,
+        var report = new ConstructionAuditReport(sourceReport.Sources, planObservations, partialPlanObservations, immediateMismatches,
             settlementObservations, rawMatches, thresholdMatches, candidateMatches, candidateTicketMatches, selectedEvents,
             eventAppearances, appearancesWithThresholdIncrease,
             evaluatedSettlements.GroupBy(x => x.Facilities.StoryId).OrderBy(x => x.Key).Select(group =>

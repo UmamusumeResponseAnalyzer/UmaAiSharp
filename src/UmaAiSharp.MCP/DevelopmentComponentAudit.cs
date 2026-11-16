@@ -12,7 +12,7 @@ public sealed record RacePointComponentCase(EvidenceReference Before, EvidenceRe
 public sealed record TuckerPointComponentCase(EvidenceReference Before, EvidenceReference After, long RequestRecordId,
     TuckerEventContext Context, PioneerPointResources ResourcesBefore, PioneerPointResources ResourcesAfter,
     PioneerPointResources Candidate, bool Matches);
-public sealed record DevelopmentComponentAuditReport(string SchemaVersion, IReadOnlyList<SourceFingerprint> Inputs,
+public sealed record DevelopmentComponentAuditReport(IReadOnlyList<SourceFingerprint> Inputs,
     int RaceSelections, int RaceMatches, int RaceSelectionsWithoutAgreedLabel, int TuckerSelections, int TuckerMatches,
     ValidationSummary Validation);
 
@@ -133,7 +133,7 @@ public static partial class DevelopmentComponentAudit
         for (var i = 0; i < paths.Count; i++)
             if (Fingerprint(paths[i].Path, paths[i].Alias) != fingerprints[i])
                 throw new InvalidDataException($"核验过程中输入 {paths[i].Alias} 发生变化。");
-        var report = new DevelopmentComponentAuditReport("1", fingerprints, raceCases.Count, raceCases.Count(x => x.Matches),
+        var report = new DevelopmentComponentAuditReport(fingerprints, raceCases.Count, raceCases.Count(x => x.Matches),
             unlabelled, tuckerCases.Count, tuckerCases.Count(x => x.Matches), new("CandidateOnly",
                 ["仅核验输入指纹限定的明确事件局部分量；研究标签没有覆盖新增数据。", "未生成比赛结果、通用赛后奖励、低评价分支、其他Tucker选择或事件调度。"]));
         Directory.CreateDirectory(output);

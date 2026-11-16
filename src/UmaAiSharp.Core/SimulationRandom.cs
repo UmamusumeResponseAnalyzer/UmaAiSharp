@@ -8,8 +8,8 @@ public enum SimulationRandomStream
 
 public struct SimulationRandom(ulong seed)
 {
-    public const string Algorithm = "splitmix64-v1";
-    public const string SeedDerivation = "sample-domain-mix-v1";
+    public const string Algorithm = "splitmix64";
+    public const string SeedDerivation = "sample-domain-mix";
 
     public ulong State { get; private set; } = seed;
 

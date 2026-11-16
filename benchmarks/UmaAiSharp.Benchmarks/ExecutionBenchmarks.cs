@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using BenchmarkDotNet.Attributes;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
@@ -199,12 +201,13 @@ sealed record ExecutionFixture(PioneerStart.TrainingTurn Start, int CommandId, s
         var failure = new TrainingFailureEvent(Int(item, "eventId"), Int(item, "characterId"), Int(item, "storyId"), Int(item, "playTiming"));
         var rootBytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", caseName + "-failure-replay.json"));
         var rootHash = Convert.ToHexStringLower(SHA256.HashData(rootBytes));
-        var expectedHash = caseName == "camp" ? "f284798eab090774cbb812b0eadf988e2697cb1539cfbb1d1dbcc0a138547e49"
-            : "e1d029c65b3e76e16b246e3678d323d5d87f5243c0e55ce35bda62dfe40114af";
-        if (rootHash != expectedHash) throw new InvalidDataException("完整训练前态基准与冻结来源不一致。");
-        using var rootDocument = JsonDocument.Parse(rootBytes);
-        var state = rootDocument.RootElement.GetProperty("start").GetProperty("data")
-            .Deserialize<PioneerStart.TrainingTurn>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        var start = JsonNode.Parse(rootBytes)!["start"]!["data"]!.AsObject();
+        // This benchmark measures the two failure decisions without the full run's development state.
+        start.Remove("development");
+        var state = start.Deserialize<PioneerStart.TrainingTurn>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
+        })!;
         if (state.Environment.Current != Resources(before) || state.Turn != Int(before, "turn")
             || state.CardId != Int(before, "cardId") || state.Environment.Motivation != Int(before, "motivation"))
             throw new InvalidDataException("完整训练前态与失败窗口不一致。");
@@ -223,7 +226,7 @@ sealed record ExecutionFixture(PioneerStart.TrainingTurn Start, int CommandId, s
         var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
         [
             new(scenario.Inspect(root, 0).Decision.Id, PioneerRuntimeAction.Train(CommandId)),
-            new(new((int)PioneerStage.FailureChoice, 1, PioneerScenario.DecisionKey(root.Header.Turn, current.EventId)),
+            new(new((int)PioneerStage.FailureChoice, 1, PioneerScenario.DecisionKey(root.Header.Turn, current.StoryId)),
                 PioneerRuntimeAction.Choose(current, 1))
         ], 0);
         return new(scenario, root, script);

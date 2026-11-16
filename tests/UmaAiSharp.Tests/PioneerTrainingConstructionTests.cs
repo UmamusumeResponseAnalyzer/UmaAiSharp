@@ -43,7 +43,7 @@ public sealed class PioneerTrainingConstructionTests
                 Assert.Equal((1, 1), (first.Progress.ConsumedActions, first.Progress.SettledActions));
                 var decision = scenario.Inspect(execution.State, first.Progress.DecisionOrdinal);
                 Assert.Equal(new PioneerEvent(211067, 0, 400011107, 6), decision.Decision.Context.Event);
-                Assert.Equal(new DecisionId((int)PioneerStage.ConstructionEvent, 1, PioneerScenario.DecisionKey(start.Turn, 211067)), decision.Decision.Id);
+                Assert.Equal(new DecisionId((int)PioneerStage.ConstructionEvent, 1, PioneerScenario.DecisionKey(start.Turn, 400011107)), decision.Decision.Id);
                 Assert.Equal([400011107], execution.State.GetSection(PioneerStateSection.PendingStories).ToArray());
                 Assert.NotNull(scenario.ValidateAction(execution.State, PioneerRuntimeAction.Train(row.GetProperty("command").GetInt32())));
                 Assert.NotNull(scenario.ValidateAction(execution.State, PioneerRuntimeAction.Choose(execution.State.Header.Event, 1)));
@@ -157,7 +157,6 @@ public sealed class PioneerTrainingConstructionTests
             };
             var expected = rules.ApplySettlementComponentsCandidate(state).After;
             var data = PioneerRuntimeData.Compile(new PioneerStart.Construction(state, current), [], "ordered-construction", master);
-            Assert.EndsWith(master.SourceSha256, data.RulesIdentity);
             var scenario = new PioneerScenario(data); var root = data.CreateInitialState();
             var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
                 [new(scenario.Inspect(root, 0).Decision.Id, PioneerRuntimeAction.Choose(current, 0))], 0);

@@ -45,8 +45,10 @@ public sealed class PioneerAutonomousSession
     {
         var chara = common["chara_info"]!.AsObject();
         var queue = Array(common, "unchecked_event_array");
-        if (Int(chara, "turn") != 1 || queue.Count != 1 || Int(queue[0]!.AsObject(), "event_id") != 3000)
-            return common;
+        if (Int(chara, "turn") != 1 || queue.Count != 1) return common;
+        var opening = queue[0]!.AsObject();
+        var storyId = Int(opening, "story_id");
+        if (storyId / 1000 != 500000 + Int(opening, "chara_id") || storyId % 1000 is not (100 or 400)) return common;
 
         // Project the fixed opening effects. The revealed start board is retained for this boundary.
         var result = (JsonObject)common.DeepClone();
@@ -70,7 +72,7 @@ public sealed class PioneerAutonomousSession
             throw new UnknownMechanismException($"第 {turn} 回合缺少本局开局冻结的亲本因子与胜鞍，无法模拟后续继承。");
         var planning = Int(common["chara_info"]!.AsObject(), "playing_state") == 35
             ? ReadPlanningPanel(common, pioneer, compiler) : null;
-        var training = (planning?.Continuation ?? ReadTrainingPanel(common, pioneer, compiler, facilities, true,
+        var training = (planning?.Continuation ?? ReadTrainingPanel(common, pioneer, compiler, facilities,
             goldShipBoost: history.GoldShipBoost)) with
         {
             SuccessfulOrdinaryTrainingCounts = history.NeedsEstimate ? null : history.ObservedOrdinarySuccesses,
@@ -80,11 +82,11 @@ public sealed class PioneerAutonomousSession
             HomeActions = ReadHomeActions(common, rules, history.UnseenFriendMask ?? (history.Turn <= 2 ? 63 : 0), planning is null,
                 history.RaceHistory, history.RaceReservations),
         };
-        var estimated = history.NeedsEstimate ? new PioneerTrainingHistoryDistribution(training, history, rules.TurnCalibration!.TrainingHistory) : null;
+        var estimated = history.NeedsEstimate ? new PioneerTrainingHistoryDistribution(training, history, rules.TurnCalibration.TrainingHistory) : null;
         var placement = PioneerPlacementSeed.Observe(common["chara_info"]!.AsObject(), pioneer);
         PioneerStart start = planning is null ? training : planning with { Continuation = training };
         var data = PioneerRuntimeData.Compile(start, [], identity, rules.Construction, checkpoints,
-            rules.CompileTurnRules(training, placement), usesStoryDecisions: true, trainingHistory: estimated, model: model);
+            rules.CompileTurnRules(training, placement), trainingHistory: estimated, model: model);
         var scenario = new PioneerScenario(data, autonomous: true);
         var root = data.CreateInitialState();
         var candidates = scenario.Candidates(root).ToArray();
@@ -99,7 +101,7 @@ public sealed class PioneerAutonomousSession
         PioneerRulesSnapshot rules)
     {
         if (stories is not { } observed) return null;
-        var progress = rules.StoryProgress!.Value.ToDictionary(row => row.StoryId);
+        var progress = rules.StoryProgress.ToDictionary(row => row.StoryId);
         return [.. observed.Select(story => progress.TryGetValue(story.StoryId, out var match)
             ? story with { ProgressStage = match.Stage, ProgressLength = match.Length,
                 SupportCardId = story.SupportCardId == 0 ? match.SupportCardId : story.SupportCardId }
@@ -107,7 +109,7 @@ public sealed class PioneerAutonomousSession
     }
 
     internal static PioneerStart.TrainingTurn ReadTrainingPanel(JsonObject common, JsonObject pioneer, PioneerMasterCompiler compiler,
-        PioneerFacilityCompiler? facilities, bool wholeRun, int? generatedTurn = null, GoldShipTrainingBoost? goldShipBoost = null)
+        PioneerFacilityCompiler? facilities, int? generatedTurn = null, GoldShipTrainingBoost? goldShipBoost = null)
     {
         var chara = common["chara_info"] as JsonObject ?? throw new InvalidDataException("训练面板缺少角色状态。");
         var frame = new JsonObject
@@ -117,9 +119,9 @@ public sealed class PioneerAutonomousSession
             ["home"] = common["home_info"]?.DeepClone(),
             ["events"] = Array(common, "unchecked_event_array").DeepClone(),
         };
-        var training = compiler.TrainingStart(frame, goldShipBoost is not null, goldShipBoost, facilities, generatedTurn, wholeRun);
+        var training = compiler.TrainingStart(frame, goldShipBoost, facilities, generatedTurn);
         var development = ConstructionEvidence.ReadObservation(JsonSerializer.SerializeToElement(common), JsonSerializer.SerializeToElement(pioneer));
-        return !wholeRun ? training with { Development = development } : training with
+        return training with
         {
             Development = development,
             HintProgress = new([.. Objects(Array(chara, "skill_tips_array"), "skill_tips_array").Select(hint => new HintLevel(
@@ -134,13 +136,15 @@ public sealed class PioneerAutonomousSession
                 .OrderBy(row => Int(row, "check_point_type")).Select(row => Int(row, "result_state"))],
             DirectorBond = Int(Objects(Array(chara, "evaluation_info_array"), "evaluation_info_array")
                 .Single(row => Int(row, "target_id") == 102), "evaluation"),
+            ReporterBond = Int(Objects(Array(chara, "evaluation_info_array"), "evaluation_info_array")
+                .Single(row => Int(row, "target_id") == 103), "evaluation"),
         };
     }
 
     internal static PioneerStart.Planning ReadPlanningPanel(JsonObject common, JsonObject pioneer, PioneerMasterCompiler compiler)
     {
         var turn = Int(common["chara_info"]!.AsObject(), "turn");
-        var context = ReadTrainingPanel(common, pioneer, compiler, null, true, generatedTurn: turn == 3 ? 3 : checked(turn + 1));
+        var context = ReadTrainingPanel(common, pioneer, compiler, null, generatedTurn: turn == 3 ? 3 : checked(turn + 1));
         return new(context.Development!, context with { Development = null });
     }
 
@@ -151,7 +155,7 @@ public sealed class PioneerAutonomousSession
         var turn = start is PioneerStart.Planning planning ? planning.State.Turn : training.Turn;
         var counts = training.Commands.OrderBy(command => TrainingBaseTable.CommandIndex(command.CommandId));
         var prefix = new PioneerTrainingHistoryPrefix(turn, [.. counts.Select(command => command.ExecutionCount)], [0, 0, 0, 0, 0]);
-        return prefix.NeedsEstimate ? new(training, prefix, rules.TurnCalibration!.TrainingHistory) : null;
+        return prefix.NeedsEstimate ? new(training, prefix, rules.TurnCalibration.TrainingHistory) : null;
     }
 
     internal static PioneerHomeActions ReadHomeActions(JsonObject common, PioneerRulesSnapshot rules, int unseenFriendMask, bool ready,
@@ -230,8 +234,10 @@ public sealed class PioneerAutonomousSession
         var reservedId = chara["reserve_race_program_id"]?.GetValue<int>() ?? 0;
         if (reservedId > 0 && races.FirstOrDefault(race => race.ProgramId == reservedId) is { ProgramId: > 0 } reserved)
             scheduled.TryAdd(currentTurn, reserved);
+        bool? strongBrianRoute = currentGoals.Any(id => id is 378 or 380 or 382 or 384) ? true
+            : currentGoals.Any(id => id is 379 or 381 or 383 or 385) ? false : null;
         return new(enabled.Contains(801), enabled.Contains(301), enabled.Contains(390), friends.ToImmutable(), races,
             [.. scheduled.Select(pair => new PioneerScheduledRace(pair.Key, pair.Value))], unseen, grade, blocked,
-            [.. careerGoals], history);
+            [.. careerGoals], history, strongBrianRoute);
     }
 }

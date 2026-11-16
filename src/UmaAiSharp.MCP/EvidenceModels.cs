@@ -38,7 +38,7 @@ public sealed record PacketInventory(long Packets, long PioneerPackets, int Exch
 public sealed record VersionBinding(string Status, string? MasterResourceVersion,
     IReadOnlyList<string> PacketResourceVersions, string Reason);
 public sealed record ValidationSummary(string Status, IReadOnlyList<string> Blockers);
-public sealed record EvidenceReport(string SchemaVersion, DateTimeOffset CreatedAtUtc,
+public sealed record EvidenceReport(DateTimeOffset CreatedAtUtc,
     IReadOnlyList<SourceFingerprint> Sources, VersionBinding VersionBinding,
     string RegionVerification, MasterInventory Master, PacketInventory Packets,
     IReadOnlyList<EvidenceIssue> Issues, ValidationSummary Validation);

@@ -2,7 +2,6 @@ using UmaAiSharp.Pioneer.Game;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.MCP;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Events;
@@ -90,7 +89,7 @@ public sealed class DeclaredEventRewardTests
     }
 
     [Fact]
-    public void ResourceOrderCapsAndInputRejectionSurviveCliRoundTrip()
+    public void ResourceOrderCapsAndInputRejectionFollowTheSelectedBranch()
     {
         var reward = new DeclaredEventRewards(new([new(1, 10, 32, 0), new(1, 11, 4, 0), new(1, 20, 1, 0), new(1, 1, 15, 0)]));
         var before = new TrainingValues(1186, 1400, 1200, 100, 100, 99, 5);
@@ -104,20 +103,13 @@ public sealed class DeclaredEventRewardTests
         Assert.True(guarded.ConsumePositiveThinking); Assert.Equal(3, guarded.Motivation);
 
         var start = Start();
-        var decision = new DecisionId((int)PioneerStage.DeclaredEvent, 0, PioneerScenario.DecisionKey(start.Turn, start.Event.EventId));
-        var input = new PioneerExecutionInput(1, "event-cli", PioneerExecutionMode.Conditional,
-            new("declaredEvent", JsonSerializer.SerializeToElement(start, PioneerExecution.JsonOptions)),
-            [new("eventRewardResult", JsonSerializer.SerializeToElement(new { actionOrdinal = 0, choiceNumber = 1, branchIndex = 1 }))],
-            [new(decision, PioneerRuntimeAction.Choose(start.Event, 1))]);
-        var path = Path.Combine(Path.GetTempPath(), "UmaAiSharp-event-" + Guid.NewGuid().ToString("N") + ".json");
-        try
-        {
-            File.WriteAllText(path, JsonSerializer.Serialize(input, PioneerExecution.JsonOptions));
-            var loaded = PioneerExecution.Load(path);
-            var execution = SimulationRunner.CreateExecution(new PioneerScenario(loaded.Data), loaded.Script, loaded.Root, 71, 0);
-            Assert.Equal(1, SimulationRunner.Continue(new PioneerScenario(loaded.Data), loaded.Script, ref execution).Progress.ConsumedActions);
-        }
-        finally { File.Delete(path); }
+        var data = PioneerRuntimeData.Compile(start, [new PioneerConditionalOutcome.EventRewardResult(0, 1, 1)], "event-choice");
+        var scenario = new PioneerScenario(data);
+        var root = data.CreateInitialState();
+        var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
+            [new(scenario.Inspect(root, 0).Decision.Id, PioneerRuntimeAction.Choose(start.Event, 1))], 0);
+        var execution = SimulationRunner.CreateExecution(scenario, script, root, 71, 0);
+        Assert.Equal(1, SimulationRunner.Continue(scenario, script, ref execution).Progress.ConsumedActions);
     }
 
     [Theory]

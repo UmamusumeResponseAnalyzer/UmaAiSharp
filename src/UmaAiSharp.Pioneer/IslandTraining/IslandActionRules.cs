@@ -21,7 +21,6 @@ public readonly record struct TuckerSpecialtyContext(int SourceTurn, int RawPlay
 
 public static class IslandActionRules
 {
-    public const string Version = "observed-island-success-components-v1";
 
     public static IslandActionSettlement ApplySuccessCandidate(IslandActionState before, IslandTrainingInput training)
     {

@@ -10,7 +10,7 @@ using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.MCP.Evidence;
 
-public sealed record HintPoolAuditReport(string RuleVersion, IReadOnlyList<SourceFingerprint> Inputs,
+public sealed record HintPoolAuditReport(IReadOnlyList<SourceFingerprint> Inputs,
     IReadOnlyDictionary<string, int> Counts, IReadOnlyList<EvidenceIssue> Issues, IReadOnlyList<string> Limitations);
 
 public static class HintPoolAudit
@@ -181,7 +181,7 @@ public static class HintPoolAudit
         }
         for (var index = 0; index < paths.Length; index++)
             if (Fingerprint(paths[index]) != fingerprints[index]) throw new InvalidDataException("Hint 核验期间输入变化。");
-        var report = new HintPoolAuditReport(HintRewardPool.Version, fingerprints, counts, issues,
+        var report = new HintPoolAuditReport(fingerprints, counts, issues,
             ["FrozenResearchPairLocatorsNotNewIndependentPairing", "ServerTimePairsInheritVerifiedStudyTimeline",
                 "EffectivePoolOnlyNotDrawWeightsOrFilteringTime", "WhiteCandidateAndWhiteGoldLearnedOverlapOnly",
                 "SkillHintLevelIncreaseAndHintSelectionNotGenerated", "AllVersionsAcceptedPerUserInstruction"]);

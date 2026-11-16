@@ -15,10 +15,9 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
 {
     static readonly PioneerEvent FirstYearConfirmation = new(211022, 0, 400000100, 6);
     readonly TrainingProjection? trainingProjection = autonomous && data.IsWholeRun ? new(data) : null;
-    public string RulesIdentity { get; } = data.RulesIdentity + "/" + data.Model.Identity
-        + (data.IsWholeRun ? "/pioneer-whole-run-v10" : autonomous && data.TurnRules is not null ? "/pioneer-direct-turn-v1" : "");
+    public string RulesIdentity { get; } = data.RulesIdentity + "/" + data.Model.Identity;
     public long SharedMemoryBytes => data.SharedMemoryBytes + (trainingProjection is null ? 0 : TrainingProjection.SharedMemoryBytes);
-    public static long DecisionKey(int turn, int eventOrCommandId) => ((long)turn << 32) | (uint)eventOrCommandId;
+    public static long DecisionKey(int turn, int storyOrCommandId) => ((long)turn << 32) | (uint)storyOrCommandId;
     public PioneerState CreateWorkspace(in PioneerState source) => source.Clone();
     public long GetWorkspaceBytes(in PioneerState state) => state.WorkspaceBytes + (data.TurnRules?.SkillRating?.ScratchBytes ?? 0);
     public void CopyState(in PioneerState source, ref PioneerState destination) => source.CopyInto(destination);
@@ -35,13 +34,16 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         if (current.Stage == PioneerStage.UnsupportedContinuation)
             return Inspection<PioneerDecisionView>.Stopped(Stop(current.StopCode, current.ContinuationFrom));
         var failure = current.Stage == PioneerStage.FailureChoice;
+        var observed = current.Stage == PioneerStage.ObservedEvent;
+        var observedChoices = current.ObservedEventChoiceCount;
         var eventDecision = current.Stage is not (PioneerStage.FailureTraining or PioneerStage.IslandTraining or PioneerStage.TrainingTurn);
-        var key = DecisionKey(current.Turn, eventDecision
-            ? data.UsesStoryDecisions ? current.Event.StoryId : current.Event.EventId : current.CommandId);
+        var key = DecisionKey(current.Turn, eventDecision ? current.Event.StoryId : current.CommandId);
         var view = new PioneerDecisionView(current.Stage, current.Turn, current.RawPlayingState, current.KnownParts,
             current.Resources, current.Motivation, current.CommandId, current.Event,
-            failure ? 1 : current.Stage == PioneerStage.DeclaredEvent ? data.EventChoiceMinimum : current.RequiredChoice,
-            failure ? 2 : current.Stage == PioneerStage.DeclaredEvent ? data.EventChoiceMaximum : current.RequiredChoice,
+            observed ? observedChoices <= 1 ? 0 : 1
+                : failure ? 1 : current.Stage == PioneerStage.DeclaredEvent ? data.EventChoiceMinimum : current.RequiredChoice,
+            observed ? observedChoices <= 1 ? 0 : observedChoices
+                : failure ? 2 : current.Stage == PioneerStage.DeclaredEvent ? data.EventChoiceMaximum : current.RequiredChoice,
             current.Stage == PioneerStage.ConstructionPlanning ? CurrentPlanning(state) : null,
             current.Stage == PioneerStage.TrainingTurn ? current.AvailableTrainingCommands : 0,
             current.Stage == PioneerStage.DeclaredEvent ? ((PioneerStart.DeclaredEvent)data.Start).Choices : [],
@@ -59,39 +61,48 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         if (current.Stage == PioneerStage.UnsupportedContinuation) return Stop(current.StopCode, current.ContinuationFrom);
         var shapeMatches = action.Kind switch
         {
-            PioneerActionKind.Train => action.CommandId > 0 && action.EventId == 0 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is null,
+            PioneerActionKind.Train => action.CommandId > 0 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is null,
             PioneerActionKind.Rest => action.CommandId is RestRules.OrdinaryCommand or RestRules.CampCommand
-                && action.EventId == 0 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is null,
-            PioneerActionKind.Treat or PioneerActionKind.Race => action.CommandId > 0 && action.EventId == 0
                 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is null,
-            PioneerActionKind.Outing => action.EventId == 0 && action.ChoiceNumber == 0 && action.Plan is null
+            PioneerActionKind.Treat or PioneerActionKind.Race => action.CommandId > 0
+                && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is null,
+            PioneerActionKind.Outing => action.ChoiceNumber == 0 && action.Plan is null
                 && action.CharacterId == 0
                 && (action.CommandId == 301 && action.SupportPosition == 0 || action.CommandId == 390 && action.SupportPosition is >= 1 and <= 6),
-            PioneerActionKind.IslandTraining => action.CommandId == 0 && action.EventId == 0 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is null,
-            PioneerActionKind.ChooseEvent => action.CommandId == 0 && action.EventId > 0 && action.CharacterId >= 0 && action.ChoiceNumber >= 0 && action.Plan is null,
-            PioneerActionKind.SubmitConstruction => action.CommandId == 0 && action.EventId == 0 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is not null,
+            PioneerActionKind.IslandTraining => action.CommandId == 0 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is null,
+            PioneerActionKind.ChooseEvent => action.CommandId == 0 && action.CharacterId >= 0 && action.ChoiceNumber >= 0 && action.Plan is null,
+            PioneerActionKind.SubmitConstruction => action.CommandId == 0 && action.CharacterId == 0 && action.ChoiceNumber == 0 && action.Plan is not null,
             _ => false,
         };
         if (!shapeMatches || action.Kind != PioneerActionKind.Outing && action.SupportPosition != 0
-            || (action.Kind == PioneerActionKind.ChooseEvent ? action.StoryId < 0 || data.UsesStoryDecisions && action.StoryId == 0
+            || (action.Kind == PioneerActionKind.ChooseEvent ? action.StoryId <= 0
             : action.StoryId != 0)) return Illegal(current.Stage);
         var conditional = data.OutcomeAt(current.ActionOrdinal);
-        if (conditional is PioneerConditionalOutcome.TurnArrival arrival)
+        if (conditional is (PioneerConditionalOutcome.TrainingResult or PioneerConditionalOutcome.TrainingFailure)
+            && action.Kind != PioneerActionKind.Train)
+            return Stop(PioneerStopCode.OutcomeIdentityMismatch, current.Stage);
+        if (conditional is PioneerConditionalOutcome.TurnArrival)
         {
             if (current.Stage is not (PioneerStage.RestConfirmation or PioneerStage.TrainingLevelConfirmation or PioneerStage.TurnConfirmation)
-                && !(current.Stage == PioneerStage.TrainingTurn && action.Kind is PioneerActionKind.Treat or PioneerActionKind.Outing or PioneerActionKind.Race or PioneerActionKind.IslandTraining)
-                || arrival.Arrival == PioneerArrival.TrainingLevel
-                || arrival.Arrival == PioneerArrival.TurnConfirmation && (current.Turn != 13 || current.Stage == PioneerStage.TurnConfirmation)
-                || arrival.Arrival == PioneerArrival.TurnConfirmation && arrival.Event is { } nextEvent
-                    && (nextEvent.StoryId != FirstYearConfirmation.StoryId || nextEvent.CharacterId != FirstYearConfirmation.CharacterId
-                        || nextEvent.PlayTiming != FirstYearConfirmation.PlayTiming)
-                || arrival.AvailableRestCommands is > 0 && arrival.AvailableRestCommands != (data.CampCommands.IsEmpty
-                    ? RestRules.OrdinaryAvailable : RestRules.CampAvailable))
+                && !(current.Stage == PioneerStage.TrainingTurn && action.Kind is PioneerActionKind.Treat or PioneerActionKind.Outing or PioneerActionKind.Race or PioneerActionKind.IslandTraining))
+                return Stop(PioneerStopCode.OutcomeIdentityMismatch, current.Stage);
+        }
+        else if (conditional is PioneerConditionalOutcome.ObservedEventResult observed)
+        {
+            if (current.Stage != PioneerStage.ObservedEvent || observed.Event != current.Event || observed.ChoiceNumber != action.ChoiceNumber)
+                return Stop(PioneerStopCode.OutcomeIdentityMismatch, current.Stage);
+        }
+        else if (conditional is PioneerConditionalOutcome.TargetRaceWin race)
+        {
+            if (current.Stage != PioneerStage.TrainingTurn || action.Kind != PioneerActionKind.Race
+                || action.CommandId != race.ProgramId)
                 return Stop(PioneerStopCode.OutcomeIdentityMismatch, current.Stage);
         }
         else if (conditional is not null && current.Stage is not
             (PioneerStage.FailureTraining or PioneerStage.FailureChoice or PioneerStage.HintAttributeEvent or PioneerStage.ProjectMemberEvent
                 or PioneerStage.TrainingTurn or PioneerStage.DeclaredEvent))
+            return Stop(PioneerStopCode.OutcomeIdentityMismatch, current.Stage);
+        if (conditional?.FollowingFrame is { } following && !MatchesObservedTurn(current, following))
             return Stop(PioneerStopCode.OutcomeIdentityMismatch, current.Stage);
         if (current.Stage == PioneerStage.TrainingTurn)
         {
@@ -128,14 +139,15 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
                 ? null : Illegal(current.Stage);
         }
         if (action.Kind != PioneerActionKind.ChooseEvent) return Illegal(current.Stage);
-        if (action.StoryId != 0 && action.StoryId != current.Event.StoryId)
+        if (action.StoryId != current.Event.StoryId || action.CharacterId != current.Event.CharacterId)
             return new(SimulationStopReason.IllegalAction, (int)PioneerStopCode.WrongEventIdentity, (int)current.Stage,
                 action.StoryId, current.Event.StoryId);
-        if (action.EventId != current.Event.EventId || action.CharacterId != current.Event.CharacterId)
-            return new(SimulationStopReason.IllegalAction, (int)PioneerStopCode.WrongEventIdentity, (int)current.Stage,
-                action.EventId, current.Event.EventId);
         if (current.Stage == PioneerStage.FailureChoice)
             return action.ChoiceNumber is 1 or 2 ? null : Illegal(current.Stage);
+        if (current.Stage == PioneerStage.ObservedEvent)
+            return (current.ObservedEventChoiceCount <= 1 ? action.ChoiceNumber == 0
+                : action.ChoiceNumber >= 1 && action.ChoiceNumber <= current.ObservedEventChoiceCount)
+                ? null : Illegal(current.Stage);
         if (current.Stage == PioneerStage.DeclaredEvent)
         {
             foreach (var choice in ((PioneerStart.DeclaredEvent)data.Start).Choices)
@@ -173,9 +185,11 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
                 PioneerStage.RestConfirmation => ConfirmRest(state, ref random),
                 PioneerStage.TurnConfirmation => ConfirmTurn(state, ref random),
                 PioneerStage.TrainingLevelConfirmation => ConfirmTrainingLevel(state, ref random),
+                PioneerStage.ObservedEvent => ApplyObservedEvent(state, ref random),
+                PioneerStage.ReporterEnding => FinishReporterEnding(state),
                 PioneerStage.DeclaredEvent => ApplyDeclaredEvent(state, action),
                 PioneerStage.CharacterEnding => FinishCharacterEnding(state),
-                PioneerStage.FailureChoice => FinishFailure(state, action),
+                PioneerStage.FailureChoice => FinishFailure(state, action, ref random),
                 PioneerStage.IslandTraining => ApplyIsland(state, ref random),
                 PioneerStage.ConstructionEvent => ApplyConstruction(state),
                 PioneerStage.ConstructionPlanning => SubmitConstruction(state, action.Plan!, ref random),
@@ -239,6 +253,16 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         return TransitionResult.Settled((int)header.Stage);
     }
 
+    TransitionResult FinishReporterEnding(PioneerState state)
+    {
+        ApplyReporterEnding(state);
+        RecordCurrentStory(state);
+        state.Mutable.Event = default;
+        state.Mutable.KnownParts &= ~PioneerKnownParts.EventIdentity;
+        var result = Partial(state, PioneerStopCode.EventContinuationUnknown, turnKnown: true);
+        return TransitionResult.Stopped(true, true, result.Stop!.Value);
+    }
+
     public TrainingActionPreview PreviewTraining(in PioneerState state, int commandId)
     {
         if (!ReferenceEquals(state.Data, data) || state.Header.Stage != PioneerStage.TrainingTurn)
@@ -249,7 +273,9 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var environment = data.TrainingStart!.Environment with
         { Current = state.Header.Resources, Limits = state.Header.Limits, Fans = state.Header.Fans, Motivation = state.Header.Motivation,
             GoldShipBoost = state.Header.Turn == state.Header.SourceTurn ? data.TrainingStart.Environment.GoldShipBoost : null };
-        var camp = commandId >= 3601 ? state.TurnBoard?.Camp[index] ?? data.CampCommands[index] : (CompiledCampTraining?)null;
+        var camp = commandId < 3601 ? (CompiledCampTraining?)null : state.TurnBoard?.Camp[index]
+            ?? (!autonomous && data.IsWholeRun && state.Header.ActionOrdinal > 0
+                ? data.TurnRules!.CompileCampTraining(commandId, data.TurnRules.CurrentFacilities(state)) : data.CampCommands[index]);
         var placement = state.Header.TrainingBoard[index];
         var level = camp.HasValue ? 5 : state.GetSection(PioneerStateSection.TrainingLevels)[index];
         var coefficient = data.TurnRules?.FailureCoefficient(commandId, level) ?? command.FailureCoefficient;
@@ -271,9 +297,11 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             return BeginFailure(state, commandId);
         if (conditional is not null and not PioneerConditionalOutcome.TrainingResult)
             return Missing(state, PioneerStopCode.OutcomeIdentityMismatch);
+        var following = (conditional as PioneerConditionalOutcome.TrainingResult)?.Next;
         var index = TrainingFacilityRules.PrimaryTarget(TrainingBaseTable.OrdinaryCommand(commandId)) - 1;
         var placement = state.Header.TrainingBoard[index];
         var withDirector = placement.Director && data.IsWholeRun;
+        var withReporter = placement.Reporter && data.IsWholeRun;
         var preview = PreviewTraining(state, commandId);
         var count = checked(state.GetSection(PioneerStateSection.TrainingExecutionCounts)[index] + 1);
         // Commit the draw with the action; an unsupported settlement leaves its pending context unchanged.
@@ -324,8 +352,10 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             header.Resources = values; header.DevelopmentPoints = points; header.FutureGainedSkillPoints = gained;
             header.FutureOverflow = overflow;
             if (withDirector) header.DirectorBond = Math.Min(100, header.DirectorBond + 2 + attentionBonus);
+            if (withReporter) header.ReporterBond = Math.Min(100, header.ReporterBond + 2 + attentionBonus);
             firstFriends = header.UnseenFriendMask & placement.SupportMask;
-            ApplyFirstFriendTraining(state, firstFriends);
+            if (following is null) ApplyFirstFriendTraining(state, firstFriends);
+            else header.UnseenFriendMask &= ~firstFriends;
             Span<int> hints = stackalloc int[6];
             var hintCount = TrainingBoard.Positions(placement.HintMask, hints);
             state.SetSection(PioneerStateSection.HintCandidates, hints[..hintCount]);
@@ -334,6 +364,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         state.MutableSection(PioneerStateSection.TrainingExecutionCounts)[index] = count;
         header.CommandId = commandId; header.TrainingSucceeded = success; header.KnownParts |= PioneerKnownParts.TrainingResult;
         if (conditional is not null) header.ConditionalOutcomeCount++;
+        if (following is not null) return ArriveObserved(state, following, ref random);
         if (construction && !autonomous)
         {
             state.SetSection(PioneerStateSection.PendingStories, [400011107]);
@@ -360,26 +391,33 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
                     return Partial(state, PioneerStopCode.TrainingLevelHistoryRequired, turnKnown: true);
                 if (placement.HintMask != 0)
                     SettleTrainingHint(state, placement.HintMask, AllCampHints(state, commandId), ref random);
-                if (withDirector) header.DirectorBond = Math.Min(100, header.DirectorBond + 5 + attentionBonus);
+                if (data.IsWholeRun)
+                    ApplyTrainingNpcEvents(state, index, withDirector, withReporter, camp, ref random);
             }
             else
             {
                 var penaltyRandom = paired ? random.At(header.Turn, PioneerDraw.TrainingPenalty) : random;
-                ApplyAutonomousFailure(state, preview.FailureRate, ref penaltyRandom);
+                ApplyAutonomousFailure(state, index, preview.FailureRate, ref penaltyRandom);
                 if (!paired) random = penaltyRandom;
             }
             return AdvanceTurn(state, source, ref random);
         }
-        if (success && !withDirector && data.TurnRules is not null && placement.HintMask == 0
+        if (success && !withDirector && !withReporter && data.TurnRules is not null && placement.HintMask == 0
             && header.PendingTrainingLevelCommandId is { } pendingLevel)
             return AdvanceTurn(state, pendingLevel != 0 ? PioneerArrivalSource.TrainingWithLevel
                 : data.CampCommands.IsEmpty ? PioneerArrivalSource.Training : PioneerArrivalSource.CampTraining, ref random);
         return Partial(state, success ? PioneerStopCode.TrainingEventsRequired : PioneerStopCode.TrainingFailureEventRequired, turnKnown: true);
     }
 
-    static void ApplyAutonomousFailure(PioneerState state, int risk, ref SimulationRandom random)
+    static void ApplyAutonomousFailure(PioneerState state, int training, int risk, ref SimulationRandom random)
     {
-        // UmaAi-rust default failure choice. Observed Pioneer outcomes use the conditional path.
+        if (training == 4)
+        {
+            RecoverVital(state, TrainingFailureSettlement.WisdomRecovery);
+            return;
+        }
+
+        // shortcut: retain the UmaAi-rust heavy branch and odds until Pioneer heavy failures are captured.
         var severe = risk == 100 || risk > 0 && random.NextInt(100) < risk;
         var badTrainer = severe || random.NextInt(99) >= 66;
         if (severe) random.NextInt(2); // Both default heavy outcomes end with the same bad-trainer flag.
@@ -387,12 +425,12 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var values = header.Resources;
         var effects = state.GetSection(PioneerStateSection.CharacterEffects);
         var motivation = MotivationRules.Apply(header.Motivation, severe ? -3 : -1, effects.Contains(25), false);
-        header.Resources = values with
+        header.Resources = severe ? values with
         {
-            Speed = FailureLoss(values.Speed),
-            Stamina = severe ? FailureLoss(values.Stamina) : values.Stamina,
-            Power = severe ? FailureLoss(values.Power) : values.Power,
-        };
+            Speed = TrainingFailureSettlement.LoseAttribute(values.Speed, 10),
+            Stamina = TrainingFailureSettlement.LoseAttribute(values.Stamina, 10),
+            Power = TrainingFailureSettlement.LoseAttribute(values.Power, 10),
+        } : TrainingFailureSettlement.ApplyLightPenalty(values, training);
         header.Motivation = motivation.Value;
         if (motivation.ConsumePositiveThinking) state.RemoveCharacterEffect(25);
         if (badTrainer)
@@ -402,13 +440,6 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             state.AddCharacterEffect(6);
         }
         if (severe) header.TrainingFailureIllness = true;
-
-        static int FailureLoss(int displayed)
-        {
-            var raw = displayed > 1200 ? 2 * displayed - 1200 : displayed;
-            var after = Math.Max(0, raw - 10);
-            return after > 1200 ? 1200 + (after - 1200) / 2 : after;
-        }
     }
 
     TransitionResult ConfirmTrainingLevel(PioneerState state, ref SimulationRandom random)
@@ -531,18 +562,18 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         return AdvanceTurn(state, PioneerArrivalSource.TurnConfirmation, ref random);
     }
 
-    void RecordCurrentStory(PioneerState state)
+    void RecordCurrentStory(PioneerState state, int? choice = null)
     {
-        if (!data.UsesStoryDecisions) return;
         ref readonly var header = ref state.Header;
+        if (header.Event.StoryId == PioneerEvent.BrianRouteStory && header.Turn == 49)
+            state.Mutable.StrongBrianRoute = choice == 1;
         state.RecordStory(new(header.Event.StoryId, header.Turn, header.RawPlayingState,
-            header.Event.PlayTiming, header.Event.CharacterId, 0, 0, header.RequiredChoice));
+            header.Event.PlayTiming, header.Event.CharacterId, 0, 0, choice ?? header.RequiredChoice));
     }
 
     TransitionResult AdvanceTurn(PioneerState state, PioneerArrivalSource source, ref SimulationRandom random)
     {
         ref var header = ref state.Mutable;
-        var outcome = data.OutcomeAt(header.ActionOrdinal) as PioneerConditionalOutcome.TurnArrival;
         var next = checked(header.Turn + 1);
         var wholeRun = autonomous && data.IsWholeRun;
         if (autonomous)
@@ -567,7 +598,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
                 var periods = data.TrainingStart!.PlanningPeriods;
                 if (header.CompletedCheckpoint < periods.Length && periods[header.CompletedCheckpoint].CheckPointTurn == header.Turn)
                 {
-                    SettleCheckpoint(state, periods[header.CompletedCheckpoint]);
+                    SettleCheckpoint(state, periods[header.CompletedCheckpoint], ref random);
                     if (header.CompletedCheckpoint < periods.Length)
                     {
                         return BeginPlanning(state, periods[header.CompletedCheckpoint]);
@@ -605,36 +636,19 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         }
         else
         {
-            if (outcome is not null) header.ConditionalOutcomeCount++;
-            var level = source == PioneerArrivalSource.TrainingWithLevel;
-            if (level || outcome?.Arrival == PioneerArrival.TurnConfirmation)
+            if (data.OutcomeAt(header.ActionOrdinal) is PioneerConditionalOutcome.TurnArrival observed)
             {
-                header.Event = level ? TrainingLevelRules.Reveal(header.PendingTrainingLevelCommandId!.Value) : outcome!.Event ?? FirstYearConfirmation;
-                state.SetSection(PioneerStateSection.PendingStories, [header.Event.StoryId]);
-                header.Stage = level ? PioneerStage.TrainingLevelConfirmation : PioneerStage.TurnConfirmation;
-                header.RawPlayingState = 5;
-                header.RequiredChoice = 0;
-                header.KnownParts |= PioneerKnownParts.EventIdentity;
-                header.ActionOrdinal++;
-                return TransitionResult.Settled((int)header.Stage);
+                header.ConditionalOutcomeCount++;
+                return ArriveObserved(state, observed.Next, ref random);
             }
-            if (outcome is null) return Partial(state, PioneerStopCode.TurnArrivalOutcomeRequired, turnKnown: true);
-            if (outcome.Arrival == PioneerArrival.OtherPhase) return Partial(state, PioneerStopCode.NextTurnPhaseRequired);
-            if (outcome.Arrival is PioneerArrival.SameTurnEvent or PioneerArrival.NextTurnEvent)
-            {
-                if (outcome.Arrival == PioneerArrival.NextTurnEvent) header.Turn = next;
-                if (outcome.Event is { } pending)
-                {
-                    header.Event = pending;
-                    header.KnownParts |= PioneerKnownParts.EventIdentity;
-                    state.SetSection(PioneerStateSection.PendingStories, [pending.StoryId]);
-                }
-                return Partial(state, PioneerStopCode.TurnEventDispatchRequired, turnKnown: true);
-            }
+            if (source == PioneerArrivalSource.TrainingWithLevel)
+                return RevealObservedEvent(state, TrainingLevelRules.Reveal(header.PendingTrainingLevelCommandId!.Value),
+                    PioneerStage.TrainingLevelConfirmation, 5);
+            return Partial(state, PioneerStopCode.TurnArrivalOutcomeRequired, turnKnown: true);
         }
         if (!wholeRun && (next >= 78 || IsCamp(next) != IsCamp(header.Turn)))
             return Partial(state, PioneerStopCode.NextTurnPhaseRequired);
-        return ArriveAtTraining(state, next, outcome, ref random);
+        return ArriveAtTraining(state, next, null, ref random);
     }
 
     void ApplyOrdinaryArrival(PioneerState state, PioneerArrivalSource source, int turn, ref SimulationRandom random)
@@ -652,7 +666,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         data.TurnRules.ApplyOrdinaryBond(state, ordinary.Bond, ref random);
     }
 
-    TransitionResult ArriveAtTraining(PioneerState state, int next, PioneerConditionalOutcome.TurnArrival? outcome, ref SimulationRandom random)
+    TransitionResult ArriveAtTraining(PioneerState state, int next, PioneerTurnObservation? outcome, ref SimulationRandom random)
     {
         ref var header = ref state.Mutable;
         var previous = header.Turn;
@@ -677,9 +691,10 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         header.RawPlayingStateKnown = true;
         header.Stage = PioneerStage.TrainingTurn;
         header.Event = default;
+        header.ObservedEventChoiceCount = 0;
         header.CommandId = 0;
         header.PendingTrainingLevelCommandId = 0;
-        var scheduled = autonomous ? data.TurnRules!.ScheduledRace(next) : null;
+        var scheduled = autonomous ? data.TurnRules!.ScheduledRace(next, header.StrongBrianRoute) : null;
         if (scheduled is { Target: true, CareerGoalId: > 0 } required && header.Fans < required.RequiredFans)
             return EndCareer(state, required.CareerGoalId);
         var scheduledRace = autonomous && ActiveScheduledRace(state) is not null;
@@ -737,17 +752,19 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         return TransitionResult.Settled((int)header.Stage);
     }
 
-    TransitionResult FinishFailure(PioneerState state, PioneerRuntimeAction action)
+    TransitionResult FinishFailure(PioneerState state, PioneerRuntimeAction action, ref SimulationRandom random)
     {
         if (data.OutcomeAt(state.Header.ActionOrdinal) is not PioneerConditionalOutcome.FailurePenalty outcome)
             return MissingOutcome(state, PioneerStopCode.FailureBranchRequired);
         var current = state.Header.Event;
         var before = FailureState(state, TrainingFailureStage.FailureChoice, new(current.EventId, current.CharacterId, current.StoryId, current.PlayTiming));
-        var (after, consumePositiveThinking) = TrainingFailureSettlement.ResolveChoice(before, action.EventId,
+        var (after, consumePositiveThinking) = TrainingFailureSettlement.ResolveChoice(before, action.StoryId,
             action.ChoiceNumber, outcome.Branch, state.GetSection(PioneerStateSection.CharacterEffects).Contains(25));
-        state.Mutable.Turn = after.Turn; state.Mutable.Motivation = after.Motivation; state.Mutable.Resources = after.Resources;
+        state.Mutable.Motivation = after.Motivation; state.Mutable.Resources = after.Resources;
         if (consumePositiveThinking) state.RemoveCharacterEffect(25);
         state.Mutable.ConditionalOutcomeCount++;
+        if (outcome.Next is { } next) return ArriveObserved(state, next, ref random);
+        state.Mutable.Turn = after.Turn;
         // The old failure event is consumed. Phase/queue after the turn change are not guessed.
         state.Mutable.Event = default;
         state.Mutable.KnownParts &= ~PioneerKnownParts.EventIdentity;
@@ -762,15 +779,17 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             stage, pending);
 
     TransitionResult ApplyConstruction(PioneerState state)
+        => TrySettleConstructionEvent(state) ? Partial(state, PioneerStopCode.ConstructionRemainderUnknown)
+            : Missing(state, PioneerStopCode.UnsupportedComponentInput);
+
+    bool TrySettleConstructionEvent(PioneerState state)
     {
         ref readonly var header = ref state.Header;
         var pending = state.GetSection(PioneerStateSection.PendingStories);
-        if (pending.Length != 1
-            || !((pending[0] == 400011107 && header.Turn is >= 5 and <= 60 && header.RawPlayingState == 5)
-                || (pending[0] == 400011108 && header.Turn == 41 && header.RawPlayingState == 1))
-            || !SettleConstruction(state))
-            return Missing(state, PioneerStopCode.UnsupportedComponentInput);
-        return Partial(state, PioneerStopCode.ConstructionRemainderUnknown);
+        return pending.Length == 1
+            && (pending[0] == 400011107 && header.Turn is >= 5 and <= 60 && header.RawPlayingState == 5
+                || pending[0] == 400011108 && header.Turn == 41 && header.RawPlayingState == 1)
+            && SettleConstruction(state);
     }
 
     bool ApplyConstructionThresholds(PioneerState state, int before)
@@ -986,7 +1005,8 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         PioneerStopCode.ProjectMembersRequired => "缺少明确NPC身份结果；成员抽样规则未实现。",
         PioneerStopCode.NextTurnEventsUnknown => "失败数值及回合变化已结算，下一回合事件尚未生成。",
         PioneerStopCode.NextTurnPhaseRequired => "行动资源已结算，接续的合宿、评审、规划、比赛或终局阶段尚未生成。",
-        PioneerStopCode.TurnEventDispatchRequired => "条件回放指定了待处理事件阶段，当前尚无对应结算。",
+        PioneerStopCode.TurnEventDispatchRequired => "条件回放的待处理事件缺少实包阶段或选项信息。",
+        PioneerStopCode.ObservedEventResultRequired => "待处理事件缺少当前选择的实包结算结果与续步。",
         PioneerStopCode.TurnArrivalOutcomeRequired => "条件回放缺少已观察到的回合结果。",
         PioneerStopCode.TrainingLevelHistoryRequired => "缺少成功普通训练次数，无法判断本次是否达到升级里程碑。",
         PioneerStopCode.ConstructionSettlementRequired => "已跨过建设阈值，当前的设施计划或岛训练券状态超出已支持的建设结算范围。",
@@ -999,7 +1019,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         PioneerStopCode.EventContinuationUnknown => "当前已发奖显示确认已消费，后续事件调度未知。",
         PioneerStopCode.UnsupportedComponentInput => "当前组件输入超出已核验范围；没有替换为默认规则。",
         PioneerStopCode.OutcomeIdentityMismatch => "条件结果没有指向当前输入中的有效结果身份。",
-        PioneerStopCode.WrongEventIdentity => "动作故事或协议event_id/character_id与当前决策事件不一致。",
+        PioneerStopCode.WrongEventIdentity => "动作的故事、角色或选项与当前事件不一致。",
         PioneerStopCode.InvalidAction => "动作类型、命令或选项不符合当前决策。",
         PioneerStopCode.PlanningContinuationRequired => "建设计划已提交，等待训练面板生成。",
         _ => "没有完整Pioneer终局路径。",

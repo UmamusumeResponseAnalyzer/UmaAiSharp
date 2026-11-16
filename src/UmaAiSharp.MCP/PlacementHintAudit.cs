@@ -21,10 +21,9 @@ public sealed record PlacementStratum(int CardId, int Level, string Mode, bool I
     bool DeckHasUnique122, int CardType, int PanelSpecialty, int DirectUniqueSpecialty,
     int PanelHint, int DirectUniqueHint, IReadOnlyList<int> ConditionalUniqueTypes,
     PlacementFrequency Absent, PlacementFrequency Preferred, PlacementFrequency HintPerBoard,
-    PlacementFrequency HintGivenPresent, IReadOnlyList<PlacementBaseline> UnadjustedBaselines,
-    double? LegacySixPercentHintExpected, string ContextStatus);
+    PlacementFrequency HintGivenPresent, IReadOnlyList<PlacementBaseline> UnadjustedBaselines, string ContextStatus);
 public sealed record PlacementCoverage(string Dimension, string Value, int Count);
-public sealed record PlacementHintAuditReport(string SchemaVersion, IReadOnlyList<SourceFingerprint> Inputs,
+public sealed record PlacementHintAuditReport(IReadOnlyList<SourceFingerprint> Inputs,
     IReadOnlyDictionary<string, int> Counts, IReadOnlyList<PlacementStratum> Strata,
     IReadOnlyList<PlacementCoverage> Coverage, IReadOnlyList<EvidenceIssue> Issues,
     IReadOnlyList<string> ApplicabilityLimits, string Status);
@@ -202,7 +201,7 @@ public static class PlacementHintAudit
         foreach (var source in sources)
             if (Fingerprint(source.Item1, source.Item2).Sha256 != fingerprints.Single(value => value.Alias == source.Item2).Sha256)
                 throw new InvalidDataException("审计期间输入改变，本次输出不能作为稳定证据。");
-        var report = new PlacementHintAuditReport("1", fingerprints, counts, strata,
+        var report = new PlacementHintAuditReport(fingerprints, counts, strata,
             coverage.OrderBy(pair => pair.Key.Dimension, StringComparer.Ordinal).ThenBy(pair => pair.Key.Value, StringComparer.Ordinal)
                 .Select(pair => new PlacementCoverage(pair.Key.Dimension, pair.Key.Value, pair.Value)).ToArray(), issues,
             ["ObservedReadyBoardsAreNotProvenIndependentDraws", "NoFilteringByChosenTrainingAction",
@@ -233,11 +232,10 @@ public static class PlacementHintAudit
         return new(card.CardId, card.Level, mode, card.Introduced, tucker, card.CardType, card.PanelSpecialty,
             card.DirectUniqueSpecialty, card.PanelHint, card.DirectUniqueHint, card.ConditionalUniqueTypes,
             absent, preferred, hint, hintPresent, baselines,
-            card.Introduced && card.CardType == 1 && card.DirectUniqueHint == 0 ? entries.Length * .06 * (1 + card.PanelHint / 100.0) : null,
             "UnresolvedDynamicScenarioAndConditionalUniqueEffects");
     }
 
-    // Published historical hypotheses plus an explicitly separate two-stage hypothesis; no model is selected as a game rule.
+    // Compare the candidate placement formulas over the same eligible boards.
     public static PlacementBaseline[] Baselines(int panel, int directUnique, int trials, int preferred, int absent)
     {
         var weight = (100.0 + panel) * (1 + directUnique / 100.0);
@@ -247,8 +245,6 @@ public static class PlacementHintAudit
             ("Vip2021MultiplicativeUniqueWeights", weight / (450 + weight), 50 / (450 + weight)),
             ("PresenceFirst90ThenSameWeightsHypothesis", .9 * weight / (400 + weight), .1),
         };
-        var legacy = .18 * (1 + (panel + directUnique) / 100.0);
-        if (legacy <= .9) models.Add(("GameWithLegacyLinearApproximation", legacy, .1));
         return models.Select(model => new PlacementBaseline(model.Name, model.Preferred, model.Absent,
             trials * model.Preferred, trials * model.Absent, preferred - trials * model.Preferred, absent - trials * model.Absent)).ToArray();
     }

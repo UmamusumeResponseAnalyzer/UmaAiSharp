@@ -6,7 +6,7 @@
 
 训练开放期间的成功收益为`floor((60+6N)×(100+B+20F)/100)`。N计入参与训练的支援卡和PJ成员，排除理事长、记者；B为已完成评审的加成，F为是否友情训练。首次规划开放前与第五期评审完成后为0。开局前两回合的零收益已有连续动作研究；首次规划回合从当前deck的master记录读取。
 
-重新读取冻结的83,421观测，筛选就绪态、显式发展Pt预览并按育成/回合/命令/参与者/结果去重：普通52,072项、合宿4,335项，全部匹配；其中含PJ成员的分别为41,962和3,720项。报告与可复算脚本位于[发展Pt核验](../artifacts/implementation/camp-turn-01/point-verification.json)。这些是同一批材料的扩大核验。
+重新读取冻结的83,421观测，筛选就绪态、显式发展Pt预览并按育成/回合/命令/参与者/结果去重：普通52,072项、合宿4,335项，全部匹配；其中含PJ成员的分别为41,962和3,720项。报告与可复算脚本位于发展Pt核验（历史输出 `artifacts/implementation/camp-turn-01/point-verification.json`）。这些是同一批材料的扩大核验。
 
 ## 合宿行动
 
@@ -24,4 +24,4 @@
 
 当前训练行动结算到`TrainingEventsRequired`或`TrainingFailureEventRequired`。完整后续事件、人员刷新和回合调度继续由统一状态机接入。
 
-验证记录：[335项完整测试](../artifacts/validation/camp-turn-01/complete-six-workers.trx)、[AVX2目标测试](../artifacts/validation/camp-turn-01/avx2.trx)、[实际CLI与ISA状态对照](../artifacts/validation/camp-turn-01/verification.json)。CLI重放的27074→27076资源与发展Pt匹配，原生AVX-512和禁用AVX-512的完整状态及RNG末态相同。
+验证记录：335项完整测试（历史输出 `artifacts/validation/camp-turn-01/complete-six-workers.trx`）、AVX2目标测试（历史输出 `artifacts/validation/camp-turn-01/avx2.trx`）、实际CLI与ISA状态对照（历史输出 `artifacts/validation/camp-turn-01/verification.json`）。CLI重放的27074→27076资源与发展Pt匹配，原生AVX-512和禁用AVX-512的完整状态及RNG末态相同。

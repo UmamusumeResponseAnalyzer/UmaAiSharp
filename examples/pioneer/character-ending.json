@@ -1,6 +1,5 @@
 {
-  "schemaVersion": 1,
-  "rulesIdentity": "local-character-ending-v1",
+  "rulesIdentity": "pioneer-rules/c938910b40672ee64d64ea39634e75b41cb76bc8a4639a02bf0e4ef0c39bb298",
   "mode": "autonomous",
   "start": {
     "kind": "characterEnding",

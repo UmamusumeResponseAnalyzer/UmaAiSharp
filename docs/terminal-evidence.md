@@ -16,7 +16,7 @@
 
 215个严格窗口覆盖38个角色；事件后资源与各自后续`finish`资源一致。脚本从事件前态生成这些结果，后包仅用于断言。与推导同源的材料保存为`tests/UmaAiSharp.Tests/Fixtures/pioneer-character-endings.json`；来源筛选、原始字段与哈希见`artifacts/implementation/turn-progression-01/character-ending-windows-03.json`。
 
-Pioneer 高评价结局之后还有 Tucker 及角色结局奖励。规则资源 v6 从第 72 回合收尾推进到三轮 URA 决赛，再依次结算终盘奖励。Tucker 的两个主要奖励档位按拟合组的频数抽样。因子选择与账号保存排除在终局指标之外。[自主整局](pioneer-mcp.md#规则资源-v6-自主整局)
+Pioneer 高评价结局之后还有 Tucker 及角色结局奖励。自主整局从第 72 回合收尾推进到三轮 URA 决赛，再依次结算终盘奖励。Tucker 的两个主要奖励档位按拟合组的频数抽样。因子选择与账号保存排除在终局指标之外。[自主整局](pioneer-mcp.md#自主整局)
 
 正式回放的终局检查要求动作脚本及所有条件结果消费完毕；存在遗留条件时返回`ScriptMismatch/OutcomeIdentityMismatch`。原始响应导入、终局执行及推荐例见[MCP 执行](pioneer-mcp.md)。
 

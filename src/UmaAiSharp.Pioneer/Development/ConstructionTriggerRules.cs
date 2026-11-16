@@ -11,7 +11,6 @@ public sealed record ConstructionProgressUpdate(ConstructionProgress AfterPoints
 
 public sealed class ConstructionTriggerRules(PioneerMasterData master)
 {
-    public const string Version = "pioneer-construction-trigger-v3";
 
     internal static int CrossedThreshold(ReadOnlySpan<int> thresholds, int beforePoints, int afterPoints)
     {

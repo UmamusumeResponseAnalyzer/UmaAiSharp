@@ -52,7 +52,7 @@ public sealed class PioneerInheritanceCapture
     public static PioneerInheritanceLottery[] RankLotteries(JsonObject common)
     {
         if (common["unchecked_event_array"] is not JsonArray events
-            || events.FirstOrDefault() is not JsonObject current || Int(current, "event_id") is not (7040 or 7041)
+            || events.FirstOrDefault() is not JsonObject current || Int(current, "story_id") != 400000040
             || current["succession_event_info"]?["succession_gain_info_array"] is not JsonArray options)
             return [];
         var currentState = common["chara_info"]!.AsObject();

@@ -2,7 +2,6 @@ namespace UmaAiSharp.Pioneer.Development;
 
 public static class PioneerPointGain
 {
-    public const string Version = "training-development-points-v2";
 
     // Counts support cards and PJ members in ordinary/camp training; director/reporter are excluded.
     public static int OrdinaryTraining(int participants, int checkpointBonusPercent, bool friendshipTraining)

@@ -60,7 +60,7 @@ public sealed partial class PioneerScenario
         return TransitionResult.Settled((int)header.Stage);
     }
 
-    void SettleCheckpoint(PioneerState state, PlanningPeriod period)
+    void SettleCheckpoint(PioneerState state, PlanningPeriod period, ref SimulationRandom random)
     {
         ref var header = ref state.Mutable;
         var rules = data.Checkpoints!;
@@ -90,6 +90,22 @@ public sealed partial class PioneerScenario
         var attr = high ? HighCheckpointAttributes[index] : LowCheckpointAttributes[index];
         var skill = high ? HighCheckpointSkillPoints[index] : LowCheckpointSkillPoints[index];
         ApplyProgressionReward(state, attr, skill);
+        var turnRules = data.TurnRules!;
+        if (period.CheckPointType == 5)
+        {
+            GainHint(state, high ? turnRules.HighFinalReviewHintSlot : turnRules.LowFinalReviewHintSlot, high ? 1 : 3);
+        }
+        if ((high || period.CheckPointType == 5) && turnRules.OrdinarySupportMask != 0)
+        {
+            // shortcut: packets identify the deck Hint pool, but not the source card weights.
+            Span<int> positions = stackalloc int[6];
+            var count = TrainingBoard.Positions((byte)turnRules.OrdinarySupportMask, positions);
+            var draw = random.At(header.Turn, PioneerDraw.CheckpointHint);
+            var position = positions[draw.NextScaled(count)] - 1;
+            var bonus = turnRules.Hints!.Draw(position, state.GetSection(PioneerStateSection.SupportBonds)[position],
+                state.MutableSection(PioneerStateSection.HintLevels), ref draw);
+            if (bonus != default) ApplyProgressionReward(state, bonus);
+        }
 
         header.CompletedCheckpoint = period.CheckPointType;
         header.CheckpointResult = result;
@@ -124,8 +140,7 @@ public sealed partial class PioneerScenario
         header.TurnKnown = true;
         header.Event = default;
         header.KnownParts &= ~PioneerKnownParts.EventIdentity;
-        // shortcut: use the modal closing bonus until the supporting character conditions are fitted.
-        ApplyProgressionReward(state, 0, 10);
+        ApplyReporterEnding(state);
         var results = state.GetSection(PioneerStateSection.CheckpointResults);
         var high = results.Count(2);
         var (attribute, skill) = high switch
@@ -140,17 +155,36 @@ public sealed partial class PioneerScenario
             ref var hint = ref state.MutableSection(PioneerStateSection.HintLevels)[data.TurnRules!.EndingHintSlot];
             hint = Math.Max(hint, PioneerEndingSettlement.HighHint.Level);
         }
+        else if (high == 4 && results[^1] == 1)
+        {
+            GainHint(state, data.TurnRules!.LowEndingHintSlot, PioneerEndingSettlement.LowFinalReviewHint.Level);
+        }
 
         var start = data.TrainingStart!;
         foreach (var card in start.Deck)
         {
             if (card.CardId != 30257) continue;
             var lower = ((header.FriendOutings >> ((card.Position - 1) * 3)) & 7) < 5;
-            var multiplier = 100 + card.Effects.Where(effect => effect.Type == 26).Sum(effect => effect.Value);
-            var gains = (lower ? 10 : 15) * multiplier / 100;
-            ApplyProgressionReward(state, new(lower ? gains : 0, gains, 0, gains, 0, 0, (lower ? 40 : 50) * multiplier / 100));
+            var bond = state.GetSection(PioneerStateSection.SupportBonds)[card.Position - 1];
+            var scaling = EventEffectScaling.FromSupport(card with { Bond = bond });
+            var gains = scaling.Apply(1, lower ? 10 : 15);
+            ApplyProgressionReward(state, new(gains, gains, 0, gains, 0, 0, scaling.Apply(30, lower ? 40 : 50)));
         }
         return FinishCharacterEnding(state);
+    }
+
+    static void ApplyReporterEnding(PioneerState state)
+    {
+        ref readonly var header = ref state.Header;
+        // shortcut: the upper two attention tiers use one matched packet each (bonds 75 and 100).
+        var (attribute, pt) = (header.ReporterBond, header.HasAttention) switch
+        {
+            (>= 90, true) => (11, 42), (>= 70, true) => (9, 30),
+            (>= 40, true) => (0, 20), (_, true) => (0, 10),
+            (>= 90, false) => (5, 20), (>= 70, false) => (3, 10),
+            (>= 40, false) => (0, 10), _ => (0, 5),
+        };
+        ApplyProgressionReward(state, attribute, pt);
     }
 
     static void ApplyProgressionReward(PioneerState state, int attribute, int skill)
@@ -167,5 +201,6 @@ public sealed partial class PioneerScenario
         header.Resources = after.Resources;
         header.FutureGainedSkillPoints += gains.SkillPoints;
         header.FutureOverflow += after.Overflow;
+        if (gains.Vital != 0) RecoverVital(state, gains.Vital);
     }
 }

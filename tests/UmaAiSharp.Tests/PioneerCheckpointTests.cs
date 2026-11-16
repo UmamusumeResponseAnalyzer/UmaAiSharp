@@ -107,7 +107,7 @@ public sealed class PioneerCheckpointTests
         try
         {
             var sourceHash = new string('a', 64);
-            var sourceReport = new EvidenceReport("1", DateTimeOffset.UtcNow,
+            var sourceReport = new EvidenceReport(DateTimeOffset.UtcNow,
                 [new("packets", "fixture", sourceHash, 1), new("master", "fixture", MasterHash, 1)],
                 new("Unverified", null, ["fixture"], "Fixture only"), "Unverified", new([], [], 0),
                 new(0, 0, 0, 0, 0, 0, 0, 0, 0, [], [], [], [], []), [], new("Blocked", ["FixtureOnly"]));

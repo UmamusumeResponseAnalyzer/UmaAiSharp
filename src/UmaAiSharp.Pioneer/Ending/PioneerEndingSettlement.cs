@@ -11,9 +11,9 @@ public sealed record PioneerEndingReward(TrainingValues After, int HintGroupId, 
 
 public static class PioneerEndingSettlement
 {
-    public const string Version = "jp-pioneer-high-ending-observed-candidate-v1";
     internal const int HighAttribute = 55, HighSkillPoints = 540;
     internal static readonly HintLevel HighHint = new(new(21036, 2), 1);
+    internal static readonly HintLevel LowFinalReviewHint = new(new(21036, 1), 3);
 
     public static PioneerEndingReward ApplyCandidate(PioneerEndingContext context, TrainingValues before, TrainingLimits limits)
     {

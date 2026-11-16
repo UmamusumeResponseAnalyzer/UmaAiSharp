@@ -14,8 +14,8 @@ namespace UmaAiSharp.Pioneer.Offline;
 
 public static class PioneerMasterReader
 {
-    public static PioneerRulesSnapshot ReadForecast(string path, Runtime.PioneerTurnCalibration? calibration = null,
-        PioneerInheritanceCalibration? inheritance = null)
+    public static PioneerRulesSnapshot ReadRules(string path, PioneerTurnCalibration calibration,
+        PioneerInheritanceCalibration inheritance)
     {
         using var db = OpenReadOnly(path);
         using var source = File.OpenRead(path);
@@ -34,38 +34,28 @@ public static class PioneerMasterReader
         using (var rows = query.ExecuteReader())
             while (rows.Read()) races.Add(new(rows.GetInt32(0), rows.GetInt32(1), rows.IsDBNull(2) ? null : rows.GetString(2),
                 rows.GetInt32(3), rows.GetInt32(4), rows.GetInt32(5), rows.GetInt32(6), rows.GetInt32(7), rows.GetInt32(8)));
-        ImmutableArray<PioneerStoryProgress>? storyProgress = null;
-        ImmutableArray<int> traineeRandomStories = default;
-        if (calibration is not null)
-        {
-            query.CommandText = """
-                SELECT story_id,MIN(show_progress_1),MIN(show_progress_2),
-                    CASE WHEN MIN(support_card_id)=MAX(support_card_id) THEN MIN(support_card_id) ELSE 0 END
-                FROM single_mode_story_data
-                GROUP BY story_id
-                HAVING MIN(show_progress_1)>0 AND MIN(show_progress_2)>=MIN(show_progress_1)
-                    AND MIN(show_progress_1)=MAX(show_progress_1) AND MIN(show_progress_2)=MAX(show_progress_2)
-                ORDER BY story_id
-                """;
-            var progress = ImmutableArray.CreateBuilder<PioneerStoryProgress>();
-            using (var rows = query.ExecuteReader())
-                while (rows.Read()) progress.Add(new(rows.GetInt32(0), rows.GetInt32(1), rows.GetInt32(2), rows.GetInt32(3)));
-            storyProgress = progress.ToImmutable();
-            traineeRandomStories = [.. ReadIntegers(db, """
-                SELECT DISTINCT story_id FROM single_mode_story_data
-                WHERE (card_chara_id>0 OR card_id>0) AND race_event_flag=0 AND story_id<>501007525
-                    AND (gallery_list_id BETWEEN 42001 AND 42009 OR gallery_list_id IN (52001,52002,52003,80001,82011,82012,82013,82014,82015)
-                        OR (card_id>0 AND gallery_list_id BETWEEN 1 AND 3))
-                ORDER BY story_id
-                """).Select(row => row["story_id"])];
-        }
-        return new(calibration is null ? PioneerRulesSnapshot.StaticVersion : PioneerRulesSnapshot.CurrentVersion,
-            sha, ReadTraining(db), ReadFacilities(db), ReadEventPartners(db), races.ToImmutable(),
-            calibration is null ? null : ConstructionData(db, sha), calibration, storyProgress,
-            calibration is null ? null : ReadProgression(db),
-            calibration is null ? null : ReadInheritance(db, inheritance ?? throw new InvalidDataException("整局规则缺少继承校准。")),
-            calibration is null ? default : ReadHintPools(db), traineeRandomStories,
-            calibration is null ? null : ReadSkillRating(db));
+        query.CommandText = """
+            SELECT story_id,MIN(show_progress_1),MIN(show_progress_2),
+                CASE WHEN MIN(support_card_id)=MAX(support_card_id) THEN MIN(support_card_id) ELSE 0 END
+            FROM single_mode_story_data
+            GROUP BY story_id
+            HAVING MIN(show_progress_1)>0 AND MIN(show_progress_2)>=MIN(show_progress_1)
+                AND MIN(show_progress_1)=MAX(show_progress_1) AND MIN(show_progress_2)=MAX(show_progress_2)
+            ORDER BY story_id
+            """;
+        var progress = ImmutableArray.CreateBuilder<PioneerStoryProgress>();
+        using (var rows = query.ExecuteReader())
+            while (rows.Read()) progress.Add(new(rows.GetInt32(0), rows.GetInt32(1), rows.GetInt32(2), rows.GetInt32(3)));
+        var traineeRandomStories = ReadIntegers(db, """
+            SELECT DISTINCT story_id FROM single_mode_story_data
+            WHERE (card_chara_id>0 OR card_id>0) AND race_event_flag=0 AND story_id<>501007525
+                AND (gallery_list_id BETWEEN 42001 AND 42009 OR gallery_list_id IN (52001,52002,52003,80001,82011,82012,82013,82014,82015)
+                    OR (card_id>0 AND gallery_list_id BETWEEN 1 AND 3))
+            ORDER BY story_id
+            """).Select(row => row["story_id"]);
+        return new(sha, ReadTraining(db), ReadFacilities(db), ReadEventPartners(db), races.ToImmutable(),
+            ConstructionData(db, sha), calibration, progress.ToImmutable(), ReadProgression(db),
+            ReadInheritance(db, inheritance), ReadHintPools(db), [.. traineeRandomStories], ReadSkillRating(db));
     }
 
     static PioneerSkillRatingData ReadSkillRating(SqliteConnection db)
@@ -230,7 +220,7 @@ public static class PioneerMasterReader
             [.. Rows(db, "single_mode_11_facility_state").OrderBy(row => row["state_id"]).Select(row => new TrainingFacility(
                 row["facility_id"], row["state_id"], row["facility_lv"], effects.GetValueOrDefault(row["state_id"], [])))],
             [.. Rows(db, "single_mode_11_shima_effect").Where(row => row["result_state"] == 2)
-                .Select(row => new Runtime.ForecastFacilityBase(row["command_id"], row["required_facility_id"], row["target_type"], row["effect_value"]))]);
+                .Select(row => new PioneerFacilityBase(row["command_id"], row["required_facility_id"], row["target_type"], row["effect_value"]))]);
     }
 
     public static PioneerEventPartnersData ReadEventPartners(SqliteConnection db) => new(

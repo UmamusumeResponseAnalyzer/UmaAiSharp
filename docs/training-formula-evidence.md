@@ -1,16 +1,16 @@
 # 训练公式生成与核验证据
 
-`TrainingFailureRate` 生成失败率显示值。`TrainingFormulaCandidate` 生成普通、合宿和岛训练两段预览；三模式候选、输入构造和当前核验入口见[三模式训练收益候选](training-modes-evidence.md)。当前数值版本为v5。本页保留失败率证据及此前数值候选的历史反例，计数保持各自版本口径。
+`TrainingFailureRate` 生成失败率显示值。`TrainingFormulaCandidate` 生成普通、合宿和岛训练两段预览；三模式候选、输入构造和当前核验入口见[三模式训练收益候选](training-modes-evidence.md)。本页保留失败率证据与普通训练公式的反例。
 
-v5允许master定义的住宿设施更高等级、熟练路线Lv5及未建对应设施的合宿输入使用既有原子解释器。它移除了仅凭既有样本范围设置的拒绝条件，没有改变量化或四舍五入规则；未知效果类型继续拒绝。新增范围属于候选外推，参考核一致不等于新增范围已被独立实包验证，见[整链交付边界](../artifacts/implementation/forecast-integration-01/REPORT.md)。
+精确参考核按 master 定义解释已知的住宿设施高等级、熟练路线 Lv5 和未建设施。较少见的设施输入属于公式外推，独立实包覆盖见 [三模式训练收益候选](training-modes-evidence.md)。
 
-失败率规则为`jp-failure-preview-v2`，新增状态3／5／11／27的偏置与证据见[角色状态分量](condition-effects.md)。训练收益v4在构造精确分数前使用足够位宽的倍率乘加；设施、成长、友情、人数与剧本比例保留原量化及截断顺序。基础值或体力等必须保存为int的和使用checked，溢出明确失败。相关边界与当前核验见[数值修复记录](../artifacts/implementation/numeric-width-01/REPORT.md)。
+状态 3／5／11／27 的失败率偏置见 [角色状态分量](condition-effects.md)。训练收益以扩展位宽计算倍率乘加。设施、成长、友情、人数与剧本比例按各自的量化及截断顺序结算。存入 int 的基础值和体力通过 checked 检查溢出。
 
 ```json
 {
   "name": "evidence_training_formula",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "artifacts/evidence/training-formula-audit-new"
   }
@@ -19,9 +19,9 @@ v5允许master定义的住宿设施更高等级、熟练路线Lv5及未建对应
 
 输出目录必须为空。报告保存标准化观测、请求响应关联和本地 master 的 SHA-256，并在完成时复核输入未变化。`training-formula-samples.jsonl` 保存参加支援卡及其已解析面板、固有参数、前置属性、上限、成长、干劲、基础系数、预测与实际预览；`training-formula-counterexamples.jsonl` 单独保存反例。每个属性的理论值使用 `BigInteger` 有理数记录。未经过 100 点限制、1200 转换或属性上限截断的项目还保存“观测值减理论值”的精确分数。
 
-## v2 普通训练历史核验
+## 普通训练核验样本
 
-`artifacts/evidence/training-formula-audit-04/training-formula-audit.json` 使用 `local-audit-05` 和本地 master，收益候选版本为 `jp-ordinary-training-candidate-v2`，结果如下。计数是完整输入与输出去重后的预览，不是独立随机试验次数。
+`artifacts/evidence/training-formula-audit-04/training-formula-audit.json` 使用 `local-audit-05` 和本地 master，以下为该次普通训练核验结果。计数是完整输入与输出去重后的预览，不是独立随机试验次数。
 
 | 项目 | 数量 |
 |---|---:|
@@ -54,7 +54,7 @@ v5允许master定义的住宿设施更高等级、熟练路线Lv5及未建对应
 
 这证明了当前输入范围的**显示百分比**能够重建，未验证实际失败事件是否以该百分比采样、失败/大失败后果、状态效果相互覆盖顺序，或多张失败率降低卡同时出现的组合。该模块不抽取失败结果。
 
-## v2 普通收益候选与反例
+## 普通收益候选与反例
 
 公式形态参考移交包 `04_参照实现/umasim` 的 `MujintoStore.kt`、`MujintoCalculator.kt`，以及本轮实际读取的 [umasim Calculator](https://github.com/mee1080/umasim/blob/75bebbeb4316cac4049fe47981231b9088d2627e/core/src/commonMain/kotlin/io/github/mee1080/umasim/simulation2/Calculator.kt#L169)。它们是参照实现，不是游戏真值。候选依次组合基础属性与支援属性加成、人数、训练效果、干劲效果、符合条件的友情倍率及角色成长；上层使用尚未经过 1200 转换和属性上限截断的整数下层乘评估会加成。
 
@@ -114,4 +114,4 @@ v5允许master定义的住宿设施更高等级、熟练路线Lv5及未建对应
 
 `08_模拟器与实时助手/rebuild_training_base.py` 使用按设施等级分组的实现收益均值、副属性比例、`LEVEL_MULT` 人为 1.90 上限和技能 Pt 每级提升假设。`01_机制事实/机制结论清单.md` 的“实测”标签没有替代原始数据核验。0.72、`train_stat_scale`、平均体耗 -20 以及上述拟合表均未接入规则。
 
-本地 master 与包的资源版本未严格绑定属于适用性说明。v4 的普通、合宿和岛训生成使用统一精确量化候选；人员分配概率、未知固有、失败后果、事件生成、训练等级推进以及完整育成状态机均不由训练收益模块完成。
+本地 master 与包的资源版本未严格绑定属于适用性说明。普通、合宿和岛训使用统一的精确量化顺序；人员分配概率、未知固有、失败后果、事件生成、训练等级推进以及完整育成状态机均不由训练收益模块完成。

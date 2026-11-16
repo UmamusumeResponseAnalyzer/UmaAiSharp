@@ -100,51 +100,5 @@ public static class PioneerGameData
 
     static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
-    internal static Dictionary<string, int> ReadValues(JsonObject chara, JsonObject? pioneer, Dictionary<string, int>? prior = null)
-    {
-        var result = prior is null ? new Dictionary<string, int>() : new(prior);
-        foreach (var field in PioneerForecastScenario.BasicFields.Take(15)) result[field] = Int(chara, field);
-        result["route_id"] = Int(chara, "route_id");
-        result["race_program_id"] = Int(chara, "race_program_id");
-        foreach (var row in Objects(Array(chara, "evaluation_info_array"), "evaluation_info_array"))
-        {
-            var id = Int(row, "target_id");
-            result[$"bond:{id}"] = Int(row, "evaluation");
-            result[$"outing:{id}"] = Int(row, "is_outing");
-            result[$"story:{id}"] = Int(row, "story_step");
-            result[$"appeared:{id}"] = Int(row, "is_appear");
-        }
-        foreach (var row in Objects(Array(chara, "training_level_info_array"), "training_level_info_array"))
-            result[$"level:{Int(row, "command_id")}"] = Int(row, "level");
-        foreach (var key in result.Keys.Where(key => key.StartsWith("effect:", StringComparison.Ordinal)).ToArray()) result[key] = 0;
-        foreach (var effect in Integers(Array(chara, "chara_effect_id_array"), "chara_effect_id_array")) result[$"effect:{effect}"] = 1;
-        if (pioneer is not null)
-        {
-            if (pioneer["pioneer_info"] is JsonObject info) result["pioneer_pt"] = Int(info, "pioneer_pt");
-            if (pioneer["training_exec_info_array"] is JsonArray executions)
-                foreach (var row in Objects(executions, "training_exec_info_array")) result[$"exec:{Int(row, "base_command_id")}"] = Int(row, "exec_count");
-            if (pioneer["facility_info_array"] is JsonArray facilityRows)
-                foreach (var row in Objects(facilityRows, "facility_info_array")) result[$"facility:{Int(row, "facility_id")}"] = Int(row, "state_id");
-            if (pioneer["shima_training_info"] is JsonObject island && island["remain_num"] is JsonValue tickets)
-                result["island_tickets"] = tickets.GetValue<int>();
-            if (pioneer["check_point_info_array"] is JsonArray checkpoints)
-                foreach (var row in Objects(checkpoints, "check_point_info_array")) result[$"checkpoint:{Int(row, "check_point_type")}"] = Int(row, "result_state");
-        }
-        return result;
-    }
-
-    internal static bool IsCategory(string name) => name.StartsWith("effect:", StringComparison.Ordinal) || name.StartsWith("facility:", StringComparison.Ordinal)
-        || name.StartsWith("checkpoint:", StringComparison.Ordinal) || name.StartsWith("outing:", StringComparison.Ordinal) || name.StartsWith("appeared:", StringComparison.Ordinal)
-        || name is "route_id" or "race_program_id";
-    internal static int FieldValue(Dictionary<string, int> values, string name) => values.TryGetValue(name, out var value) ? value
-        : !PioneerForecastScenario.BasicFields.Contains(name) && name.Contains(':') ? 0 : PioneerForecastModel.Unknown;
-    internal static string Configuration(JsonObject chara) => Hash(Int(chara, "card_id") + "/"
-        + string.Join(';', Objects(Array(chara, "support_card_array"), "support_card_array").OrderBy(row => Int(row, "position"))
-            .Select(row => $"{Int(row, "support_card_id")}:{Int(row, "exp")}")));
     internal static string RunToken(JsonObject chara) => Hash(Int(chara, "card_id") + "/" + chara["start_time"]!.ToJsonString());
-    internal static string HashFile(string path)
-    {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        return Convert.ToHexStringLower(SHA256.HashData(stream));
-    }
 }

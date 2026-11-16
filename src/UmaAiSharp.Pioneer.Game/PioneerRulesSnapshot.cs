@@ -3,7 +3,6 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Hints;
@@ -14,18 +13,14 @@ using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Game;
 
-public sealed record PioneerRulesSnapshot(int SchemaVersion, string SourceMasterSha256, PioneerTrainingRulesData Training,
+public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrainingRulesData Training,
     PioneerFacilityRulesData Facilities, PioneerEventPartnersData EventPartners, ImmutableArray<PioneerRaceRule> Races,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PioneerMasterData? Construction = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PioneerTurnCalibration? TurnCalibration = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ImmutableArray<PioneerStoryProgress>? StoryProgress = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PioneerProgressionData? Progression = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PioneerInheritanceData? Inheritance = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] ImmutableArray<PioneerCardHints> CardHints = default,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] ImmutableArray<int> TraineeRandomStories = default,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PioneerSkillRatingData? SkillRating = null)
+    PioneerMasterData Construction, PioneerTurnCalibration TurnCalibration, ImmutableArray<PioneerStoryProgress> StoryProgress,
+    PioneerProgressionData Progression, PioneerInheritanceData Inheritance, ImmutableArray<PioneerCardHints> CardHints,
+    ImmutableArray<int> TraineeRandomStories, PioneerSkillRatingData SkillRating)
 {
-    public const int StaticVersion = 1, CurrentVersion = 13;
+    static readonly (int Character, int SkillGroup)[] SeniorIslandLinks =
+        [(1031, 20311), (1040, 20266), (1027, 20245), (1069, 20322), (1021, 20161), (9049, 20046)];
     static readonly JsonSerializerOptions Json = new(PioneerGameJson.Options) { WriteIndented = false };
 
     public static PioneerRulesSnapshot Load(Stream resource)
@@ -56,17 +51,19 @@ public sealed record PioneerRulesSnapshot(int SchemaVersion, string SourceMaster
         resource.CopyTo(bytes);
         bytes.Position = 0;
         var snapshot = Load(bytes);
-        if (snapshot.SchemaVersion != CurrentVersion)
-            throw new InvalidDataException($"回合续步规则要求版本 {CurrentVersion}，当前为 {snapshot.SchemaVersion}。");
         return (snapshot, "pioneer-rules/" + Convert.ToHexStringLower(SHA256.HashData(bytes.GetBuffer().AsSpan(0, checked((int)bytes.Length)))));
     }
 
-    public PioneerTurnRules CompileTurnRules(PioneerStart.TrainingTurn start, PioneerPlacementSeed placement)
+    public PioneerTurnRules CompileTurnRules(PioneerStart.TrainingTurn start, PioneerPlacementSeed placement,
+        IEnumerable<HintSkill>? observedHints = null)
     {
-        if (TurnCalibration is null)
-            throw new InvalidDataException("回合续步缺少拟合规则。");
         var progress = start.HintProgress ?? throw new InvalidDataException("整局起点缺少当前 Hint 和已学技能。");
-        var hints = new PioneerHintRules(CardHints, Inheritance!.Skills, start.Deck, progress);
+        var hints = new PioneerHintRules(CardHints, Inheritance.Skills, start.Deck, progress, observedHints);
+        var linked = EventPartners.Supports.Where(support => start.Deck.Any(card => card.CardId == support.CardId))
+            .Select(support => support.CharacterId).Append(start.CharacterId ?? start.CardId / 100).ToHashSet();
+        var seniorHints = ImmutableArray.CreateBuilder<HintSkill>(SeniorIslandLinks.Length);
+        foreach (var (character, group) in SeniorIslandLinks)
+            seniorHints.Add(new(group, linked.Contains(character) ? 2 : 1));
         var inheritance = start.Inheritance is { } parents ? new PioneerInheritanceRules(Inheritance, parents,
             start.CharacterId ?? start.CardId / 100, start.CardId, hints, [.. progress.OwnedSkills.Select(skill => skill.Id)]) : null;
         var observed = start.ObservedStoryHistory ?? [];
@@ -79,14 +76,27 @@ public sealed record PioneerRulesSnapshot(int SchemaVersion, string SourceMaster
             .Select(story => story.StoryId).Distinct().Count());
         return new(TurnCalibration, Training.Commands.Select(row => (row.CommandId, row.Level, row.FailureRate)),
             start, placement.AppearedSupportMask, placement.AppearedProjectMembers,
-            Facilities.States, Facilities.Bases, Progression!.UraFirstPlaceFans,
-            inheritance, hints, new(first, second, third, trainee), CompileRaceCalendar(start), SkillRating);
+            Facilities.States, Facilities.Bases, Progression.UraFirstPlaceFans,
+            inheritance, hints, new(first, second, third, trainee), CompileRaceCalendar(start), SkillRating,
+            seniorHints.MoveToImmutable(), start.CardId / 100 == 1016 ? CompileBrianRoute() : null);
+    }
+
+    IEnumerable<(int Turn, PioneerRaceOption Normal, PioneerRaceOption Strong)> CompileBrianRoute()
+    {
+        var races = Races.ToDictionary(race => race.ProgramId);
+        foreach (var pair in Progression.FixedRaceGoals.Where(goal => goal.Id is >= 378 and <= 385).GroupBy(goal => goal.Turn))
+        {
+            var normal = pair.Single(goal => goal.Id % 2 == 1);
+            var strong = pair.Single(goal => goal.Id % 2 == 0);
+            yield return (pair.Key, races[normal.ProgramId].Option(true) with { CareerGoalId = normal.Id },
+                races[strong.ProgramId].Option(true) with { CareerGoalId = strong.Id });
+        }
     }
 
     ImmutableArray<PioneerRaceOption>[] CompileRaceCalendar(PioneerStart.TrainingTurn start)
     {
         var calendar = new ImmutableArray<PioneerRaceOption>[79];
-        var groups = Progression!.CharacterPrograms.Where(row => row.CharacterId == start.CardId / 100)
+        var groups = Progression.CharacterPrograms.Where(row => row.CharacterId == start.CardId / 100)
             .SelectMany(row => new[] { row.ProgramGroup, row.SecondProgramGroup }).Append(0).ToHashSet();
         var byDate = Races.Where(race => race.Grade is >= 100 and <= 800 && groups.Contains(race.ProgramGroup))
             .ToLookup(race => (race.Month, race.Half));
@@ -103,13 +113,11 @@ public sealed record PioneerRulesSnapshot(int SchemaVersion, string SourceMaster
     }
 
     public CheckpointMasterData CompileCheckpoints() => new(SourceMasterSha256, Training.PlanningPeriods,
-        Progression!.CheckpointBonuses, Progression.CheckpointEffects);
+        Progression.CheckpointBonuses, Progression.CheckpointEffects);
 
     void Validate()
     {
-        if (SchemaVersion is not (StaticVersion or CurrentVersion))
-            throw new InvalidDataException($"Pioneer 规则资源版本 {SchemaVersion} 未识别。");
-        if (SchemaVersion == CurrentVersion && (Construction is null || TurnCalibration is null || TurnCalibration.UraFans.IsDefaultOrEmpty
+        if (TurnCalibration.UraFans.IsDefaultOrEmpty
             || CardHints.IsDefaultOrEmpty || TraineeRandomStories.IsDefaultOrEmpty
             || SkillRating is not { Skills.IsDefaultOrEmpty: false, Talents.IsDefaultOrEmpty: false }
             || TurnCalibration.TuckerRepeat.IsDefaultOrEmpty || TurnCalibration.Director.IsDefaultOrEmpty
@@ -120,11 +128,11 @@ public sealed record PioneerRulesSnapshot(int SchemaVersion, string SourceMaster
                 || row.StaminaRewards.IsDefaultOrEmpty || row.StaminaRewards.Any(reward => reward.Gain <= 0 || reward.Count <= 0)
                 || row.StaminaRewards.Sum(reward => (long)reward.Count) > row.Triggered)
             || TurnCalibration.Director.Any(row => row.Boards <= 0 || row.Appearances < 0 || row.Appearances > row.Boards)
-            || StoryProgress is not { IsDefaultOrEmpty: false } || Progression is null || Inheritance is null
+            || StoryProgress.IsDefaultOrEmpty
             || Progression.UraFirstPlaceFans.Length != 3 || Progression.UraFirstPlaceFans.Any(fans => fans <= 0)
             || Progression.FixedRaceGoals.IsDefaultOrEmpty || Progression.CareerGoals.IsDefaultOrEmpty
             || Progression.CharacterPrograms.IsDefaultOrEmpty || Progression.RaceCalendar.IsDefaultOrEmpty
-            || Construction.SourceSha256 != SourceMasterSha256))
+            || Construction.SourceSha256 != SourceMasterSha256)
             throw new InvalidDataException("Pioneer 规则资源缺少建设规则、回合校准、故事进度、继承或整局阶段数据。");
         if (SourceMasterSha256.Length != 64 || !SourceMasterSha256.All(char.IsAsciiHexDigit))
             throw new InvalidDataException("Pioneer 规则资源缺少有效的源 master SHA-256。");
@@ -167,7 +175,7 @@ public readonly record struct PioneerUniqueEffectRule(int Id, int Level, Immutab
 public readonly record struct PioneerCharacterRule(int Id, int CharacterId, TrainingValues GrowthPercent);
 public readonly record struct PioneerCheckpointTrainingEffect(int Checkpoint, int Result, int Type, int Target, int Value);
 
-public sealed record PioneerFacilityRulesData(ImmutableArray<TrainingFacility> States, ImmutableArray<ForecastFacilityBase> Bases);
+public sealed record PioneerFacilityRulesData(ImmutableArray<TrainingFacility> States, ImmutableArray<PioneerFacilityBase> Bases);
 public sealed record PioneerEventPartnersData(ImmutableArray<PioneerSupportIdentity> Supports,
     ImmutableArray<PioneerNpcIdentity> Npcs, ImmutableArray<int> CharacterIds);
 public readonly record struct PioneerSupportIdentity(int CardId, int CharacterId, int Type);

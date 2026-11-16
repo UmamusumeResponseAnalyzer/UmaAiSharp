@@ -1,6 +1,6 @@
-# Pioneer 片段执行内核
+# Pioneer 执行内核
 
-`PioneerScenario` 把已支持的 Pioneer 决策和结算分量接入统一查询、动作验证、脚本、复制和批量执行。起点由 `PioneerStart` 声明，包含当前观测与执行所需字段。末尾角色结局可返回 `TerminalMetrics`；其他路径的结算范围和停止位置见下表。
+`PioneerScenario` 把已支持的 Pioneer 决策和结算分量接入统一查询、动作验证、脚本、复制和批量执行。起点由 `PioneerStart` 声明，包含当前观测与执行所需字段。自主轨迹完成后返回 `TerminalMetrics`。条件回放按观测到的动作和下一面板推进。
 
 ## 运行入口
 
@@ -25,7 +25,7 @@ var scenario = new PioneerScenario(data);
 
 条件结果仅用于回放，决策视图不暴露它们。普通／合宿训练回合在未提供条件结果时按显示失败率抽样；其余条件组件缺少结果时保持未消费状态。错误事件身份由动作验证拒绝。数值候选身份随 `RulesIdentity` 保留。
 
-决策身份包含 `PioneerStage`、轨迹内 `Ordinal` 和回合键。规则资源执行的事件回合键使用 `storyId`，版本 1 组件脚本使用 `eventId`。动作校验继续核对已揭示的 `eventId` 和 `characterId`。同回合重复故事由动作序号和当时的阶段、参与者区分。当前序号上条件类型错误与缺少结果分别报告。终局若有遗留条件结果，以 `ScriptMismatch/OutcomeIdentityMismatch` 停止并记录消费数与总数。
+决策身份包含 `PioneerStage`、轨迹内 `Ordinal` 和回合键。事件回合键使用 `storyId`。动作校验核对已揭示的 `storyId`、`characterId` 和选项。同回合重复故事由动作序号和当时的阶段、参与者区分。当前序号上条件类型错误与缺少结果分别报告。终局若有遗留条件结果，以 `ScriptMismatch/OutcomeIdentityMismatch` 停止并记录消费数与总数。
 
 轨迹 `StoryHistory` 按顺序存储十项整数，依次为故事、回合、阶段、时机、角色、支援卡、目标参与者、选项、连续事件阶段和总段数。阶段读取 `show_progress_1`。已接通结算的已揭示故事按轨迹顺序追加。
 
@@ -61,13 +61,15 @@ var scenario = new PioneerScenario(data);
 
 ## 条件回放分量与停止位置
 
+以下为条件输入覆盖到对应动作、缺少下一观测时的停止位置。
+
 | 起点 | 已执行的内容 | 停止位置 |
 |---|---|---|
 | 末尾角色结局 | 五属性各+5、技能Pt+20，应用1200换算与上限，记录路径Pt与溢出 | `Terminal`，输出终局指标 |
 | 普通／合宿训练回合 | 五项指令收益／失败率预览，抽样或条件成功结果，资源／Pt／基础羁绊／执行次数／溢出 | 普通成功跨建设阈值进入建设107；其余为`TrainingEventsRequired`或`TrainingFailureEventRequired` |
 | 单项训练升级确认 | 对应训练等级+1，消费已经揭示的事件 | `TrainingLevelContinuationRequired`；同回合后续与下一回合未调度 |
 | 普通休息与确认 | 选择后揭示指定事件；确认后体力+50／70并封顶 | `RestContinuationRequired`；缺抽样结果时不消费行动 |
-| 合宿休息＆外出 | 体力+40、干劲+1并封顶，保持次数和羁绊 | `RestContinuationRequired`；后续调度未接入 |
+| 合宿休息＆外出 | 体力+40、干劲+1并封顶，保持次数和羁绊 | `RestContinuationRequired` |
 | 已揭示事件选项 | 保留奖励候选组，结算选中结果的属性／体力／上限／干劲／技能Pt及正向思考消耗 | `EventRewardRemainderRequired`；多个结果未指定时为 `EventRewardOutcomeRequired` |
 | 两种耐力训练失败 | 训练次数 +1，进入真实失败选择；明确选择分支后耐力 −5、干劲 −1、回合 +1 | `NextTurnEventsUnknown`，不假定下一训练已就绪 |
 | 岛训练 | 精确数值候选生成两层收益，结算资源／发展 Pt／羁绊／扣券／行动前人员 +60 原子 | `IslandContinuationUnknown` |
@@ -88,13 +90,13 @@ var scenario = new PioneerScenario(data);
 
 `PioneerRuntimeTests` 将两条原始失败夹具接入正式脚本和执行器，在失败选择处复制，再核对后续状态和结构化停止；同时检查不同 worker 固定槽位一致性、未消费动作重试、变量缓冲的复制隔离及已提交分量不重复应用。PJ、Tucker、显示确认复用实际组件数值夹具；其中缺少完整事件身份的测试使用明确标注的本地身份标记，测试范围为已选择的结算分量。
 
-`PioneerTerminalExecutionTests` 核对215个角色结局窗口、未来Pt与溢出、脚本／条件消费、分叉和CLI。确定性测试在成功终局与停止路径均抓取完整Header和有效数据区；比较2,049样本在1／4／16／32 worker下的结果及65样本前缀。
+`PioneerTerminalExecutionTests` 核对215个角色结局窗口、未来Pt与溢出、脚本／条件消费和分叉。确定性测试在成功终局与停止路径均抓取完整Header和有效数据区；比较2,049样本在1／4／16／32 worker下的结果及65样本前缀。
 
-`PioneerRuntimeComponentTests` 将现有七组岛训练真实快照通过公共 master 编译入口导入并执行，与实际立即响应的资源、发展Pt、券和羁绊逐项比较。建设107/108夹具来自 `local-audit-05` 的8118→8120、1364→1366两窗，重新核对同局、唯一Paired请求响应、端点和事件选择后仅导出所需前后字段；`pioneer-runtime-construction.json` 保存来源和派生输入SHA-256。评审使用268→270的既有资源与进度投影。全部仍是已参与推导的语料，不是新的独立机制验收。
+`PioneerRuntimeComponentTests` 将现有七组岛训练真实快照通过组件执行入口结算，与实际立即响应的资源、发展Pt、券和羁绊逐项比较。建设107/108夹具来自 `local-audit-05` 的8118→8120、1364→1366两窗，重新核对同局、唯一Paired请求响应、端点和事件选择后仅导出所需前后字段；`pioneer-runtime-construction.json` 保存来源和派生输入SHA-256。评审使用268→270的既有资源与进度投影。全部仍是已参与推导的语料，不是新的独立机制验收。
 
 训练数值使用 `TrainingNumericKernel` 和共享 `CompiledTrainingDeck`；`RawGains` 分数字符串由审计入口生成。动态固有按羁绊阈值、训练等级和粉丝整除分段预编译；每个单元保留原子顺序和条件激活时的错误。执行只读查表，未知分支不会提前影响未触发的条件。岛训练编译入口交叉校验Deck与参与者身份、等级及羁绊，并预编译基础增量、海之家系数及各友情设施数的倍率。数值核保留BigInteger及逐原子取整。组件的未知规则异常转换为结构化停止。各片段耗时、分配和编译成本见性能报告。
 
-合宿配置保存五项普通等级、按五属性顺序排列的基础值及六个设施。训练时使用有效Lv5解析支援固有，普通等级保留在状态中。静态设施基础增量、海之家系数和剧本倍率在规则编译时计算，行动路径直接消费数值。规则身份包含`pioneer-runtime-components-v12`和`pioneer-training-turn-v12`；等级确认规则为`pioneer-training-level-trigger-v3`。训练数值版本为`jp-training-refit14-d6x3-r5-candidate-v4`，包含在完整规则身份中；证据与统计口径见[训练行动](training-turn-evidence.md)。
+合宿配置保存五项普通等级、按五属性顺序排列的基础值及六个设施。训练时使用有效Lv5解析支援固有，普通等级保留在状态中。静态设施基础增量、海之家系数和剧本倍率在规则编译时计算，行动路径直接消费数值。报告记录规则资源指纹与所选模型。证据与统计口径见 [训练行动](training-turn-evidence.md)。
 
 `SuccessfulOrdinaryTrainingCounts`在已知时保存五项成功普通训练次数，与包含合宿和失败的`TrainingExecutionCounts`分别维护；缺失时不写已知位。两者归轨迹缓冲独占，计数更新不提前结算训练等级事件。[历史导入](training-history.md)
 

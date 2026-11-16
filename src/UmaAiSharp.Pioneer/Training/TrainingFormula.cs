@@ -13,7 +13,6 @@ public sealed record TrainingFormulaPrediction(TrainingValues Common, TrainingVa
 
 public static class TrainingFailureRate
 {
-    public const string Version = "jp-failure-preview-v2";
 
     public static int StatusBias(IEnumerable<int> effects)
     {
@@ -69,7 +68,6 @@ public static class TrainingFailureRate
 
 public static class TrainingFormulaCandidate
 {
-    public const string Version = "jp-training-refit14-d6x3-r5-candidate-v5";
 
     public static TrainingFormulaPrediction GenerateOrdinary(TrainingFormulaInput input)
     {

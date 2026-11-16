@@ -29,7 +29,7 @@ public sealed class PioneerRuntimeTests
         var stopped = SimulationRunner.Continue(changedScenario, originalScript, ref wrongTurn);
         Assert.Equal(SimulationStopReason.ScriptMismatch, stopped.Stop!.Value.Reason);
         Assert.Equal(0, stopped.Progress.ConsumedActions);
-        Assert.NotNull(scenario.ValidateAction(root, PioneerRuntimeAction.Train(root.Header.CommandId) with { EventId = 1 }));
+        Assert.NotNull(scenario.ValidateAction(root, PioneerRuntimeAction.Train(root.Header.CommandId) with { StoryId = 1 }));
         var execution = SimulationRunner.CreateExecution(scenario, originalScript, root, 0, 0);
         _ = SimulationRunner.Advance(scenario, originalScript, ref execution);
         var choice = PioneerRuntimeAction.Choose(execution.State.Header.Event, 1) with { CommandId = 105 };
@@ -133,11 +133,11 @@ public sealed class PioneerRuntimeTests
 
     static ActionScript<PioneerDecisionView, PioneerRuntimeAction> FailureScript(PioneerState root, TrainingFailureEvent failure)
         => new([new(new((int)PioneerStage.FailureTraining, 0, PioneerScenario.DecisionKey(root.Header.Turn, root.Header.CommandId)), PioneerRuntimeAction.Train(root.Header.CommandId)),
-            new(new((int)PioneerStage.FailureChoice, 1, PioneerScenario.DecisionKey(root.Header.Turn, failure.EventId)),
+            new(new((int)PioneerStage.FailureChoice, 1, PioneerScenario.DecisionKey(root.Header.Turn, failure.StoryId)),
                 PioneerRuntimeAction.Choose(new(failure.EventId, failure.CharacterId, failure.StoryId, failure.PlayTiming), 1))], 0);
 
     static ActionScript<PioneerDecisionView, PioneerRuntimeAction> SingleEventScript(PioneerState root, PioneerEvent current, int choice)
-        => new([new(new((int)root.Header.Stage, 0, PioneerScenario.DecisionKey(root.Header.Turn, current.EventId)), PioneerRuntimeAction.Choose(current, choice))], 0);
+        => new([new(new((int)root.Header.Stage, 0, PioneerScenario.DecisionKey(root.Header.Turn, current.StoryId)), PioneerRuntimeAction.Choose(current, choice))], 0);
 
     static (PioneerRuntimeData Data, FailureExpected Expected) FailureCase(int index)
     {

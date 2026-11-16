@@ -19,7 +19,7 @@ public sealed record CheckpointStoryCoverage(int StoryId, int Observations, int 
 public sealed record CheckpointProgressAudit(EvidenceReference Before, EvidenceReference After, long RequestRecordId,
     CheckpointEventContext Context, CheckpointProgress ProgressBefore, CheckpointProgress ProgressAfter,
     int ObservedAddedMembers, int ObservedRemovedMembers, CheckpointProgressSettlement Candidate, bool Matches);
-public sealed record CheckpointAuditReport(string SchemaVersion, IReadOnlyList<SourceFingerprint> Sources,
+public sealed record CheckpointAuditReport(IReadOnlyList<SourceFingerprint> Sources,
     IReadOnlyList<SourceFingerprint> Inputs, int MatchedSubmissions, int TargetComparisonMatches, int SubmissionsWithoutResourceChanges,
     int MatchedEventSelections, int CandidateResourceMatches, IReadOnlyList<CheckpointStoryCoverage> Stories,
     IReadOnlyList<EvidenceIssue> Issues, VersionBinding VersionBinding, ValidationSummary Validation,
@@ -43,7 +43,6 @@ public static class CheckpointAudit
         var sourceReport = JsonSerializer.Deserialize<EvidenceReport>(
             File.ReadAllText(Path.Combine(input, "audit.json")), EvidenceJson.ReadOptions)
             ?? throw new InvalidDataException("检查点核验缺少输入证据报告。");
-        if (sourceReport.SchemaVersion != "1") throw new InvalidDataException("检查点核验不支持该证据报告版本。");
         var hashes = sourceReport.Sources.ToDictionary(x => x.Alias, x => x.Sha256, StringComparer.Ordinal);
         if (!hashes.TryGetValue("master", out var masterHash))
             throw new InvalidDataException("检查点核验缺少 master 来源哈希。");
@@ -191,7 +190,7 @@ public static class CheckpointAudit
         for (var i = 0; i < inputNames.Length; i++)
             if (Fingerprint(Path.Combine(input, inputNames[i]), inputNames[i]) != fingerprints[i])
                 throw new InvalidDataException($"核验过程中输入文件 {inputNames[i]} 发生变化。");
-        var report = new CheckpointAuditReport("1", sourceReport.Sources, fingerprints, submissions.Count,
+        var report = new CheckpointAuditReport(sourceReport.Sources, fingerprints, submissions.Count,
             submissions.Count(x => x.TargetComparisonMatches), submissions.Count(x => x.ResourcesUnchanged),
             settlements.Count, settlements.Count(x => x.ResourcesMatch),
             settlements.GroupBy(x => x.Context.StoryId).OrderBy(x => x.Key)

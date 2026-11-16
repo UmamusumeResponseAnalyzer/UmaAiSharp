@@ -6,7 +6,7 @@
 
 固有121作用于全编成的训练羁绊。持有该固有的支援即使缺席，也提供`value`；参加所选训练时，再提供`parameter1`。这些增量加到本次每张参与支援，包括持有者自身。其他参数必须为0。
 
-本地master中121对应支援30207秋川理事长，参数为1、2，说明为训练更易增加羁绊、与理事长同训时进一步增加。数值顺序采用移交包`04_参照实现/umai/Game.cpp:1211-1243`的全队+1、同训再+2；原实现的Mecha专属额外羁绊不进入Pioneer。来源记录见[指纹与参数](../artifacts/implementation/training-transition-01/source-evidence.json)。
+本地master中121对应支援30207秋川理事长，参数为1、2，说明为训练更易增加羁绊、与理事长同训时进一步增加。数值顺序采用移交包`04_参照实现/umai/Game.cpp:1211-1243`的全队+1、同训再+2；原实现的Mecha专属额外羁绊不进入Pioneer。来源记录见指纹与参数（历史输出 `artifacts/implementation/training-transition-01/source-evidence.json`）。
 
 `CompiledTrainingDeck`按六卡参与掩码预计算64个羁绊加成，内联保存256B，计入共享容量账本。行动只查询对应掩码，不解析固有或分配奖励数组。所有卡的顶层固有类型在编成阶段检查，未知类型不因缺席而绕过；121参数未支持时同样在编译阶段停止。
 

@@ -161,7 +161,7 @@ public sealed class InitialStateAuditTests : IDisposable
 
     void WriteInputs()
     {
-        var report = new EvidenceReport("1", DateTimeOffset.UtcNow,
+        var report = new EvidenceReport(DateTimeOffset.UtcNow,
             [new("packets-0001", "DebugSaveAllPackets", Hash(packets), new FileInfo(packets).Length)],
             new("Unverified", null, [], "test"), "Unverified", new([], [], 0),
             new(4, 2, 2, 2, 0, 0, 0, 0, 1, [], [], [], [], []), [], new("Blocked", []));

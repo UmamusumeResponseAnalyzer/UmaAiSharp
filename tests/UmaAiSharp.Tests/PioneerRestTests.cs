@@ -26,7 +26,7 @@ public sealed class PioneerRestTests
             Assert.Equal(start.AvailableRestCommands, first.Context.AvailableRestCommands);
             ImmutableArray<ScriptedAction<PioneerRuntimeAction>> steps = [new(first.Id, PioneerRuntimeAction.Rest(command))];
             if (ordinary) steps = [.. steps, new(new((int)PioneerStage.RestConfirmation, 1,
-                PioneerScenario.DecisionKey(start.Turn, current.EventId)), PioneerRuntimeAction.Choose(current, 0))];
+                PioneerScenario.DecisionKey(start.Turn, current.StoryId)), PioneerRuntimeAction.Choose(current, 0))];
             var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(steps, 0);
             var execution = SimulationRunner.CreateExecution(scenario, script, root, 71, 0);
             var fork = SimulationRunner.CreateExecution(scenario, script, root, 999, 1);
@@ -61,7 +61,10 @@ public sealed class PioneerRestTests
             Assert.False(execution.State.Header.RawPlayingStateKnown);
             Assert.False(execution.State.Header.KnownParts.HasFlag(PioneerKnownParts.EventIdentity));
             foreach (var section in Enum.GetValues<PioneerStateSection>())
-                Assert.Equal(root.GetSection(section).ToArray(), execution.State.GetSection(section).ToArray());
+                if (section != PioneerStateSection.StoryHistory)
+                    Assert.Equal(root.GetSection(section).ToArray(), execution.State.GetSection(section).ToArray());
+            Assert.Equal(ordinary ? [current.StoryId, start.Turn, 5, current.PlayTiming, current.CharacterId, 0, 0, 0, 0, 0] : [],
+                execution.State.GetSection(PioneerStateSection.StoryHistory).ToArray());
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
             SimulationRunner.ResetSample(scenario, script, root, ref execution, 71, 0);
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
@@ -94,13 +97,13 @@ public sealed class PioneerRestTests
         var prior = new PioneerStoryOccurrence(rest.StoryId, start.Turn - 1, 5, rest.PlayTiming, rest.CharacterId, 0, 0, 0);
         var recorded = PioneerRuntimeData.Compile(start with { ObservedStoryHistory = [prior] },
             [new PioneerConditionalOutcome.RestEvent(0, rest with { EventId = 7010 }), new PioneerConditionalOutcome.TurnArrival(1,
-                PioneerArrival.Ready, state.Header.TrainingBoard, state.Header.AvailableTrainingCommands, state.Header.AvailableRestCommands)],
-            "rest-replay", turnRules: rules, usesStoryDecisions: true);
+                new(PioneerArrival.Ready, state.Header.TrainingBoard, state.Header.AvailableTrainingCommands, state.Header.AvailableRestCommands))],
+            "rest-replay", turnRules: rules);
         var replay = new PioneerScenario(recorded);
         var copy = recorded.CreateInitialState();
         var replayRandom = new SimulationRandom(71);
         Assert.True(replay.ApplyAction(ref copy, PioneerRuntimeAction.Rest(RestRules.OrdinaryCommand), ref replayRandom).ActionSettled);
-        Assert.NotNull(replay.ValidateAction(copy, PioneerRuntimeAction.Choose(rest, 0)));
+        Assert.Null(replay.ValidateAction(copy, PioneerRuntimeAction.Choose(rest, 0)));
         Assert.True(replay.ApplyAction(ref copy, PioneerRuntimeAction.Choose(copy.Header.Event, 0), ref replayRandom).ActionSettled);
         Assert.Equal(state.Header.TrainingBoard, copy.Header.TrainingBoard);
         Assert.Equal(state.Header.Resources, copy.Header.Resources);
@@ -124,7 +127,7 @@ public sealed class PioneerRestTests
             [new(PlacementMemberKind.Training, false, 0, 1, 10), new(PlacementMemberKind.Tucker, false, 0, 1, 10)]);
         var rules = new PioneerTurnRules(calibration,
             start.Commands.Select(command => (command.CommandId, command.Level, command.FailureCoefficient)), start, 1, [], []);
-        var data = PioneerRuntimeData.Compile(start, [], "ordinary-event", turnRules: rules, usesStoryDecisions: true);
+        var data = PioneerRuntimeData.Compile(start, [], "ordinary-event", turnRules: rules);
         var scenario = new PioneerScenario(data, autonomous: true);
         var state = data.CreateInitialState();
         var random = new SimulationRandom(71);
@@ -152,7 +155,7 @@ public sealed class PioneerRestTests
             var current = start.PendingRestEvent!.Value;
             var decision = scenario.Inspect(root, 0).Decision;
             Assert.Equal(PioneerStage.RestConfirmation, decision.Context.Stage);
-            Assert.Equal(new((int)PioneerStage.RestConfirmation, 0, PioneerScenario.DecisionKey(start.Turn, current.EventId)), decision.Id);
+            Assert.Equal(new((int)PioneerStage.RestConfirmation, 0, PioneerScenario.DecisionKey(start.Turn, current.StoryId)), decision.Id);
             var random = new SimulationRandom(71);
             var result = scenario.ApplyAction(ref root, PioneerRuntimeAction.Choose(current, 0), ref random);
             Assert.True(result.ActionConsumed);

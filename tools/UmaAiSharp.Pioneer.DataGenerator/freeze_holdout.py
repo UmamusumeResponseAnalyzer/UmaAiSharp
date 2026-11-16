@@ -23,16 +23,15 @@ def freeze(observations, output):
 
     # runKey hashes the actor and game run ID, independently of the capture source.
     eligible = starts.keys() & finishes
-    ranked = sorted(eligible, key=lambda run: hashlib.sha256(f'pioneer-rules-v2/{run}'.encode()).digest())
+    ranked = sorted(eligible, key=lambda run: hashlib.sha256(f'pioneer-holdout/{run}'.encode()).digest())
     held = set(ranked[:len(ranked) // 10])
     if not held:
         raise ValueError('完整育成数不足，无法冻结留出组')
     manifest = {
-        'schemaVersion': 1,
         'observationsSha256': digest.hexdigest(),
         'evaluation': 'retrospective',
         'eligibility': 'same run has both start and finish',
-        'selection': 'lowest 10% SHA-256(pioneer-rules-v2/<runKey>)',
+        'selection': 'lowest 10% SHA-256(pioneer-holdout/<runKey>)',
         'fitRuns': sorted(eligible - held),
         'holdoutRuns': {run: sorted(starts[run]) for run in sorted(held)},
         'excludedWithoutFinish': sorted(starts.keys() - finishes),

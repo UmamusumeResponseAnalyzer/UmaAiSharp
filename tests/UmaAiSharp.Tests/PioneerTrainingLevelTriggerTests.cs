@@ -82,6 +82,50 @@ public sealed class PioneerTrainingLevelTriggerTests
     }
 
     [Fact]
+    public void ObservedHintCanPrecedeTrainingUpgradeAndBothSettleBeforeTheNextBoard()
+    {
+        using var fixture = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures/training-level-triggers.json")));
+        var row = fixture.RootElement.GetProperty("cases")[0];
+        var start = row.GetProperty("start").Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
+        var observedHint = new PioneerEvent(20099, 0, PioneerEvent.TrainingHintStory, 6);
+        var upgrade = new PioneerEvent(row.GetProperty("expectedPendingEvent").GetInt32(), 0, TrainingLevelRules.StoryId, 6);
+        var calibration = new PioneerTurnCalibration([new(701, 1)],
+            [new(PioneerArrivalSource.Training, start.Turn, Ready: 1, TurnConfirmation: 0, TrainingLevel: 0,
+                SameTurnEvent: 0, NextTurnEvent: 0, OtherPhase: 0)],
+            [new(PlacementMemberKind.Training, false, 0, 1, 10), new(PlacementMemberKind.Tucker, false, 0, 1, 10)]);
+        var rules = new PioneerTurnRules(calibration,
+            start.Commands.Select(command => (command.CommandId, command.Level, command.FailureCoefficient)), start, 63, [], []);
+        var board = new TrainingBoard(new(1, 1, 0), default, default, default, default);
+        var data = PioneerRuntimeData.Compile(start,
+            [new PioneerConditionalOutcome.TrainingResult(0, true,
+                new(PioneerArrival.SameTurnEvent, Event: observedHint, RawPlayingState: 5, ChoiceCount: 1)),
+             new PioneerConditionalOutcome.ObservedEventResult(1, observedHint, 0, new(Bonds: [new(2, 5)]),
+                new(PioneerArrival.TrainingLevel, Event: upgrade, RawPlayingState: 5)),
+             new PioneerConditionalOutcome.TurnArrival(2, new(PioneerArrival.Ready, board, 31, 1))],
+            "observed-training", turnRules: rules);
+        var scenario = new PioneerScenario(data);
+        var state = data.CreateInitialState();
+        var random = new SimulationRandom(81);
+        var level = state.GetSection(PioneerStateSection.TrainingLevels)[0];
+        Assert.True(scenario.ApplyAction(ref state, PioneerRuntimeAction.Train(row.GetProperty("command").GetInt32()), ref random).ActionSettled);
+        Assert.Equal(PioneerStage.ObservedEvent, state.Header.Stage);
+        Assert.Equal(observedHint, state.Header.Event);
+        var bond = state.GetSection(PioneerStateSection.SupportBonds)[1];
+
+        Assert.True(scenario.ApplyAction(ref state, PioneerRuntimeAction.Choose(observedHint, 0), ref random).ActionSettled);
+        Assert.Equal(PioneerStage.TrainingLevelConfirmation, state.Header.Stage);
+        Assert.Equal(level, state.GetSection(PioneerStateSection.TrainingLevels)[0]);
+        Assert.Equal(bond + 5, state.GetSection(PioneerStateSection.SupportBonds)[1]);
+
+        Assert.True(scenario.ApplyAction(ref state, PioneerRuntimeAction.Choose(upgrade, 0), ref random).ActionSettled);
+        Assert.Equal((PioneerStage.TrainingTurn, start.Turn + 1, 3), (state.Header.Stage, state.Header.Turn, state.Header.ConditionalOutcomeCount));
+        Assert.Equal(level + 1, state.GetSection(PioneerStateSection.TrainingLevels)[0]);
+        Assert.Equal(board, state.Header.TrainingBoard);
+        Assert.Null(scenario.ValidateAction(state, PioneerRuntimeAction.Train(101)));
+        Assert.Equal(81UL, random.State);
+    }
+
+    [Fact]
     public void TriggerRulePreservesUnknownCountsAndDoesNotQueuePastTheLevelCap()
     {
         Assert.Null(TrainingLevelRules.AfterSuccessfulOrdinary(0, 4, null));

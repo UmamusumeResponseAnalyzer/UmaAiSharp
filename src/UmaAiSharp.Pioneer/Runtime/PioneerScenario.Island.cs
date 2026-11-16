@@ -252,10 +252,11 @@ public sealed partial class PioneerScenario
             count = 1;
         }
         var bonds = state.MutableSection(PioneerStateSection.SupportBonds);
+        var bondGain = HintBondGain(state.Header);
         for (var i = 0; i < count; i++)
         {
             var position = hints[i] - 1;
-            bonds[position] = Math.Min(100, bonds[position] + 5);
+            bonds[position] = Math.Min(100, bonds[position] + bondGain);
             if (rules.Hints is not { } pool) continue;
             ref var header = ref state.Mutable;
             var reward = data.IsWholeRun ? random.At(header.Turn, PioneerDraw.HintReward, position) : random;
@@ -268,4 +269,6 @@ public sealed partial class PioneerScenario
             header.FutureGainedSkillPoints += gain.SkillPoints;
         }
     }
+
+    static int HintBondGain(in PioneerStateHeader state) => state.HasCharm ? 7 : 5;
 }

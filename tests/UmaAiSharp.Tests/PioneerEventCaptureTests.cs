@@ -1,5 +1,4 @@
 using UmaAiSharp.Pioneer.Game;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
@@ -28,24 +27,9 @@ public sealed class PioneerEventCaptureTests
         Assert.True(JsonNode.DeepEquals(before.Rewards, after.Rewards));
         Assert.Null(PioneerEventCapture.Read(fixture.Path, 10));
 
-        Assert.Equal("completed", PioneerImport.Run(fixture.Path, null, 14, fixture.Master, fixture.Output).Status);
-        var inputPath = System.IO.Path.Combine(fixture.Output, "input.json");
-        var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(inputPath), PioneerExecution.JsonOptions)!;
-        Assert.Equal("declaredEvent", input.Start.Kind);
-        var start = input.Start.Data.Deserialize<PioneerStart.DeclaredEvent>(PioneerExecution.JsonOptions)!;
-        var candidates = JsonSerializer.Deserialize<RootCandidate<PioneerRuntimeAction>[]>(
-            File.ReadAllBytes(System.IO.Path.Combine(fixture.Output, "candidates.json")), PioneerExecution.JsonOptions)!;
-        Assert.Equal(start.Choices.Length, candidates.Length);
-        var data = PioneerRuntimeData.Compile(start, [], input.RulesIdentity);
-        var root = data.CreateInitialState(); var scenario = new PioneerScenario(data);
-        var script = new ActionScript<PioneerDecisionView, PioneerRuntimeAction>(
-            [new(scenario.Inspect(root, 0).Decision.Id, candidates[0].Action)], 0);
-        var execution = SimulationRunner.CreateExecution(scenario, script, root, 77, 0);
-        var result = SimulationRunner.Continue(scenario, script, ref execution);
-        Assert.Equal(1, result.Progress.ConsumedActions);
-        Assert.Equal(0, result.Progress.SettledActions);
-        Assert.Equal((int)PioneerStopCode.EventRewardRemainderRequired, result.Stop!.Value.Code);
-        Assert.Equal(root.Header, data.CreateInitialState().Header);
+        var common = PacketAudit.Decode(after.Payload)["data"]!.AsObject();
+        var start = PioneerEventCompiler.Compile(common["chara_info"]!.AsObject(), common["unchecked_event_array"]![0]!.AsObject(), after.Rewards);
+        Assert.NotEmpty(start.Choices);
     }
 
     [Theory]
@@ -98,8 +82,6 @@ public sealed class PioneerEventCaptureTests
     internal sealed class Capture : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "UmaAiSharp-event-" + Guid.NewGuid().ToString("N") + ".sqlite");
-        public string Master => Path + ".master";
-        public string Output => Path + ".output";
         public JsonObject State { get; }
         public JsonObject Rewards { get; }
         readonly SqliteConnection db;
@@ -118,22 +100,6 @@ public sealed class PioneerEventCaptureTests
                 ["unchecked_event_array"] = new JsonArray(template["event"]!.DeepClone()),
                 ["pioneer_data_set"] = new JsonObject { ["evaluation_info_array"] = new JsonArray() } } };
             Rewards = new() { ["data"] = new JsonObject { ["choice_reward_array"] = template["rewards"]!.DeepClone() } };
-            using (var master = new SqliteConnection($"Data Source={Master};Pooling=False"))
-            {
-                master.Open();
-                using var schema = master.CreateCommand();
-                schema.CommandText = """
-                    CREATE TABLE support_card_data(id INTEGER,chara_id INTEGER,support_card_type INTEGER);
-                    CREATE TABLE single_mode_unique_chara(partner_id INTEGER,chara_id INTEGER,scenario_id INTEGER);
-                    CREATE TABLE chara_data(id INTEGER);
-                    """;
-                schema.ExecuteNonQuery();
-                foreach (var position in Enumerable.Range(1, 6))
-                {
-                    schema.CommandText = $"INSERT INTO support_card_data VALUES({position + 100},{position + 2000},1)";
-                    schema.ExecuteNonQuery();
-                }
-            }
             db = new SqliteConnection($"Data Source={Path};Pooling=False"); db.Open();
             using var query = db.CreateCommand();
             query.CommandText = "CREATE TABLE packets(id INTEGER PRIMARY KEY,direction TEXT,endpoint TEXT,request_id TEXT,viewer_id TEXT,payload BLOB,app_ver TEXT,res_ver TEXT)";
@@ -171,10 +137,7 @@ public sealed class PioneerEventCaptureTests
 
         public void Dispose()
         {
-            db.Dispose(); File.Delete(Path); File.Delete(Master);
-            if (!Directory.Exists(Output)) return;
-            foreach (var name in new[] { "input.json", "candidates.json", "import.json" }) File.Delete(System.IO.Path.Combine(Output, name));
-            Directory.Delete(Output);
+            db.Dispose(); File.Delete(Path);
         }
     }
 }

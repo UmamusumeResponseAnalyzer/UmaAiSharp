@@ -8,7 +8,7 @@
 {
   "name": "evidence_training",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "outputDirectory": "artifacts/evidence/training-audit-new"
   }
 }

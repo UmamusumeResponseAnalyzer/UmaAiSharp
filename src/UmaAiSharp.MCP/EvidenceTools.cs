@@ -113,15 +113,6 @@ public static class EvidenceTools
             ToolResult.Paths(outputDirectory, ("report", "race-route-audit.json"), ("observations", "race-route-observations.jsonl")));
     }
 
-    [McpServerTool(Name = "evidence_handoff", UseStructuredContent = true, Destructive = false, OpenWorld = false)]
-    [Description("核对交接包内的源动作帧、同回合转移和资源增量。")]
-    public static ToolResult Handoff(string handoffDirectory, string outputDirectory, CancellationToken cancellationToken)
-    {
-        var report = HandoffAudit.Run(handoffDirectory, outputDirectory, cancellationToken);
-        return new("completed", new { validation = "ObservedOnly", runCount = report.Runs.Count, frames = report.Runs.Sum(run => run.Frames), report.Limitations },
-            ToolResult.Paths(outputDirectory, ("report", "handoff-audit.json"), ("frames", "handoff-frames.jsonl")));
-    }
-
     [McpServerTool(Name = "evidence_development_components", UseStructuredContent = true, Destructive = false, OpenWorld = false)]
     [Description("核查比赛与 Tucker 事件的独立发展 Pt 分量。")]
     public static ToolResult DevelopmentComponents(string evidenceDirectory, string researchDirectory, string outputDirectory, CancellationToken cancellationToken)
@@ -184,7 +175,6 @@ public static class EvidenceTools
     {
         var report = JsonSerializer.Deserialize<EvidenceReport>(File.ReadAllText(reportPath), EvidenceJson.ReadOptions)
             ?? throw new InvalidDataException("报告为空。");
-        if (report.SchemaVersion != "1") throw new InvalidDataException("不支持该证据报告版本。");
         if (report.Validation.Status == "Passed" && report.Validation.Blockers.Count == 0)
             throw new InvalidDataException("当前证据清单不能认证手工改写的 Passed 报告。");
         return ToolResult.Report(reportPath, new { report.Validation, issueCount = report.Issues.Count });

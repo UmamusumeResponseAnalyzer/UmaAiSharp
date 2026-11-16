@@ -5,7 +5,6 @@ namespace UmaAiSharp.Pioneer.Events;
 
 public static class RestRules
 {
-    public const string Version = "jp-pioneer-rest-components-v2";
     public const int OrdinaryCommand = 701, CampCommand = 3606;
     public const int OrdinaryAvailable = 1, CampAvailable = 2;
 

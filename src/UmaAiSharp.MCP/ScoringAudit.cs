@@ -17,8 +17,7 @@ public sealed record ScoringAuditObservation(string InputKey, string Source, lon
 public sealed record ScoringCoverage(string Attribute, int? Minimum, int? Maximum,
     IReadOnlyList<ScoreValueCount> ObservedValues);
 public sealed record ScoreValueCount(int Value, int Count);
-public sealed record ScoringAuditReport(string SchemaVersion, string CandidateVersion,
-    IReadOnlyList<SourceFingerprint> Sources, long ResponsePackets, long CandidateObservations,
+public sealed record ScoringAuditReport(IReadOnlyList<SourceFingerprint> Sources, long ResponsePackets, long CandidateObservations,
     int UniqueInputScorePairs, int DuplicateObservations, int IncompleteObservations, int EvaluatedStates, int ExactMatches,
     int UnscoredStates, int ConflictingInputScores, IReadOnlyList<ScoreValueCount> ResidualDistribution,
     IReadOnlyList<ScoringCoverage> AttributeCoverage, IReadOnlyList<int> ObservedSkillIds,
@@ -148,7 +147,7 @@ public static class ScoringAudit
         if (issues.Count != 0) blockers.Add("ScoringEvidenceIssues");
         var conflicts = scoresByInput.Count(pair => pair.Value.Count > 1);
         if (conflicts != 0) blockers.Add("SameCandidateInputDifferentObservedScores");
-        var report = new ScoringAuditReport("1", ScoringCandidates.Version, fingerprints, responses, candidates,
+        var report = new ScoringAuditReport(fingerprints, responses, candidates,
             seen.Count, duplicates, issues.Count(issue => issue.Code == "ScoringInputIncomplete"),
             evaluated.Count, evaluated.Count(sample => sample.Residual == 0), unscored, conflicts,
             evaluated.GroupBy(sample => sample.Residual!.Value).OrderBy(group => group.Key)

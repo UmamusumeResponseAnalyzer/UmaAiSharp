@@ -26,8 +26,8 @@ Tucker选择2只有预览证据，没有实际选择结算；未实现。支援�
 {
   "name": "evidence_development_components",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
-    "researchDirectory": "artifacts/research/blockers",
+    "evidenceDirectory": "<审计导出目录>",
+    "researchDirectory": "<本次研究输入目录>",
     "outputDirectory": "artifacts/evidence/development-components-new"
   }
 }
@@ -37,7 +37,7 @@ Tucker选择2只有预览证据，没有实际选择结算；未实现。支援�
 {
   "name": "evidence_checkpoint",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "outputDirectory": "artifacts/evidence/checkpoint-components-new"
   }
 }
@@ -47,7 +47,7 @@ Tucker选择2只有预览证据，没有实际选择结算；未实现。支援�
 {
   "name": "evidence_construction",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "outputDirectory": "artifacts/evidence/construction-components-new"
   }
 }
@@ -85,8 +85,8 @@ Tucker选择2只有预览证据，没有实际选择结算；未实现。支援�
 {
   "name": "evidence_race_points",
   "arguments": {
-    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
-    "studyDirectory": "artifacts/research/blockers/races/expansion-20261108",
+    "evidenceDirectory": "<审计导出目录>",
+    "studyDirectory": "<本次研究清单目录>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "artifacts/evidence/race-points-expanded-new"
   }

@@ -17,7 +17,7 @@ public sealed record TrainingHistoryProvenance(long StartPacketId, long AnchorPa
     int TrainingActions, int CampActions, int FailedActions, string PrefixSha256);
 public sealed record CapturedPioneerTraining(byte[] Payload, string Endpoint,
     ImmutableArray<int> SuccessfulOrdinaryCounts, TrainingHistoryProvenance History,
-    ImmutableArray<PioneerStoryOccurrence>? ObservedStories, int UnmatchedStoryConfirmations, int UnseenFriendMask,
+    ImmutableArray<PioneerStoryOccurrence> ObservedStories, int UnmatchedStoryConfirmations, int UnseenFriendMask,
     ImmutableArray<TemporarySupportGrant> ObservedGrants, GoldShipTrainingBoost? GoldShipBoost,
     ImmutableArray<PioneerRaceHistory>? RaceHistory, ImmutableArray<PioneerRaceReservation>? RaceReservations);
 
@@ -25,13 +25,12 @@ public static class PioneerTrainingHistory
 {
     sealed record Frame(long Id, string Endpoint, string RequestId, int Turn, int[]? Counts, int? Command, int? Result,
         ImmutableArray<PendingStory> PendingStories, int? PartnerMasks, ImmutableArray<TemporarySupportGrant> Grants,
-        GoldShipTrainingBoost? GoldShipSignal);
+        GoldShipTrainingBoost? GoldShipSignal, int RaceProgram, int RaceRank);
     readonly record struct Request(long Id, int Turn, int Command, int Type);
     readonly record struct StoryRequest(long Id, int Turn, int EventId, int CharacterId, int Choice);
     readonly record struct PendingStory(int EventId, int StoryId, int CharacterId, int Timing, int Phase, int SupportCardId, int PartnerId);
 
-    public static CapturedPioneerTraining Read(string path, long anchorId, CancellationToken cancellationToken = default,
-        bool includeStoryHistory = false)
+    public static CapturedPioneerTraining Read(string path, long anchorId, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(anchorId);
         using var db = EvidenceAudit.OpenReadOnly(path);
@@ -95,9 +94,9 @@ public static class PioneerTrainingHistory
                 var root = Decode(bytes, id);
                 if (direction == "request")
                 {
-                    if (includeStoryHistory && route.EndsWith("/shima_training_exec", StringComparison.Ordinal))
+                    if (route.EndsWith("/shima_training_exec", StringComparison.Ordinal))
                         islandRequests[key] = Int(root, "current_turn");
-                    if (includeStoryHistory && route.EndsWith("/check_event", StringComparison.Ordinal)
+                    if (route.EndsWith("/check_event", StringComparison.Ordinal)
                         && root["single_mode_check_event_request_common"] is JsonObject choice)
                         storyRequests[key] = new(id, Int(choice, "current_turn"), Int(choice, "event_id"),
                             Int(choice, "chara_id"), Int(choice, "choice_number"));
@@ -109,18 +108,15 @@ public static class PioneerTrainingHistory
                 }
                 var data = root["data"] as JsonObject;
                 var common = PioneerNormalizer.GetCommon(data, route);
-                if (includeStoryHistory && route.EndsWith("/multi_race_reserve", StringComparison.Ordinal) && data is not null)
+                if (route.EndsWith("/multi_race_reserve", StringComparison.Ordinal) && data is not null)
                     pendingReservations ??= PioneerGameData.ReadRaceReservations(data);
                 if (common?["chara_info"] is not JsonObject current || RunId(current) != run) continue;
-                if (includeStoryHistory)
-                {
-                    races ??= PioneerGameData.ReadRaceHistory(common);
-                    reservations ??= pendingReservations ?? PioneerGameData.ReadRaceReservations(common);
-                }
+                races ??= PioneerGameData.ReadRaceHistory(common);
+                reservations ??= pendingReservations ?? PioneerGameData.ReadRaceReservations(common);
                 var counts = Counts(data);
                 var result = route.EndsWith("/exec_command", StringComparison.Ordinal) ? common["command_result"] as JsonObject : null;
                 ImmutableArray<PendingStory> pending = [];
-                if (includeStoryHistory && common["unchecked_event_array"] is JsonArray queue)
+                if (common["unchecked_event_array"] is JsonArray queue)
                     pending = [.. Objects(queue, "unchecked_event_array").Select(item =>
                     {
                         var contents = item["event_contents_info"] as JsonObject;
@@ -129,14 +125,18 @@ public static class PioneerTrainingHistory
                             contents?["support_card_id"]?.GetValue<int>() ?? 0, contents?["tips_training_partner_id"]?.GetValue<int>() ?? 0);
                     })];
                 var responseTurn = Int(current, "turn");
-                var grants = includeStoryHistory && responseTurn >= anchorTurn - 2
+                var grants = responseTurn >= anchorTurn - 2
                     ? PioneerGameData.ReadTemporarySpecialty(common, route[(route.LastIndexOf('/') + 1)..], responseTurn) : [];
                 // Descending reads retain the earliest identical capture, preserving action order.
                 frames[key] = new(id, route, request, responseTurn, counts,
                     result is null ? null : Int(result, "command_id"), result is null ? null : Int(result, "result_state"), pending,
-                    includeStoryHistory ? PioneerGameData.ReadTrainingPartnerMasks(common) : null, grants,
+                    PioneerGameData.ReadTrainingPartnerMasks(common), grants,
                     responseTurn == anchorTurn && route.EndsWith("/check_event", StringComparison.Ordinal)
-                        ? PioneerGameData.ReadGoldShipTrainingBoost(common) : null);
+                        ? PioneerGameData.ReadGoldShipTrainingBoost(common) : null,
+                    route.EndsWith("/race_entry", StringComparison.Ordinal)
+                        ? common["race_start_info"]?["program_id"]?.GetValue<int>() ?? 0 : 0,
+                    route.EndsWith("/race_end", StringComparison.Ordinal)
+                        ? common["race_reward_info"]?["result_rank"]?.GetValue<int>() ?? 0 : 0);
                 if (route.EndsWith("/start", StringComparison.Ordinal) && startId == 0)
                 {
                     using var first = db.CreateCommand();
@@ -157,6 +157,8 @@ public static class PioneerTrainingHistory
         var actions = 0; var camps = 0; var failures = 0;
         var turn = 1;
         var stories = ImmutableArray.CreateBuilder<PioneerStoryOccurrence>();
+        var raceHistory = (races ?? []).ToDictionary(race => race.Turn);
+        var pendingRace = default(PioneerRaceHistory);
         var unmatched = 0;
         var unseen = 63;
         var activeGrants = ImmutableArray.CreateBuilder<TemporarySupportGrant>();
@@ -164,6 +166,18 @@ public static class PioneerTrainingHistory
         Frame? preceding = null;
         foreach (var frame in ordered)
         {
+            if (frame.RaceProgram > 0)
+                pendingRace = new(frame.Turn, frame.RaceProgram, 0);
+            else if (pendingRace.Turn == frame.Turn)
+            {
+                if (frame.RaceRank > 0)
+                    pendingRace = pendingRace with { Rank = frame.RaceRank };
+                else if (frame.Endpoint.EndsWith("/race_out", StringComparison.Ordinal))
+                {
+                    if (pendingRace.Rank > 0) raceHistory.TryAdd(frame.Turn, pendingRace);
+                    pendingRace = default;
+                }
+            }
             if (!frame.Grants.IsEmpty && preceding is { } previousFrame)
             {
                 var key = (frame.RequestId, frame.Endpoint);
@@ -173,7 +187,7 @@ public static class PioneerTrainingHistory
                 if (sourceTurn >= anchorTurn - 1 && sourceTurn <= anchorTurn)
                     activeGrants.AddRange(frame.Grants.Select(grant => grant with { SourceTurn = sourceTurn }));
             }
-            if (includeStoryHistory && frame.Endpoint.EndsWith("/check_event", StringComparison.Ordinal))
+            if (frame.Endpoint.EndsWith("/check_event", StringComparison.Ordinal))
             {
                 if (preceding is not null && storyRequests.TryGetValue((frame.RequestId, frame.Endpoint), out var request)
                     && preceding.Id < request.Id && request.Id < frame.Id && request.Turn == preceding.Turn)
@@ -209,8 +223,7 @@ public static class PioneerTrainingHistory
                 else
                 {
                     if (command < 3601) successful[index]++;
-                    if (includeStoryHistory)
-                        unseen = preceding?.PartnerMasks is { } masks ? unseen & ~(masks >> (index * 6) & 63) : 0;
+                    unseen = preceding?.PartnerMasks is { } masks ? unseen & ~(masks >> (index * 6) & 63) : 0;
                 }
             }
             if (frame.Counts is { } current && !current.AsSpan().SequenceEqual(observed))
@@ -221,8 +234,9 @@ public static class PioneerTrainingHistory
         if (Counts(anchor) is not { } last || !last.AsSpan().SequenceEqual(observed))
             throw new UnknownMechanismException("锚点五项训练次数缺失或与恢复历史不一致。");
         return new(payload, endpoint, [.. successful], new(startId, anchorId, packetCount, actions, camps, failures,
-            Convert.ToHexStringLower(digest.GetHashAndReset())), includeStoryHistory ? stories.ToImmutable() : null, unmatched, unseen,
-            [.. activeGrants.OrderBy(grant => grant.SourceTurn)], goldShipBoost, races, reservations);
+            Convert.ToHexStringLower(digest.GetHashAndReset())), stories.ToImmutable(), unmatched, unseen,
+            [.. activeGrants.OrderBy(grant => grant.SourceTurn)], goldShipBoost,
+            races.HasValue || raceHistory.Count > 0 ? [.. raceHistory.Values.OrderBy(race => race.Turn)] : null, reservations);
     }
 
     static JsonObject Decode(byte[] bytes, long id)

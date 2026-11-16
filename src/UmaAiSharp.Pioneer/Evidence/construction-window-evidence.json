@@ -1,5 +1,4 @@
 {
-  "schemaVersion": "1",
   "inputs": {
     "audit.json": "cc8c10b990a050626820b70e68886b63bcafdf6412c6bc43c85ab8a88df362bd",
     "pioneer-observations.jsonl": "7563203ca8b9f658ec5c5375db043d28967d5d36e357749627b53af69c4647f9",

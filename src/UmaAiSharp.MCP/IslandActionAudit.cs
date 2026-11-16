@@ -11,7 +11,7 @@ using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.MCP.Evidence;
 
-public sealed record IslandActionAuditReport(string RuleVersion, IReadOnlyList<SourceFingerprint> Inputs,
+public sealed record IslandActionAuditReport(IReadOnlyList<SourceFingerprint> Inputs,
     IReadOnlyDictionary<string, int> Counts, IReadOnlyList<EvidenceIssue> Issues, IReadOnlyList<string> Limits);
 
 public static class IslandActionAudit
@@ -199,7 +199,7 @@ public static class IslandActionAudit
         foreach (var item in paths)
             if (Fingerprint(item.Item1, item.Item2).Sha256 != fingerprints.Single(value => value.Alias == item.Item2).Sha256)
                 throw new InvalidDataException("岛训练行动核验期间输入改变。");
-        var report = new IslandActionAuditReport(IslandActionRules.Version, fingerprints, counts, issues,
+        var report = new IslandActionAuditReport(fingerprints, counts, issues,
             ["SelectionAndFramesReuseExistingCorpusNotIndependentHoldout", "ResolvedPreviewSettlementsDoNotValidateGainGeneration",
                 "GeneratedSettlementsUseOnlyActionBeforeState", "ObservedFutureEventStepsAreAuditOutputsNotSimulatorInputs",
                 "NoTurnOrPhaseTransitionInNumericalSettlement", "NoTemporaryEffectActivationExpiryOrStackingRule",

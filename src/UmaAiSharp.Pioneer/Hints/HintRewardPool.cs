@@ -13,7 +13,6 @@ public readonly record struct HintAttributeReward(TrainingValues Resources, Attr
 
 public static class HintRewardPool
 {
-    public const string Version = "jp-pioneer-white-hint-effective-pool-v2";
 
     // This describes the effective reward pool, not the server's filtering time or draw probabilities.
     public static ImmutableArray<HintPoolEntry> Evaluate(ImmutableArray<HintSkill> supportSkills,

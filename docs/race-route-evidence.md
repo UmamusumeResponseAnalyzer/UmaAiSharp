@@ -50,7 +50,7 @@
 {
   "name": "evidence_race_route",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "artifacts/evidence/race-route-audit-next"
   }

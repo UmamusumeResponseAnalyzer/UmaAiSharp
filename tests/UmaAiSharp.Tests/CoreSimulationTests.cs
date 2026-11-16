@@ -250,7 +250,7 @@ public sealed class CoreSimulationTests
         int applyCalls;
         public int WorkspacesCreated => workspaces;
         public int ApplyCalls => applyCalls;
-        public string RulesIdentity => "synthetic-kernel/v2";
+        public string RulesIdentity => "synthetic-kernel";
         public long SharedMemoryBytes => sharedBytes;
         public long GetWorkspaceBytes(in TestState state) => 64 + state.Values.Length * sizeof(ulong);
         public TestState CreateWorkspace(in TestState source)

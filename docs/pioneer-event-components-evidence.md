@@ -57,7 +57,7 @@
 {
   "name": "evidence_event_components",
   "arguments": {
-    "evidenceDirectory": "artifacts/research/blockers/island-training/expansion-20261108/audit",
+    "evidenceDirectory": "<审计导出目录>",
     "fixturesDirectory": "src/UmaAiSharp.Pioneer/Development/Evidence",
     "outputDirectory": "artifacts/evidence/pioneer-event-components-new"
   }

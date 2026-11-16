@@ -27,7 +27,7 @@ public sealed class PrecisePioneerModel : PioneerModel
     public static PrecisePioneerModel Instance { get; } = new();
     private PrecisePioneerModel() { }
 
-    public override string Identity => "precise/" + TrainingNumericKernel.Version;
+    public override string Identity => "precise";
 
     internal override TrainingActionPreview Preview(in TrainingEnvironment environment, int command, int level, int guests,
         int percent, int failureCoefficient, int failureBias, ReadOnlySpan<int> positions, ReadOnlySpan<int> bonds,
@@ -46,7 +46,7 @@ public sealed class FastPioneerModel : PioneerModel
     public static FastPioneerModel Instance { get; } = new();
     private FastPioneerModel() { }
 
-    public override string Identity => "fast/pioneer-training-unrounded-v1";
+    public override string Identity => "fast";
 
     internal override TrainingActionPreview Preview(in TrainingEnvironment environment, int command, int level, int guests,
         int percent, int failureCoefficient, int failureBias, ReadOnlySpan<int> positions, ReadOnlySpan<int> bonds,

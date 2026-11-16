@@ -25,7 +25,7 @@ public sealed class PioneerTrainingLevelTests
             Assert.Equal(TrainingLevelRules.ObservedCommand(current), root.Header.PendingTrainingLevelCommandId);
             var decision = scenario.Inspect(root, 0).Decision;
             Assert.Equal(PioneerStage.TrainingLevelConfirmation, decision.Context.Stage);
-            Assert.Equal(new((int)PioneerStage.TrainingLevelConfirmation, 0, PioneerScenario.DecisionKey(start.Turn, current.EventId)), decision.Id);
+            Assert.Equal(new((int)PioneerStage.TrainingLevelConfirmation, 0, PioneerScenario.DecisionKey(start.Turn, current.StoryId)), decision.Id);
             var action = PioneerRuntimeAction.Choose(current, 0);
             Assert.Null(scenario.ValidateAction(root, action));
             Assert.NotNull(scenario.ValidateAction(root, PioneerRuntimeAction.Train(101)));

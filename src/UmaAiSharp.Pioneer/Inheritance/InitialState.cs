@@ -34,7 +34,6 @@ public sealed record InitialStateComponents(InitialAttributes Attributes, Initia
 
 public sealed class InitialStateRules
 {
-    public const string Version = "initial-seven-components-flat-pedigree-v2";
     readonly InitialInheritanceRules inheritance;
     readonly FrozenDictionary<int, InitialFactor> factors;
     readonly FrozenDictionary<int, int> greenSelectors;

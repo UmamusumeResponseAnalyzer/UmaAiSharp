@@ -46,7 +46,7 @@
 
 ## 本地机会审计
 
-正式输出：[placement-hint-audit-03](../artifacts/evidence/placement-hint-audit-03/placement-hint-audit.json)。`03` 包含明确 Pioneer 剧本校验；无得意训练的友人卡之得意统计标为无适用试验。全部统计与同输入的 `02` 一致。
+正式输出：placement-hint-audit-03（历史输出 `artifacts/evidence/placement-hint-audit-03/placement-hint-audit.json`）。`03` 包含明确 Pioneer 剧本校验；无得意训练的友人卡之得意统计标为无适用试验。全部统计与同输入的 `02` 一致。
 
 输入为 `local-audit-05` 的标准化观察、exchange 关联及本地 master。三者读取前后 SHA-256 一致：
 
@@ -118,7 +118,7 @@ dotnet test tests/UmaAiSharp.Tests/UmaAiSharp.Tests.csproj --no-restore --filter
 {
   "name": "evidence_placement_hint",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "artifacts/evidence/placement-hint-audit-next"
   }

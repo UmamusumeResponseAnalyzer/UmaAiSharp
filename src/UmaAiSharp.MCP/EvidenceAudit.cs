@@ -54,7 +54,7 @@ public static class EvidenceAudit
         if (issues.Any(issue => issue.Code == "SourceChangedDuringAudit")) blockers.Add("SourceChangedDuringAudit");
         if (issues.Any(issue => issue.Code is "InvalidDirection" or "InvalidRequestId" or "InvalidObservationShape" or "InvalidScalarType"))
             blockers.Add("PacketSchemaErrors");
-        var report = new EvidenceReport("1", DateTimeOffset.UtcNow, fingerprints, binding, "Unverified",
+        var report = new EvidenceReport(DateTimeOffset.UtcNow, fingerprints, binding, "Unverified",
             masterInventory, packets, issues, new("Blocked", blockers));
         File.WriteAllText(Path.Combine(output, "audit.json"), JsonSerializer.Serialize(report, EvidenceJson.Options), new UTF8Encoding(false));
         return report;

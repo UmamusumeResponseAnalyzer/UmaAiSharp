@@ -17,7 +17,6 @@ public sealed record PlacementInput(PlacementMemberKind Kind, int SpecialtyIndex
 // Tables are compiled for a card and its current effects, then shared by trajectory workers.
 public sealed class PioneerPlacementDistribution
 {
-    public const string Version = "pioneer-placement-20261108-v3";
     public PlacementMemberKind Kind { get; }
     public ImmutableArray<ulong> Weights { get; }
     public ulong TotalWeight { get; }

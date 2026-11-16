@@ -5,7 +5,6 @@ namespace UmaAiSharp.Pioneer.Training;
 
 public static class TrainingLevelRules
 {
-    public const string Version = "pioneer-training-level-trigger-v3";
     public const int StoryId = 400000005;
     internal const int SuccessesPerLevel = 4;
 

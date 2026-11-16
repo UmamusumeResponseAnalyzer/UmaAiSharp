@@ -19,7 +19,6 @@ public sealed record CandidateScore(int AttributeScore, int SkillScore, Immutabl
 // These are falsifiable candidates copied as formulas, not accepted game rules or a Host runtime dependency.
 public static class ScoringCandidates
 {
-    public const string Version = "status-bands-skill-tags-v1";
 
     public static CandidateScore Evaluate(CharacterScoringInput input, IReadOnlyDictionary<int, ScoringSkillDefinition> master)
     {

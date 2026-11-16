@@ -8,7 +8,7 @@ namespace UmaAiSharp.MCP.Evidence;
 
 public sealed record RaceRouteObservation(string Source, long PacketId, string RunKey, int Turn, int CardId,
     int RouteId, IReadOnlyList<int> SelectedIds, IReadOnlyList<RaceGoal> Goals, IReadOnlyList<int> UnselectedMasterIds);
-public sealed record RaceRouteAuditReport(string SchemaVersion, IReadOnlyList<SourceFingerprint> Inputs,
+public sealed record RaceRouteAuditReport(IReadOnlyList<SourceFingerprint> Inputs,
     IReadOnlyDictionary<string, int> Counts, IReadOnlyList<EvidenceIssue> Issues, IReadOnlyList<string> Limitations, string Status);
 
 public static class RaceRouteAudit
@@ -110,7 +110,7 @@ public static class RaceRouteAudit
         foreach (var (path, alias) in sources)
             if (Fingerprint(path, alias) != fingerprints.Single(x => x.Alias == alias))
                 throw new InvalidDataException("比赛路线核验期间输入发生变化。");
-        var report = new RaceRouteAuditReport("1", fingerprints, counts, issues,
+        var report = new RaceRouteAuditReport(fingerprints, counts, issues,
             ["SelectedGoalMappingOnly", "ConditionalRouteSelectionNotImplemented", "GoalSuccessConditionsNotInterpreted",
                 "OptionalRaceEligibilityAndRewardsNotImplemented", "RaceOutcomeDistributionNotValidated"],
             issues.Count == 0 && counts.GetValueOrDefault("MappedRouteStates") > 0 ? "ObservedMappingsMatched" : "MappingIncomplete");

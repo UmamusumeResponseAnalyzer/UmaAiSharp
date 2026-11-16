@@ -12,8 +12,7 @@ public sealed record TrainingPreviewTransition(string Source, long BeforePacketI
     TrainingLimits Limits, IReadOnlyList<TrainingParameterChange> CommonPreview,
     IReadOnlyList<TrainingParameterChange> ScenarioPreview, TrainingValues Predicted, TrainingValues Observed, bool Matches);
 public sealed record TrainingValueRange(string Parameter, int Minimum, int Maximum);
-public sealed record TrainingPreviewAuditReport(string SchemaVersion, string RuleVersion,
-    IReadOnlyList<SourceFingerprint> Inputs, int TrainingCommandResponses, int EligibleTransitions,
+public sealed record TrainingPreviewAuditReport(IReadOnlyList<SourceFingerprint> Inputs, int TrainingCommandResponses, int EligibleTransitions,
     int ExactMatches, int VitalUpperClips, IReadOnlyDictionary<string, int> Counts,
     IReadOnlyList<TrainingValueRange> ObservedRanges, IReadOnlyList<EvidenceIssue> Exclusions,
     IReadOnlyList<string> ApplicabilityLimits, string Status);
@@ -163,7 +162,7 @@ public static class TrainingPreviewAudit
             ("guts", value => value.Guts), ("wiz", value => value.Wisdom), ("vital", value => value.Vital), ("skill_point", value => value.SkillPoints)
         }.Select(field => acceptedValues.Count == 0 ? null : new TrainingValueRange(field.Name,
             acceptedValues.Min(field.Value), acceptedValues.Max(field.Value))).OfType<TrainingValueRange>().ToArray();
-        var report = new TrainingPreviewAuditReport("1", TrainingPreviewSettlement.Version, fingerprints, responses, eligible,
+        var report = new TrainingPreviewAuditReport(fingerprints, responses, eligible,
             exact, vitalClips, counts, ranges, exclusions,
             ["OnlySuppliedPreviewSettlement", "ResultState2Only", "FailureOutcomeNotValidated", "AttributeCapClippingNotValidated",
                 "VitalLowerClippingNotValidated", "RawPreCapGainsAndAttributeOverflowUnknown", "DoesNotAdvanceTurnOrResolveEvents",

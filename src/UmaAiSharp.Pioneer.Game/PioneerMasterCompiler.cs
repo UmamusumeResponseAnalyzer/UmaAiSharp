@@ -75,15 +75,13 @@ public sealed class PioneerMasterCompiler
             facilityCompiler.Base(3101, facilities), facilities, assignments));
     }
 
-    public PioneerStart.TrainingTurn TrainingStart(JsonObject frame, bool goldShipHistoryKnown, GoldShipTrainingBoost? boost,
-        PioneerFacilityCompiler? facilityCompiler = null, int? generatedTurn = null, bool wholeRun = false)
+    public PioneerStart.TrainingTurn TrainingStart(JsonObject frame, GoldShipTrainingBoost? boost = null,
+        PioneerFacilityCompiler? facilityCompiler = null, int? generatedTurn = null)
     {
         var chara = frame["c"] as JsonObject ?? throw new InvalidDataException("训练前帧缺少角色c。");
         var pioneer = frame["s"] as JsonObject ?? throw new InvalidDataException("训练前帧缺少Pioneer状态s。");
         var home = frame["home"] as JsonObject;
         var cardId = Int(chara, "card_id");
-        if (!wholeRun && CharacterId(cardId) == 1007 && (cardId != 100701 || !goldShipHistoryKnown))
-            throw new UnknownMechanismException("黄金船训练起点需要当前衣装及指定训练效果历史。");
         if (cardId != 100701 && boost is not null) throw new InvalidDataException("非黄金船训练起点不能携带指定训练加成。");
         if (Int(chara, "state") != 0) throw new InvalidDataException("训练执行起点必须处于育成中。");
         var positions = Objects(Array(chara, "support_card_array"), "support_card_array").Select(row => Int(row, "position")).ToArray();
@@ -105,15 +103,16 @@ public sealed class PioneerMasterCompiler
             var input = Input(chara, row, pioneer);
             if (commandId == ordinaryCommand && Int(levels[commandId], "level") != input.Level)
                 throw new InvalidDataException("角色训练等级与行动面板不一致。");
+            var partners = Integers(Array(row, "training_partner_array"), "training_partner_array");
             commands.Add(new(commandId, input.Level, counts[ordinaryCommand], input.GuestCount,
                 [.. input.Supports.Select(card => card.Position)], [.. Integers(Array(row, "tips_event_partner_array"), "tips_event_partner_array")],
                 Int(row, "is_enable") == 1 && !disabled.Contains(commandId), Trainings[(commandId, input.Level)].FailureRate,
-                input.EvaluationTrainingPercent, Integers(Array(row, "training_partner_array"), "training_partner_array").Contains(102)));
+                input.EvaluationTrainingPercent, partners.Contains(102), partners.Contains(103)));
         }
         CampTrainingConfiguration? camp = null;
         if (commands.Any(command => command.CommandId is >= 3601 and <= 3605))
         {
-            if (wholeRun) boost = null;
+            boost = null;
             if (facilityCompiler is null) throw new UnknownMechanismException("合宿训练编译需要设施master与当前设施状态。");
             var facilities = facilityCompiler.Facilities(pioneer);
             camp = new([.. new[] { 101, 105, 102, 103, 106 }.Select(command => Int(levels[command], "level"))],
@@ -149,7 +148,7 @@ public sealed class PioneerMasterCompiler
             var row = visibleCommands.SingleOrDefault(row => Int(row, "command_id") == id);
             if (row is null)
             {
-                if (wholeRun && id == RestRules.CampCommand && Int(chara, "turn") is 74 or 76 or 78
+                if (id == RestRules.CampCommand && Int(chara, "turn") is 74 or 76 or 78
                     && commands.All(command => !command.Enabled)) continue;
                 throw new InvalidDataException($"当前面板缺少休息指令{id}的可用状态。");
             }

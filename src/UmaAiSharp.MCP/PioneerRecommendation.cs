@@ -11,7 +11,7 @@ namespace UmaAiSharp.MCP;
 public static class PioneerRecommendation
 {
     public static ToolResult Run(string inputPath, string goalPath, string candidatesPath, ulong seed, int samples,
-        int workers, string outputPath, string? masterPath = null, CancellationToken cancellationToken = default, string? rulesPath = null,
+        int workers, string outputPath, string rulesPath, CancellationToken cancellationToken = default,
         PioneerModel? model = null)
     {
         ToolArguments.ValidateBatch(samples, workers);
@@ -19,7 +19,7 @@ public static class PioneerRecommendation
         if (File.Exists(output)) throw new InvalidDataException("推荐报告已存在，拒绝覆盖。");
         ExecutionPlatform.EnsureSupported();
         LoadedPioneerExecution loaded;
-        try { loaded = PioneerExecution.Load(inputPath, masterPath, rulesPath, model); }
+        try { loaded = PioneerExecution.Load(inputPath, rulesPath, model); }
         catch (UnknownMechanismException error)
         {
             return PioneerExecution.WriteInitializationStop(inputPath, output, error);
@@ -37,11 +37,9 @@ public static class PioneerRecommendation
             ? GoalEvaluator.Compile(goal, new(loaded.Root.Header.Limits.Speed, loaded.Root.Header.Limits.Stamina,
                 loaded.Root.Header.Limits.Power, loaded.Root.Header.Limits.Guts, loaded.Root.Header.Limits.Wisdom))
             : goal.Compiled;
-        ITrajectoryPolicy<PioneerDecisionView, PioneerRuntimeAction, ScriptCursor> policy = loaded.UseContinuation
-            ? new PioneerContinuationPolicy() : loaded.Script;
-        var scenario = new PioneerScenario(loaded.Data, loaded.UseContinuation);
-        var wholeRun = loaded.UseContinuation && loaded.Data.IsWholeRun;
-        var result = RootSearch.Evaluate(scenario, policy, loaded.Root, candidates,
+        var scenario = new PioneerScenario(loaded.Data, autonomous: true);
+        var wholeRun = loaded.Data.IsWholeRun;
+        var result = RootSearch.Evaluate(scenario, new PioneerContinuationPolicy(), loaded.Root, candidates,
             compiledGoal, seed, samples, workers, cancellationToken,
             candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes),
             rankByTotalRating: wholeRun,
@@ -54,7 +52,7 @@ public static class PioneerRecommendation
             ? result.Candidates.Single(candidate => candidate.Candidate.Id == selectedId).Summary : null;
         var report = new
         {
-            schemaVersion = 1, initialStage = loaded.Data.InitialStage, loaded.InputSha256, loaded.MasterSha256,
+            initialStage = loaded.Data.InitialStage, loaded.InputSha256, loaded.MasterSha256,
             candidatesSha256 = Convert.ToHexStringLower(SHA256.HashData(candidateBytes)), goalIdentity = goal.Identity,
             samplesPerCandidate = samples, workers, recommendedAction = action, recommendationEvaluation = evaluation, search = result,
             executionMilliseconds = elapsed.TotalMilliseconds, processAllocatedBytes = bytes,

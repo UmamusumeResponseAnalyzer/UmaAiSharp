@@ -4,7 +4,7 @@
 
 `InitialStateRules` 组合基础卡、支援初始属性和父母绿 Hint；相性另由 `InheritanceRelationRules` 计算，见[开局组合与相性分量](initial-state-evidence.md)。`EvaluateListedFactors` 仅计算快照明确列出的因子，不认证扩展字段完整性；原 `Evaluate` 入口继续拒绝缺失或非空扩展数组。
 
-亲本原包的扩展数组平铺在完整亲本顶层，按 position_id 覆盖谱系。`InheritancePedigree.MapParent` 将本地 1/10/20 映射为当前三个有效来源；顶层显式空数组覆盖这三个槽位，祖辈缺少嵌套数组不构成输入缺失。此前按嵌套字段判断未知的结论已由 [221 局扩大研究](../artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md)纠正。非空扩展只做结构解析，实际开局结算尚未放行。
+亲本原包的扩展数组平铺在完整亲本顶层，按 position_id 覆盖谱系。`InheritancePedigree.MapParent` 将本地 1/10/20 映射为当前三个有效来源；顶层显式空数组覆盖这三个槽位，祖辈缺少嵌套数组不构成输入缺失。此前按嵌套字段判断未知的结论已由 221 局扩大研究（历史输出 `artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md`）纠正。非空扩展只做结构解析，实际开局结算尚未放行。
 
 ## 已实现的计算
 
@@ -51,7 +51,7 @@ master 最后一档实际区间是 `10..999`；当前六来源、每来源星数
 
 ## 当前本地证据与未覆盖部分
 
-[221 局扩大研究](../artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md)覆盖蓝星 1/2/3 来源 341/858/127 个、直接父母绿星 1/2/3 来源 10/271/10 个。[initial-state-audit-03](../artifacts/evidence/initial-state-audit-03/initial-state-audit.json)从原库重新选择 442 个开局前最新亲本并调用当前 C# 组合组件，五属性、五上限、十适性和父母绿 Hint 各 221/221 匹配；技能、支援羁绊及客户端相性也各 221/221 匹配。祖辈缺少嵌套扩展字段的问题已由完整亲本顶层数组解析纠正，221 局六来源输入完整。
+221 局扩大研究（历史输出 `artifacts/research/blockers/inheritance/expansion-20261108/REPORT.md`）覆盖蓝星 1/2/3 来源 341/858/127 个、直接父母绿星 1/2/3 来源 10/271/10 个。initial-state-audit-03（历史输出 `artifacts/evidence/initial-state-audit-03/initial-state-audit.json`）从原库重新选择 442 个开局前最新亲本并调用当前 C# 组合组件，五属性、五上限、十适性和父母绿 Hint 各 221/221 匹配；技能、支援羁绊及客户端相性也各 221/221 匹配。祖辈缺少嵌套扩展字段的问题已由完整亲本顶层数组解析纠正，221 局六来源输入完整。
 
 这些匹配包含 127 个蓝星 3 来源和 10 个直接父母绿星 3 来源，属于开局组合覆盖，不能把总值匹配拆成每个来源的独立效果验收。研究另外分离出途中蓝因子效果 181 个，其中星 3 有 29 个、来自 24 局；实际增量档位为 +10/+13/+16/+19/+22。这是**途中**效果证据，不是开局蓝星 3 的 +21 规则，也没有认证未见档位概率为零。途中随机抽样尚未接入。
 
@@ -59,7 +59,7 @@ master 最后一档实际区间是 `10..999`；当前六来源、每来源星数
 
 ## 历史 79 局证据
 
-[研究脚本](../artifacts/research/initial_inheritance.py)通过开局前的殿堂快照和此前完成育成的快照补齐六来源。[study-04 报告](../artifacts/evidence/initial-inheritance-study-04/summary.json)对开局请求、响应和此前终局应用配对筛选，要求所用亲本快照在同一来源库的开局请求之前。底层探针的输入指纹与原始材料核验记录位于 [inheritance-probe-02/provenance.json](../artifacts/evidence/inheritance-probe-02/provenance.json)。
+研究脚本（历史输出 `artifacts/research/initial_inheritance.py`）通过开局前的殿堂快照和此前完成育成的快照补齐六来源。study-04 报告（历史输出 `artifacts/evidence/initial-inheritance-study-04/summary.json`）对开局请求、响应和此前终局应用配对筛选，要求所用亲本快照在同一来源库的开局请求之前。底层探针的输入指纹与原始材料核验记录位于 inheritance-probe-02/provenance.json（历史输出 `artifacts/evidence/inheritance-probe-02/provenance.json`）。
 
 | 检查 | 结果 | 能证明的范围 |
 |---|---:|---|
@@ -70,7 +70,7 @@ master 最后一档实际区间是 `10..999`；当前六来源、每来源星数
 | 蓝星 3 来源 | 0 | 仅指此历史 79 局；扩大研究已补充上述 127 个来源 |
 | 蓝因子属性净增量 | 未独立比较 | 开局属性同时受基础属性、支援和其他效果影响，不能从总属性匹配偷换成分量验收 |
 
-研究脚本导出了这 79 个样本的六来源及继承前适性，再由独立 C# 研究入口读取本地 master，直接调用 `InitialInheritanceRules`。上限和红适性各 79/79 匹配，结果见 [csharp-validation.json](../artifacts/evidence/initial-inheritance-study-04/csharp-validation.json)。它检查的是实际组件的两个分量，不是完整开局回放；蓝属性及其他因子没有被偷换成已验证。以上材料不是独立留出集。`study-01/02` 的早期筛选边界不作为当前结论依据。
+研究脚本导出了这 79 个样本的六来源及继承前适性，再由独立 C# 研究入口读取本地 master，直接调用 `InitialInheritanceRules`。上限和红适性各 79/79 匹配，结果见 csharp-validation.json（历史输出 `artifacts/evidence/initial-inheritance-study-04/csharp-validation.json`）。它检查的是实际组件的两个分量，不是完整开局回放；蓝属性及其他因子没有被偷换成已验证。以上材料不是独立留出集。`study-01/02` 的早期筛选边界不作为当前结论依据。
 
 使用本地 master 的 SHA-256：`4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886`。用户允许本地材料研究，不要求与捕获版本严格绑定；这不扩大星数、卡池或机制的观测覆盖。
 

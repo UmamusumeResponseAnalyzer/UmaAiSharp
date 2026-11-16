@@ -21,8 +21,7 @@ public sealed record TrainingFormulaSample(string Source, long PacketId, int Tur
 public sealed record TrainingFormulaResidual(int TargetType, int CommonResidual, int? ScenarioResidual,
     string? ObservedMinusExactNumerator, string? ObservedMinusExactDenominator);
 public sealed record TrainingFormulaCoverage(string Dimension, string Value, int Count);
-public sealed record TrainingFormulaAuditReport(string SchemaVersion, string GainCandidateVersion, string FailureRuleVersion,
-    IReadOnlyList<SourceFingerprint> Inputs, IReadOnlyDictionary<string, int> Counts,
+public sealed record TrainingFormulaAuditReport(IReadOnlyList<SourceFingerprint> Inputs, IReadOnlyDictionary<string, int> Counts,
     IReadOnlyList<TrainingFormulaCoverage> Coverage, IReadOnlyList<EvidenceIssue> Issues,
     IReadOnlyList<string> ApplicabilityLimits, string GainStatus, string FailurePreviewStatus);
 
@@ -158,7 +157,7 @@ public static class TrainingFormulaAudit
         foreach (var source in sources)
             if (Fingerprint(source.Item1, source.Item2).Sha256 != fingerprints.Single(value => value.Alias == source.Item2).Sha256)
                 throw new InvalidDataException("核验期间输入文件改变，不能把本次输出作为稳定证据。");
-        var report = new TrainingFormulaAuditReport("1", TrainingFormulaCandidate.Version, TrainingFailureRate.Version, fingerprints,
+        var report = new TrainingFormulaAuditReport(fingerprints,
             counts, coverage.OrderBy(value => value.Key.Dimension, StringComparer.Ordinal).ThenBy(value => value.Key.Value, StringComparer.Ordinal)
                 .Select(value => new TrainingFormulaCoverage(value.Key.Dimension, value.Key.Value, value.Value)).ToArray(), issues,
             ["LocalMasterAcceptedWithoutStrictResourceVersionBinding", "GainFormulaIsCandidateNotSimulationExecutionRule",

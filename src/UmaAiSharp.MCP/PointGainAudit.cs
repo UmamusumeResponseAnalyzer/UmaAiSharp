@@ -9,7 +9,7 @@ namespace UmaAiSharp.MCP.Evidence;
 public sealed record PointGainInput(int CommandId, int Participants, int CheckpointBonusPercent, bool FriendshipTraining);
 public sealed record PointGainPreview(string Source, long PacketId, string RunKey, int Turn,
     PointGainInput Input, int Predicted, int Observed, bool Matches);
-public sealed record PointGainAuditReport(string SchemaVersion, string RuleVersion, IReadOnlyList<SourceFingerprint> Inputs,
+public sealed record PointGainAuditReport(IReadOnlyList<SourceFingerprint> Inputs,
     int Previews, int ExactMatches, IReadOnlyDictionary<string, int> Coverage, IReadOnlyList<EvidenceIssue> Exclusions,
     IReadOnlyList<string> Limitations, string Status);
 
@@ -134,7 +134,7 @@ public static class PointGainAudit
         foreach (var (path, alias) in new[] { (observationsPath, "observations"), (masterPath, "master") })
             if (Fingerprint(path, alias) != fingerprints.Single(x => x.Alias == alias))
                 throw new InvalidDataException("发展 Pt 核验期间输入发生变化，报告不能作为稳定证据。");
-        var report = new PointGainAuditReport("1", PioneerPointGain.Version, fingerprints, previews, matches, coverage, exclusions,
+        var report = new PointGainAuditReport(fingerprints, previews, matches, coverage, exclusions,
             ["OrdinaryTrainingPreviewsOnly", "NoIslandTrainingOrRaceRuleValidation", "NoPlacementOrFriendshipProbabilityValidation",
                 "NoTurnAdvancementOrPointSettlement", "GroupSupportCardsUnsupported", "CorpusUsedForHypothesisCheckingNotIndependentAcceptance"],
             previews == 0 ? "NoEligibleSamples" : matches == previews ? "ObservedPreviewsMatched" : "CounterexamplesFound");

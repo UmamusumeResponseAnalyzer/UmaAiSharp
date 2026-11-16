@@ -7,7 +7,6 @@ public readonly record struct EventPartner(int TargetId, int CharacterId, int Bo
 // Partner identities are immutable; the trajectory stores bond and outing flag pairs in this order.
 internal sealed class DeclaredEventSettlement
 {
-    public const string Version = "pioneer-declared-event-partners-v1";
     readonly record struct PartnerChange(int Offset, int BondGain, bool UnlockOuting);
     readonly ImmutableArray<PartnerChange> changes;
     public DeclaredEventRewards Resources { get; }

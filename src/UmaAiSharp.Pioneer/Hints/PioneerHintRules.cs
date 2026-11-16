@@ -20,7 +20,7 @@ public sealed class PioneerHintRules
     public long SharedMemoryBytes => 512L + 64L * initialLevels.Count + cards.Sum(card => 4L * (card.SkillSlots?.Length ?? 0));
 
     public PioneerHintRules(ImmutableArray<PioneerCardHints> catalog, IEnumerable<InheritanceSkill> skills,
-        ImmutableArray<TrainingSupport> deck, PioneerHintProgress progress)
+        ImmutableArray<TrainingSupport> deck, PioneerHintProgress progress, IEnumerable<HintSkill>? observed = null)
     {
         var ownedIds = progress.OwnedSkills.Select(skill => skill.Id).ToHashSet();
         var learned = skills.Where(skill => ownedIds.Contains(skill.Id))
@@ -35,6 +35,8 @@ public sealed class PioneerHintRules
                 [.. entries.Where(entry => entry.Exclusion == HintPoolExclusion.None).Select(entry => Slot(entry.Skill))],
                 pool.AttributeReward);
         }
+        if (observed is not null)
+            foreach (var skill in observed) Slot(skill);
     }
 
     // Deck pools and both inheritance lotteries use the same level for a given skill group and rarity.
@@ -48,6 +50,14 @@ public sealed class PioneerHintRules
 
     internal ReadOnlySpan<int> InitialLevels => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(initialLevels);
     internal int FindSlot(HintSkill skill) => slots.GetValueOrDefault(skill, -1);
+
+    internal ImmutableArray<HintLevel> ReadLevels(ReadOnlySpan<int> levels)
+    {
+        var result = ImmutableArray.CreateBuilder<HintLevel>();
+        foreach (var (skill, slot) in slots)
+            if (levels[slot] >= 0) result.Add(new(skill, levels[slot]));
+        return result.ToImmutable();
+    }
 
     static (int Level, int Count) RewardSize(TrainingSupport support, int bond)
     {

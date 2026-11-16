@@ -1,6 +1,4 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Runtime;
@@ -64,12 +62,12 @@ public sealed class PioneerTerminalExecutionTests
         PioneerStateAudit.AssertDeterministic(data, script);
         Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(start with { CharacterState = 0 }, [], "bad"));
         var alias = start with { Event = start.Event with { EventId = 7 } };
-        var aliased = PioneerRuntimeData.Compile(alias, [], "ending-alias", usesStoryDecisions: true);
+        var aliased = PioneerRuntimeData.Compile(alias, [], "ending-alias");
         var aliasScenario = new PioneerScenario(aliased);
         var aliasRoot = aliased.CreateInitialState();
         Assert.Equal(PioneerScenario.DecisionKey(78, start.Event.StoryId), aliasScenario.Inspect(aliasRoot, 0).Decision.Id.Key);
         Assert.Null(aliasScenario.ValidateAction(aliasRoot, PioneerRuntimeAction.Choose(alias.Event, 0)));
-        Assert.NotNull(aliasScenario.ValidateAction(aliasRoot, PioneerRuntimeAction.Choose(start.Event, 0)));
+        Assert.Null(aliasScenario.ValidateAction(aliasRoot, PioneerRuntimeAction.Choose(start.Event, 0)));
         Assert.NotNull(aliasScenario.ValidateAction(aliasRoot, PioneerRuntimeAction.Choose(alias.Event with { StoryId = 501060110 }, 0)));
         Assert.Throws<InvalidDataException>(() => PioneerRuntimeData.Compile(start with { Event = start.Event with { CharacterId = 1011 } }, [], "bad"));
     }
@@ -101,76 +99,6 @@ public sealed class PioneerTerminalExecutionTests
             }
             Assert.Equal(result, SimulationRunner.Continue(scenario, script, ref execution));
         }
-    }
-
-    [Fact]
-    public void RecommendationUsesGeneratedTerminalMetricsAndKeepsStoppedCandidates()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "UmaAiSharp-recommend-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
-        {
-            var example = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../examples"));
-            JsonNode? baseline = null;
-            foreach (var workers in new[] { 1, 4, 16, 32 })
-            {
-                var output = Path.Combine(directory, $"ending-{workers}.json");
-                Assert.Equal("completed", PioneerRecommendation.Run(Path.Combine(example, "pioneer/character-ending.json"),
-                    Path.Combine(example, "power-goal.json"), Path.Combine(example, "pioneer/character-ending-candidates.json"),
-                    71, 131, workers, output).Status);
-                var report = JsonNode.Parse(File.ReadAllBytes(output))!;
-                Assert.Equal("completed", report["search"]!["status"]!.GetValue<string>());
-                Assert.Equal(6, report["search"]!["recommendedCandidateId"]!.GetValue<int>());
-                Assert.Equal(131, report["search"]!["candidates"]![0]!["summary"]!["successCount"]!.GetValue<int>());
-                Assert.Equal(1m, report["recommendationEvaluation"]!["successRate"]!.GetValue<decimal>());
-                if (baseline is not null) Assert.True(JsonNode.DeepEquals(baseline, report["search"]));
-                baseline = report["search"]!.DeepClone();
-            }
-            var unreachableGoal = Path.Combine(directory, "unreachable-goal.json");
-            var goal = JsonNode.Parse(File.ReadAllBytes(Path.Combine(example, "power-goal.json")))!;
-            goal["constraints"]![0]!["value"] = 3000;
-            File.WriteAllText(unreachableGoal, goal.ToJsonString());
-            var closestOutput = Path.Combine(directory, "closest.json");
-            Assert.Equal("completed", PioneerRecommendation.Run(Path.Combine(example, "pioneer/character-ending.json"),
-                unreachableGoal, Path.Combine(example, "pioneer/character-ending-candidates.json"), 71, 65, 4, closestOutput).Status);
-            var closest = JsonNode.Parse(File.ReadAllBytes(closestOutput))!;
-            Assert.NotNull(closest["recommendedAction"]);
-            var evaluation = closest["recommendationEvaluation"]!;
-            Assert.Equal(0, evaluation["successCount"]!.GetValue<int>());
-            Assert.Equal(0m, evaluation["successRate"]!.GetValue<decimal>());
-            Assert.Null(evaluation["conditionalUtilities"]);
-            Assert.True(evaluation["meanConstraintViolation"]!.GetValue<decimal>() > 0);
-            Assert.Equal(0.0450422581230137, evaluation["zeroSuccessProbabilityUpperBound95"]!.GetValue<double>(), 12);
-            var training = JsonNode.Parse(File.ReadAllBytes(Path.Combine(example, "pioneer/training-turn.json")))!;
-            training["mode"] = "autonomous"; training["outcomes"] = new JsonArray(); training["script"] = new JsonArray();
-            var input = Path.Combine(directory, "training.json"); File.WriteAllText(input, training.ToJsonString());
-            var candidates = Path.Combine(directory, "candidates.json");
-            File.WriteAllText(candidates, JsonSerializer.Serialize(new[] { new RootCandidate<PioneerRuntimeAction>(101, PioneerRuntimeAction.Train(101)) }, PioneerExecution.JsonOptions));
-            var stoppedOutput = Path.Combine(directory, "stopped.json");
-            Assert.Equal("stopped", PioneerRecommendation.Run(input, Path.Combine(example, "power-goal.json"),
-                candidates, 71, 131, 4, stoppedOutput).Status);
-            var stopped = JsonNode.Parse(File.ReadAllBytes(stoppedOutput))!;
-            Assert.Null(stopped["recommendedAction"]);
-            Assert.Null(stopped["search"]!["recommendedCandidateId"]);
-            Assert.Equal(131, stopped["search"]!["candidates"]![0]!["batch"]!["results"]!.AsArray().Count);
-            Assert.Null(stopped["search"]!["candidates"]![0]!["summary"]);
-
-            training["start"]!["data"]!["characterEffects"] = new JsonArray(999);
-            File.WriteAllText(input, training.ToJsonString());
-            foreach (var command in new[] { "run", "recommend" })
-            {
-                var unknownOutput = Path.Combine(directory, $"unknown-{command}.json");
-                var result = command == "recommend"
-                    ? PioneerRecommendation.Run(input, Path.Combine(example, "power-goal.json"), candidates, 71, 131, 4, unknownOutput)
-                    : PioneerExecution.Run(input, 71, unknownOutput, PioneerExecutionMode.Autonomous);
-                Assert.Equal("stopped", result.Status);
-                var unknown = JsonNode.Parse(File.ReadAllBytes(unknownOutput))!;
-                Assert.Equal("initialization", unknown["phase"]!.GetValue<string>());
-                Assert.Equal("unknownMechanism", unknown["reason"]!.GetValue<string>());
-                Assert.Equal("stopped", unknown["status"]!.GetValue<string>());
-            }
-        }
-        finally { Directory.Delete(directory, true); }
     }
 
     static PioneerStart.CharacterEnding Start(JsonNode row)

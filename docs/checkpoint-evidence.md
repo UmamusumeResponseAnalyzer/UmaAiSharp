@@ -68,7 +68,7 @@ dotnet test tests/UmaAiSharp.Tests/UmaAiSharp.Tests.csproj --no-restore --filter
 {
   "name": "evidence_checkpoint",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "outputDirectory": "<新目录>"
   }
 }

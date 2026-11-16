@@ -23,15 +23,11 @@ SDK 与依赖版本分别记录在 `global.json`、`Directory.Packages.props` �
 dotnet test UmaAiSharp.slnx --no-restore -m:1 -nodeReuse:false
 ```
 
-`artifacts/` 中的模型、研究材料、历史性能基线和报告不随仓库发布；文档指向这些材料及 `docs/event-reward-evidence.md` 的链接仅在材料齐全的本地工作区可用。
+`artifacts/` 存放 ZIP、报告和其他运行输出，可随时清理。构建和验证从源码、`Fixtures/` 下的夹具及显式提供的本机输入读取数据。
 
 ## 可执行功能
 
-`pioneer_forecast` 从抓包前缀比较训练、休息、岛训练、外出、比赛、保健室、建设规划或已揭示事件选项，通过明确标注的经验过渡模型预测到终局。当前角色成长与六卡效果由 master 编译，不要求模型包含相同配置；缺失机制保留停止。输入、实测覆盖及适用限制见[条件经验预测](docs/conditional-forecast.md)。完整机制模拟及独立推荐质量验收尚未完成。
-
-规则资源 v13 可通过 `pioneer_import_capture` → `pioneer_recommend` 比较合法训练、岛训练、建设、恢复及比赛，并模拟两次继承到第 78 回合。属性条件在终局判定。候选先比较联合达标率，再比较达标轨迹的平均终局总分。总分计入五维、按实际 Pt 和 Hint 估计的可购技能增量及已接入的固有升级。精确和快速公式模型可在执行时选定。见 [Pioneer MCP](docs/pioneer-mcp.md#规则资源-v13-自主整局)。
-
-`pioneer_calibrate_events`提取去除事件所属支援加成的基础资源样本，提供同类事件统计参数及排除计数。`pioneer_build_model`将已校准资源绑定到未来转移，按当前卡组与羁绊重新结算。用法和适用边界见[事件基础资源模型](docs/event-statistical-model.md)。
+通过 `pioneer_import_capture` → `pioneer_recommend` 比较合法训练、岛训练、建设、恢复及比赛，并模拟两次继承到第 78 回合。导入和执行显式传入同一份 `rulesPath`。候选先比较终局联合达标率，再比较达标轨迹的平均终局总分。总分计入五维、按实际 Pt 和 Hint 估计的可购技能增量及已接入的固有升级。执行时可选 `precise` 或 `fast` 训练公式。见 [Pioneer MCP](docs/pioneer-mcp.md#自主整局)。
 
 当前训练面板由轨迹独占，支援与PJ的联合位置生成见[人员联合分配](docs/joint-placement.md)。
 
@@ -43,15 +39,15 @@ dotnet test UmaAiSharp.slnx --no-restore -m:1 -nodeReuse:false
 
 成功普通训练按四次阈值登记[待结算升级](docs/training-level-trigger.md)，已揭示的五类升级事件经正式入口确认后增加等级；输入和停止位置见[训练升级确认](docs/pioneer-mcp.md#训练升级确认)。
 
-普通训练跨越本期发展Pt阈值后进入[建设107决策](docs/training-construction.md)，确认后结算当前有序计划的设施前缀及岛训练券。回合导入包含当前建设状态，执行时提供`masterPath`；建设后的人员配置和事件调度保留停止位置。
+普通训练跨越本期发展 Pt 阈值后进入[建设107决策](docs/training-construction.md)，确认后结算当前有序计划的设施前缀及岛训练券。回合导入包含当前建设状态。
 
 普通休息支持选择与事件确认两个决策；合宿休息可自主结算体力／干劲。导入按当前面板增加合法休息候选，后续事件调度保留明确停止位置，见[休息执行](docs/pioneer-mcp.md#休息与合宿休息)及[原包证据](docs/rest-action-evidence.md)。
 
 普通／合宿训练接入全队固有121的[羁绊结算](docs/training-bond-effects.md)。两条失败回放从完整训练面板进入失败选择，结算惩罚及正向思考效果消耗；输入和停止位置见[失败回放](docs/pioneer-mcp.md#失败条件回放)。
 
-根候选搜索、人员与 Hint 抽样模型见 [回合推荐实现](docs/recommendation.md)。导入工具将原始回合响应编译为执行输入和合法根候选。分量执行与条件经验预测使用各自的规则身份。
+导入工具将原始回合响应编译为执行输入和合法根候选。根候选搜索、人员与 Hint 抽样模型见 [回合推荐实现](docs/recommendation.md)。
 
-Pioneer 入口、普通／合宿训练回合、已揭示事件选项、真实失败片段示例与条件结果格式见 [执行与推荐](docs/pioneer-mcp.md)。`pioneer_run` 为自主模式，`pioneer_replay` 接受限定的已识别结果，`pioneer_batch` 按输入模式执行固定样本批次。未实现机制输出结构化停止，搜索结果保留各候选的逐样本停止位置。
+Pioneer 入口、普通／合宿训练回合、已揭示事件选项及真实失败片段示例见 [执行与推荐](docs/pioneer-mcp.md)。`pioneer_run` 为自主模式，`pioneer_replay` 支持实包[训练后事件](docs/pioneer-mcp.md#训练后事件条件回放)及[记者收尾与目标赛](docs/pioneer-mcp.md#记者收尾与目标赛条件回放)，`pioneer_batch` 按输入模式执行固定样本批次。未实现机制输出结构化停止，搜索结果保留各候选的逐样本停止位置。
 
 证据工具只读打开源数据库，派生文件使用新输出路径。审计摘要分别返回工具执行状态和证据核验结论。完整工具列表见 [MCP 接入](docs/mcp.md#证据工具)。
 
@@ -63,25 +59,35 @@ Pioneer 入口、普通／合宿训练回合、已揭示事件选项、真实失
 | --- | --- |
 | Core | 值类型随机流、借用决策视图、独占工作区、精确分叉、确定性批量调度、预编译终局目标评价、固定样本根候选搜索 |
 | Pioneer | 紧凑状态与片段状态机、普通／合宿训练行动、精确训练数值核、有序建设规划、建设与评审分量、已解析失败分支、岛训练即时结算、Hint有效奖池、Tucker事件分量、发展 Pt、开局组合与相性、已选比赛目标映射、结局与评分候选 |
-| Pioneer.Game | 规则快照、回合输入编译和可复用的预测会话，供 MCP 和 URA 的 PioneerAiPlugin 进程内调用 |
+| Pioneer.Game | 规则快照、回合输入编译和自主模拟会话，供 MCP 和 URA 的 PioneerAiPlugin 进程内调用 |
 | MCP | SQLite / MessagePack 读取、回合导入、规则输入编译、单轨迹／条件回放／批量执行、根候选推荐、差分核验及目标评价 |
 | Tests | 输入边界、规则局部样例、轨迹隔离和确定性不变量 |
 
 PioneerAiPlugin 在 URA 的训练面板显示行动建议，在「建设规划」工作区显示有序方案排名。两处都使用自主整局模拟和 `goalPath`，可用 `model` 选取公式。维护者使用 `tools/UmaAiSharp.Pioneer.DataGenerator`，依次传入 master、规则资源输出路径、回合校准文件和继承校准文件，生成插件内置规则。
 
-在 UmaAiSharp 根目录为已准备好规则资源、且已按 `win-x64` 还原当前运行时依赖的插件项目打包。URA SDK 将 ZIP 写入 `artifacts/PioneerAiPlugin.zip`，供手动安装。
+在正式的 `URA-Plugins/PioneerAiPlugin` 检出初始化 `deps/PioneerScenarioAnalyzer` 子模块。插件项目从 `Resources/pioneer_rules.br` 嵌入规则。以下命令在 UmaAiSharp 根目录执行，将当前引擎源码打成与插件同版本的本地 NuGet 包，由 URA SDK 写出 `artifacts/PioneerAiPlugin.zip`。
 
 ```powershell
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 $pluginProject = '<PioneerAiPlugin.csproj 的绝对路径>'
+$version = dotnet msbuild $pluginProject -getProperty:Version -nologo
+$feed = Join-Path (Split-Path $pluginProject) 'obj/nuget'
+dotnet restore src/UmaAiSharp.Pioneer.Game/UmaAiSharp.Pioneer.Game.csproj --locked-mode -m:1 -nodeReuse:false
+foreach ($name in 'UmaAiSharp.Core', 'UmaAiSharp.Pioneer', 'UmaAiSharp.Pioneer.Game') {
+    dotnet pack "src/$name/$name.csproj" -c Release --no-restore -m:1 "-p:Version=$version" -o $feed
+}
+$packages = Join-Path ([IO.Path]::GetTempPath()) "pioneer-nuget-$([guid]::NewGuid())"
+$props = @('-p:RuntimeIdentifier=win-x64', '-p:SelfContained=false', '-p:PlatformTarget=AnyCPU',
+    '-p:DeployUraPluginToLocalAppDataOnBuild=false', "-p:RestorePackagesPath=$packages")
 $packageTargets = (Resolve-Path tools/PioneerAiPlugin.Package.targets).Path
-dotnet build $pluginProject --no-restore -c Release -m:1 -p:RuntimeIdentifier=win-x64 -p:SelfContained=false -p:PlatformTarget=AnyCPU -p:ManagePackageVersionsCentrally=false "-p:CustomAfterMicrosoftCommonTargets=$packageTargets"
+dotnet restore $pluginProject --force-evaluate @props
+dotnet build $pluginProject --no-restore -c Release -m:1 @props "-p:CustomAfterMicrosoftCommonTargets=$packageTargets"
 ```
 
-实施结果、核心缺口和延期项分别列在 [实施报告](docs/implementation-status.md)。完整实包与派生材料保留在被忽略的 `artifacts/` 中，按本地研究数据处理。
+已接入机制、校准和验证范围见 [实施状态](docs/implementation-status.md)。本地实包和校准输入通过各工具的路径参数提供。
 
-执行器设计见 [Core](docs/core-engine.md) 与 [Pioneer](docs/pioneer-runtime.md)；基准口径、实测数据及未采用优化见 [性能交付报告](docs/engine-performance.md)。
-
-交接包参考实现的吸收范围、反例及排除项见 [移交包核查](docs/handoff-review.md)。
+执行器设计见 [Core](docs/core-engine.md) 与 [Pioneer](docs/pioneer-runtime.md)。基准与复跑命令见 [性能基准](docs/engine-performance.md)。
 
 日文资料及本地对照分别记录在 [训练公式](docs/training-formula-evidence.md)、[人员与 Hint](docs/placement-hint-evidence.md)、[开局继承](docs/initial-inheritance-evidence.md)、[比赛路线与评分](docs/race-route-evidence.md)。人员、Hint、随机事件和比赛结果的完整生成规则尚未认证。
 

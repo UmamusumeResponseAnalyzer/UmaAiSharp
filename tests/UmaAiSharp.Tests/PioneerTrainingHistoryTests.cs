@@ -56,7 +56,8 @@ public sealed class PioneerTrainingHistoryTests
     {
         var path = PioneerExecutionTests.Example(camp ? "camp-failure-replay.json" : "ordinary-failure-replay.json");
         var input = JsonSerializer.Deserialize<PioneerExecutionInput>(File.ReadAllBytes(path), PioneerExecution.JsonOptions)!;
-        var start = input.Start.Data.Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)!;
+        var start = input.Start.Data.Deserialize<PioneerStart.TrainingTurn>(PioneerExecution.JsonOptions)! with
+        { Development = null, SuccessfulOrdinaryTrainingCounts = null };
         int[] order = [101, 105, 102, 103, 106];
         var counts = order.Select(id => start.Commands.Single(command => TrainingBaseTable.OrdinaryCommand(command.CommandId) == id).ExecutionCount).ToArray();
         var data = PioneerRuntimeData.Compile(start with { SuccessfulOrdinaryTrainingCounts = [.. counts] },

@@ -15,7 +15,7 @@ public sealed class PioneerConstructionAuditTests
         try
         {
             var sourceHash = new string('a', 64);
-            var report = new EvidenceReport("1", DateTimeOffset.UtcNow,
+            var report = new EvidenceReport(DateTimeOffset.UtcNow,
                 [new("packets", "fixture", sourceHash, 1), new("master", "fixture", PioneerConstructionRules.ObservedMasterSha256, 1)],
                 new("Unverified", null, ["fixture"], "Fixture only"), "Unverified", new([], [], 0),
                 new(0, 0, 0, 0, 0, 0, 0, 0, 0, [], [], [], [], []), [], new("Blocked", ["FixtureOnly"]));

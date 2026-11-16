@@ -4,11 +4,11 @@
 
 属性奖励使用显式选定的单个 `single_mode_hint_gain` 奖励组。1200 以下部分按 1:1，以上部分按整数除 2、非零部分至少 1 点处理，再截断至上限；技能 Pt 直接增加。不同候选组不能相加，净变化为零也不能直接判为属性奖励。
 
-`ApplyAttributeReward`返回`HintAttributeReward`：`Resources`为后态，`UncappedGains`为1200换算后、上限截断前的显示增量，`Overflow`为被属性上限截断的部分。正式Hint事件入口将其累加至路径指标；例如属性1800已到上限、奖励6时，实际增加0、截断前增加3、溢出3。规则版本为`jp-pioneer-white-hint-effective-pool-v2`。
+`ApplyAttributeReward`返回`HintAttributeReward`：`Resources`为后态，`UncappedGains`为1200换算后、上限截断前的显示增量，`Overflow`为被属性上限截断的部分。正式Hint事件入口将其累加至路径指标；例如属性1800已到上限、奖励6时，实际增加0、截断前增加3、溢出3。
 
 ## 原包复核
 
-[C# 报告](../artifacts/evidence/hint-pool-audit-02/hint-pool-audit.json)从冻结的云端 MessagePack 导出独立解码前态、请求与后态，重新读取只读 master，调用产品组件。研究定位和完整输入均锁定 SHA-256；不读取在线数据库。前后 Hint 均检查等级和唯一性，同时改变已学技能的窗口不按单次 Hint 奖励验收。
+C# 报告（历史输出 `artifacts/evidence/hint-pool-audit-02/hint-pool-audit.json`）从冻结的云端 MessagePack 导出独立解码前态、请求与后态，重新读取只读 master，调用产品组件。研究定位和完整输入均锁定 SHA-256；不读取在线数据库。前后 Hint 均检查等级和唯一性，同时改变已学技能的窗口不按单次 Hint 奖励验收。
 
 | 项目 | 结果 |
 | --- | ---: |
@@ -24,7 +24,7 @@
 
 本地与云端 N=2 合计 38/136，仍不足以认证通用 `1/(N+1)` 概率。已学技能过滤与重新抽取等机制可能产生相同的有效池，不能据此确定服务器过滤时点。岛训练多个 Hint 的对象选择、相关性和领取顺序也未由本组件实现。
 
-来源：[云端扩展报告](../artifacts/research/blockers/support-placement-hint/cloud-20261108-01/REPORT.md)、[原始导出复核](../artifacts/research/blockers/support-placement-hint/cloud-20261108-01/comparison-verified.json)。本轮按用户授权使用这些资源版本，版本不一致保留为来源信息。
+来源：云端扩展报告（历史输出 `artifacts/research/blockers/support-placement-hint/cloud-20261108-01/REPORT.md`）、原始导出复核（历史输出 `artifacts/research/blockers/support-placement-hint/cloud-20261108-01/comparison-verified.json`）。本轮按用户授权使用这些资源版本，版本不一致保留为来源信息。
 
 ## 运行
 
@@ -32,7 +32,7 @@
 {
   "name": "evidence_hint_pool",
   "arguments": {
-    "researchDirectory": "artifacts/research/blockers/support-placement-hint/cloud-20261108-01",
+    "researchDirectory": "<本次研究输入目录>",
     "masterPath": "<master.mdb>",
     "outputDirectory": "<新目录>"
   }

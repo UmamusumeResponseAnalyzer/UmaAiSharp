@@ -52,7 +52,6 @@ public sealed class PioneerConstructionRules(PioneerMasterData data)
 {
     internal delegate double ConstructionScore(ReadOnlySpan<FacilityUpgrade> upgrades);
 
-    public const string PlanningVersion = "pioneer-ordered-planning-v1";
     public const string ObservedMasterSha256 = "4538336047066a76f4723d942010ac6fa3f21c958cbf5cf6b99642f97add3886";
     public PioneerMasterData Data { get; } = data;
 

@@ -45,7 +45,7 @@ var result = SimulationRunner.Continue(scenario, policy, ref execution);
 
 ## RNG 与批量执行
 
-`SimulationRandom` 是只含 `ulong` 状态的值类型，调用链始终按 `ref` 传递。算法保持 `splitmix64-v1`，样本派生保持 `sample-domain-mix-v1`；`NextInt` 的拒绝采样和上界为1时的抽数行为保持原样。策略随机消耗不能影响规则流。
+`SimulationRandom` 是只含 `ulong` 状态的值类型，调用链始终按 `ref` 传递。算法保持 `splitmix64`，样本派生保持 `sample-domain-mix`；`NextInt` 的拒绝采样和上界为1时的抽数行为保持原样。策略随机消耗不能影响规则流。
 
 `RunBatch` 同步执行固定数量样本，按每块 64 个逻辑样本分配工作区。根搜索可按单个样本分配工作区，初始批和新增区间都可用足请求的 worker。编号、种子及结果位置由逻辑样本决定。每个 worker 复用一个独占状态和策略游标，结果写入原始 `sampleIndex` 槽。每个结果保存两条 RNG 的末态。
 
@@ -83,9 +83,9 @@ var batch = SimulationRunner.RunBatch(scenario, policy, root, seed, samples, wor
 
 Core测试覆盖值状态修改、独占缓冲区、RNG黄金向量、策略随机隔离、精确分叉、部分动作续算、长短轨迹工作区复用、取消后待动作、固定结果槽、1/4/32 worker与批次前缀、脚本独立游标、内存边界、程序错误传播，以及逐整数decimal查表一致性和停止批次拒绝。
 
-性能验收分别记录克隆、单步、固定任务批次和目标评价；真实完整Pioneer路径未实现时不报告“完整育成/秒”。复制指令与可选ISA优化由基准结果决定，不为使用SIMD而改变数值或随机语义。
+基准分别记录克隆、单步、固定任务批次和目标评价。复制指令与可选ISA优化由基准结果决定，不为使用SIMD而改变数值或随机语义。
 
-`ExecutionBenchmarks.cs`使用已锁定SHA-256的普通/合宿完整训练前态和失败原包投影，分别测量配置编译、分配克隆/预留工作区复制、执行上下文精确分叉、复位后执行两次决策、64与4096个固定任务。JSON解析和实包前后态对照在计时外完成；首个决策为`TrainingTurn`，失败事件与结果分支是显式条件输入。第二次决策之后停在下一回合事件待处理阶段，计量单位为失败片段。
+`ExecutionBenchmarks.cs`使用普通／合宿完整训练前态和失败原包投影，分别测量配置编译、分配克隆/预留工作区复制、执行上下文精确分叉、复位后执行两次决策、64与4096个固定任务。JSON解析和实包前后态对照在计时外完成；首个决策为`TrainingTurn`，失败事件与结果分支是显式条件输入。第二次决策之后停在下一回合事件待处理阶段，计量单位为失败片段。
 
 两档批次分别比较1/2/4/8/16/32 worker。64个样本只有一个逻辑块，因此这档主要显示小任务调度和工作区开销，不代表32路并行负载。并行批次不使用`MemoryDiagnoser`推断全进程分配；独立进程辅助入口`ExecutionBatchAllocation.Measure(caseName, samples, workers)`在预热后记录`GC.GetTotalAllocatedBytes(true)`差值及耗时，覆盖工作线程分配，但它不是峰值存活内存或RSS。
 

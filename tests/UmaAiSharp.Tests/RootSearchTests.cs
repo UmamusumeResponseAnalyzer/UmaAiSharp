@@ -183,7 +183,7 @@ public sealed class RootSearchTests
         : ISimulationScenario<State, int, int, TerminalMetrics>
     {
         public int CreatedWorkspaces;
-        public string RulesIdentity => "root-search-test-v1";
+        public string RulesIdentity => "root-search-test";
         public long SharedMemoryBytes => 0;
         public State CreateWorkspace(in State source)
         {

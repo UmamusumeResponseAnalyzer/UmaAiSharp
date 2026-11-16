@@ -1,12 +1,12 @@
 using UmaAiSharp.Core;
 using System.Collections.Immutable;
-using UmaAiSharp.Pioneer.Runtime;
 
 namespace UmaAiSharp.Pioneer.Training;
 
+public readonly record struct PioneerFacilityBase(int Command, int RequiredFacility, int Target, int Value);
+
 public static class TrainingBaseTable
 {
-    public const string Version = "jp-ordinary-training-base-inference-v1";
 
     static ReadOnlySpan<int> OrdinaryCommands => [101, 105, 102, 103, 106];
 
@@ -16,7 +16,7 @@ public static class TrainingBaseTable
     public static int OrdinaryCommand(int command) => CommandIndex(command) is >= 0 and var index
         ? OrdinaryCommands[index] : throw new UnknownMechanismException($"未实现的训练指令{command}。");
 
-    public static TrainingValues FromFacilityRows(int command, ImmutableArray<ForecastFacilityBase> bases,
+    public static TrainingValues FromFacilityRows(int command, ImmutableArray<PioneerFacilityBase> bases,
         ImmutableArray<TrainingFacility> facilities)
     {
         for (var i = 0; i < facilities.Length; i++)

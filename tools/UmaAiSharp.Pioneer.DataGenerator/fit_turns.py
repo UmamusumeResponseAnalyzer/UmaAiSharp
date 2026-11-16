@@ -344,7 +344,7 @@ def fit(evidence, events, boards_path, level_windows, split, event_outcomes, mas
         history_metrics['upgradeableWindows'] += 1
         history_metrics['modalMatches'] += int(modal == successful)
         history_metrics['modalAbsoluteError'] += abs(modal - successful)
-    report = {'schemaVersion': 1, 'inputs': hashes,
+    report = {'inputs': hashes,
               'uraFans': ura_fans,
               'trainingHistory': {'fitRuns': len(history_runs['fit']), 'fitWindows': sum(history_frequencies.values()),
                                   'holdoutRuns': len(history_runs['holdout']), 'holdoutWindows': len(history_holdout),

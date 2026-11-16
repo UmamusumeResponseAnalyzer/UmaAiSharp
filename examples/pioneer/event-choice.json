@@ -1,7 +1,6 @@
 {
-  "schemaVersion": 1,
-  "rulesIdentity": "local-event-501068510-55467",
-  "mode": "autonomous",
+  "rulesIdentity": "pioneer-rules/c938910b40672ee64d64ea39634e75b41cb76bc8a4639a02bf0e4ef0c39bb298",
+  "mode": "conditional",
   "start": {
     "kind": "declaredEvent",
     "data": {
@@ -81,14 +80,14 @@
       "decisionId": {
         "kind": 15,
         "ordinal": 0,
-        "key": 244813145872
+        "key": 245314204382
       },
       "action": {
         "kind": "chooseEvent",
         "commandId": 0,
-        "eventId": 10000,
         "characterId": 1068,
-        "choiceNumber": 1
+        "choiceNumber": 1,
+        "storyId": 501068510
       }
     }
   ]

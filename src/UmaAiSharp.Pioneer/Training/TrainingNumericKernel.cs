@@ -27,7 +27,6 @@ internal sealed record CompiledIslandFacilities(TrainingValues BaseExtra, int Ho
 // Uses the same quantization and effect order as the audit kernel.
 public static class TrainingNumericKernel
 {
-    public const string Version = TrainingFormulaCandidate.Version;
 
     public static TrainingNumericResult GenerateOrdinary(TrainingFormulaInput input) => Ordinary(input, null);
 

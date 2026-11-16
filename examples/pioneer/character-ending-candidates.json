@@ -1,13 +1,13 @@
 [
   {
-    "id": 6,
+    "id": 501032111,
     "action": {
       "kind": "chooseEvent",
       "commandId": 0,
-      "eventId": 6,
       "characterId": 1032,
       "choiceNumber": 0,
-      "plan": null
+      "plan": null,
+      "storyId": 501032111
     }
   }
 ]

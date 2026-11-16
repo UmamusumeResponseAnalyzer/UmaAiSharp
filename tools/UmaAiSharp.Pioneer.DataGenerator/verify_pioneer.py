@@ -210,8 +210,11 @@ def inspect_schema(mcp):
                                "clientInfo": {"name": "pioneer-acceptance", "version": "1"}})
     mcp.request("notifications/initialized", {}, notify=True)
     tools = {tool["name"]: tool["inputSchema"] for tool in mcp.request("tools/list", {})["tools"]}
-    if len(tools) != 29:
-        raise ValueError(f"MCP 工具数量应为 29，实际为 {len(tools)}。")
+    if len(tools) != 25:
+        raise ValueError(f"MCP 工具数量应为 25，实际为 {len(tools)}。")
+    for name in ("pioneer_import_packet", "pioneer_import_capture", "pioneer_run", "pioneer_replay", "pioneer_batch", "pioneer_recommend"):
+        if "rulesPath" not in tools[name]["required"] or "masterPath" in tools[name]["properties"]:
+            raise ValueError(f"{name} 的规则输入应为必填 rulesPath。")
     for name in ("pioneer_run", "pioneer_replay", "pioneer_batch", "pioneer_recommend"):
         if tools[name]["properties"]["model"].get("default") != "precise":
             raise ValueError(f"{name} 的 MCP model 参数缺少默认值 precise。")

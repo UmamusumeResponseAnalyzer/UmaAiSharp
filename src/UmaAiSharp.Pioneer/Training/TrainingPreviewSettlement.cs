@@ -9,7 +9,6 @@ public readonly record struct TrainingParameterChange(int TargetType, int Value)
 
 public static class TrainingPreviewSettlement
 {
-    public const string Version = "observed-training-preview-addition-v1";
 
     // This settles supplied gains; it does not generate gains, resolve failure/events, or advance the turn.
     public static TrainingValues Apply(TrainingValues before, TrainingLimits limits,

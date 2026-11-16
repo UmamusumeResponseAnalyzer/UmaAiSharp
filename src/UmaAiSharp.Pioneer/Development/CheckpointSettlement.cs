@@ -19,7 +19,6 @@ public sealed record CheckpointProgressSettlement(OrdinaryTrainingLevels Trainin
 public sealed class CheckpointSettlement(CheckpointMasterData master)
 {
     internal CheckpointMasterData Master => master;
-    public const string Version = "observed-checkpoint-resource-settlement-v1";
     public static FrozenDictionary<int, (int Type, int Result)> ObservedEventOutcomes { get; } =
         new Dictionary<int, (int, int)>
         {

@@ -229,7 +229,7 @@ for i, (alias, start, end) in enumerate(windows):
 with sqlite3.connect(args.master.resolve().as_uri() + "?mode=ro", uri=True) as connection:
     titles = [{"storyId": row[0], "title": row[1]} for row in connection.execute(
         'select "index",text from text_data where category=181 and "index" in (400011019,501038524,400011105,400011107,400011108,400011110,400011111)')]
-result = {"schemaVersion": "1", "inputs": input_hashes, "masterSha256": fingerprint(args.master),
+result = {"inputs": input_hashes, "masterSha256": fingerprint(args.master),
           "rawWindows": raw_window_reports, "masterEventTitles": titles,
           "eventWindows": [{"storyId": key[0], "eventId": key[1], "rawPlayTiming": key[2], "observations": count}
                            for key, count in sorted(event_counts.items())],

@@ -8,7 +8,7 @@
 {
   "name": "evidence_construction",
   "arguments": {
-    "evidenceDirectory": "artifacts/evidence/local-audit-05",
+    "evidenceDirectory": "<审计导出目录>",
     "outputDirectory": "artifacts/evidence/construction-audit-new"
   }
 }
@@ -103,7 +103,7 @@
 可复跑证据工具：
 
 ```powershell
-python src/UmaAiSharp.Pioneer/Evidence/audit_construction_windows.py --input artifacts/evidence/local-audit-05 --packets <原始SQLite目录> --master <本地master.mdb> --output <新的JSON文件>
+python src/UmaAiSharp.Pioneer/Evidence/audit_construction_windows.py --input "<审计导出目录>" --packets <原始SQLite目录> --master <本地master.mdb> --output <新的JSON文件>
 ```
 
 本次报告为 `artifacts/evidence/construction-windows-04.json`；仓库内保留 `construction-window-evidence.json`、`construction-window-fixtures.jsonl` 和所需 `construction-master.jsonl`。脚本以只读方式打开原库，核对原库与归一化来源哈希，只输出匿名引用、数字及 master 事件标题。5 项 `PioneerConstructionTriggerTests` 覆盖全部 769 条连续夹具、两条延迟显示、经典合宿返回、已达到阈值不重复触发及未知输入停止；测试由统一集成运行确认。
