@@ -17,7 +17,12 @@ public sealed class PioneerInheritanceCapture
     public void Observe(JsonObject data, string endpoint)
     {
         if (endpoint.EndsWith("/load/index", StringComparison.Ordinal))
+        {
             Remember(data["trained_chara"]);
+            Remember(data["generate_succession_chara"]);
+            if (data["single_mode_chara_light"] is JsonObject active && Int(active, "scenario_id") == 11)
+                Freeze(active, null);
+        }
         else if (endpoint.EndsWith("/pre_single_mode/index", StringComparison.Ordinal)
             || endpoint.EndsWith("/pre_single_mode/get_succession_trained_chara", StringComparison.Ordinal))
             Remember(data["succession_trained_chara_data"]?["succession_trained_chara_array"]);
@@ -29,17 +34,41 @@ public sealed class PioneerInheritanceCapture
             && PioneerGameData.GetCommon(data, endpoint) is { } common
             && common["chara_info"] is JsonObject chara && Int(chara, "scenario_id") == 11)
         {
-            var run = PioneerGameData.RunToken(chara);
-            if (frozen?.Run == run) return;
-            var first = Int(chara, "succession_trained_chara_id_1");
-            var second = Int(chara, "succession_trained_chara_id_2");
             Remember(common["add_trained_chara_array"]);
-            frozen = archive.TryGetValue(first, out var parent1) && archive.TryGetValue(second, out var parent2)
-                ? (run, parent1, new(parent2.Factors,
-                    [.. parent2.Relations.Select(relation => relation with { Slot = relation.Slot + 3 })]),
-                    common["is_umaplan"]?.GetValue<bool>())
-                : null;
+            Freeze(chara, common["is_umaplan"]?.GetValue<bool>());
         }
+        else if (endpoint.EndsWith("/single_mode_pioneer/load", StringComparison.Ordinal)
+            && frozen is { UmaPlan: null } family
+            && PioneerGameData.GetCommon(data, endpoint) is { } loaded
+            && loaded["chara_info"] is JsonObject resumed && family.Run == PioneerGameData.RunToken(resumed)
+            && loaded["is_umaplan"] is JsonValue plan)
+        {
+            family.UmaPlan = plan.GetValue<bool>();
+            frozen = family;
+        }
+    }
+
+    void Freeze(JsonObject chara, bool? umaPlan)
+    {
+        var run = PioneerGameData.RunToken(chara);
+        if (frozen?.Run == run) return;
+        var first = Int(chara, "succession_trained_chara_id_1");
+        var second = Int(chara, "succession_trained_chara_id_2");
+        if (!archive.TryGetValue(first, out var parent1) || !archive.TryGetValue(second, out var parent2))
+        {
+            frozen = null;
+            return;
+        }
+        var startTime = chara["start_time"]!.GetValue<string>();
+        frozen = (run, parent1 with { Factors = AtOpening(parent1.Factors) }, new(AtOpening(parent2.Factors),
+            [.. parent2.Relations.Select(relation => relation with { Slot = relation.Slot + 3 })]), umaPlan);
+
+        // A login response can include upgrades added after this run started.
+        ParentFactorSnapshot AtOpening(ParentFactorSnapshot parent) => parent with
+        {
+            FlatExtensions = [.. parent.FlatExtensions.Where(extension => extension.RegisteredAt is null
+                || StringComparer.Ordinal.Compare(extension.RegisteredAt, startTime) <= 0)],
+        };
     }
 
     public PioneerInheritanceContext? Read(JsonObject common)

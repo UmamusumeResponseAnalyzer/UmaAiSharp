@@ -15,6 +15,8 @@ using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.Pioneer.Game;
 
+public sealed record PioneerPanelAdvice(RootSearchResult<PioneerRuntimeAction> Search, int? OutingDevelopmentPoints);
+
 public sealed class PioneerAutonomousSession
 {
     readonly PioneerRulesSnapshot rules;
@@ -62,7 +64,7 @@ public sealed class PioneerAutonomousSession
     }
 
     // Prepare and evaluate one live panel at a time because the compiler caches support panels.
-    public RootSearchResult<PioneerRuntimeAction> Evaluate(JsonObject common, JsonObject pioneer,
+    public PioneerPanelAdvice Evaluate(JsonObject common, JsonObject pioneer,
         PioneerTrainingHistoryPrefix history, ulong seed, int samples, int workers, CancellationToken cancellationToken = default,
         UmaAiSharp.Pioneer.Inheritance.PioneerInheritanceContext? inheritance = null)
     {
@@ -91,10 +93,14 @@ public sealed class PioneerAutonomousSession
         var root = data.CreateInitialState();
         var candidates = scenario.Candidates(root).ToArray();
         if (candidates.Length == 0) throw new UnknownMechanismException("当前面板没有已接入的合法根行动。");
-        return RootSearch.Evaluate(scenario, new PioneerContinuationPolicy(), root,
+        var result = RootSearch.Evaluate(scenario, new PioneerContinuationPolicy(), root,
             candidates, goal.Compiled, seed, samples, workers, cancellationToken,
             candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes), rankByTotalRating: true,
             adaptiveSampling: root.Header.Stage == PioneerStage.TrainingTurn);
+        var outingPoints = result.RecommendedCandidateId is int id
+            ? scenario.PreviewFriendOutingDevelopmentPoints(root, candidates.Single(candidate => candidate.Id == id).Action)
+            : null;
+        return new(result, outingPoints);
     }
 
     internal static ImmutableArray<PioneerStoryOccurrence>? ResolveStories(ImmutableArray<PioneerStoryOccurrence>? stories,

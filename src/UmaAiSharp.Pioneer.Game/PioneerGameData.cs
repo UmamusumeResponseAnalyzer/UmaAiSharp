@@ -100,5 +100,5 @@ public static class PioneerGameData
 
     static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
-    internal static string RunToken(JsonObject chara) => Hash(Int(chara, "card_id") + "/" + chara["start_time"]!.ToJsonString());
+    internal static string RunToken(JsonObject chara) => Hash($"{Int(chara, "single_mode_chara_id")}/{Int(chara, "card_id")}/{chara["start_time"]!.ToJsonString()}");
 }

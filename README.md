@@ -63,27 +63,17 @@ Pioneer 入口、普通／合宿训练回合、已揭示事件选项及真实失
 | MCP | SQLite / MessagePack 读取、回合导入、规则输入编译、单轨迹／条件回放／批量执行、根候选推荐、差分核验及目标评价 |
 | Tests | 输入边界、规则局部样例、轨迹隔离和确定性不变量 |
 
-PioneerAiPlugin 在 URA 的训练面板显示行动建议，在「建设规划」工作区显示有序方案排名。两处都使用自主整局模拟和 `goalPath`，可用 `model` 选取公式。维护者使用 `tools/UmaAiSharp.Pioneer.DataGenerator`，依次传入 master、规则资源输出路径、回合校准文件和继承校准文件，生成插件内置规则。
+PioneerAiPlugin 在 URA 的训练面板显示行动建议，在「建设规划」工作区显示有序方案排名。两处都使用自主整局模拟和 `goalPath`，可用 `model` 选取公式。
 
-在正式的 `URA-Plugins/PioneerAiPlugin` 检出初始化 `deps/PioneerScenarioAnalyzer` 子模块。插件项目从 `Resources/pioneer_rules.br` 嵌入规则。以下命令在 UmaAiSharp 根目录执行，将当前引擎源码打成与插件同版本的本地 NuGet 包，由 URA SDK 写出 `artifacts/PioneerAiPlugin.zip`。
+## 打包 PioneerAiPlugin
+
+每次打包都从 UmaAiSharp 根目录运行 `tools/build.ps1`。先在插件检出中初始化 `deps/PioneerScenarioAnalyzer` 子模块。
 
 ```powershell
-$ErrorActionPreference = 'Stop'
-$PSNativeCommandUseErrorActionPreference = $true
-$pluginProject = '<PioneerAiPlugin.csproj 的绝对路径>'
-$version = dotnet msbuild $pluginProject -getProperty:Version -nologo
-$feed = Join-Path (Split-Path $pluginProject) 'obj/nuget'
-dotnet restore src/UmaAiSharp.Pioneer.Game/UmaAiSharp.Pioneer.Game.csproj --locked-mode -m:1 -nodeReuse:false
-foreach ($name in 'UmaAiSharp.Core', 'UmaAiSharp.Pioneer', 'UmaAiSharp.Pioneer.Game') {
-    dotnet pack "src/$name/$name.csproj" -c Release --no-restore -m:1 "-p:Version=$version" -o $feed
-}
-$packages = Join-Path ([IO.Path]::GetTempPath()) "pioneer-nuget-$([guid]::NewGuid())"
-$props = @('-p:RuntimeIdentifier=win-x64', '-p:SelfContained=false', '-p:PlatformTarget=AnyCPU',
-    '-p:DeployUraPluginToLocalAppDataOnBuild=false', "-p:RestorePackagesPath=$packages")
-$packageTargets = (Resolve-Path tools/PioneerAiPlugin.Package.targets).Path
-dotnet restore $pluginProject --force-evaluate @props
-dotnet build $pluginProject --no-restore -c Release -m:1 @props "-p:CustomAfterMicrosoftCommonTargets=$packageTargets"
+pwsh -NoProfile -File tools/build.ps1 -MasterPath '<日服 master.mdb 的路径>'
 ```
+
+默认使用相邻的 `../URA-Plugins/PioneerAiPlugin`。使用其他检出时通过 `-PluginProject` 指定 `PioneerAiPlugin.csproj`。脚本以本机 master 和插件的 `Resources/turn-calibration.json`、`Resources/inheritance-calibration.json` 生成内嵌规则，按插件项目版本打包当前引擎，由 URA SDK 生成 `win-x64` 安装包。最终输出为 `artifacts/PioneerAiPlugin.zip`，临时规则与构建文件放在 `obj/` 下。
 
 已接入机制、校准和验证范围见 [实施状态](docs/implementation-status.md)。本地实包和校准输入通过各工具的路径参数提供。
 

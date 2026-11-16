@@ -95,8 +95,12 @@ public sealed partial class PioneerScenario
                 }
                 var scaling = tuckerSlot >= 0 ? EventEffectScaling.FromSupport(start.Deck[tuckerSlot]) : default;
                 var tuckerRecovery = tuckerSlot >= 0 ? scaling.Apply(10, 15) : 0;
-                ApplyCalendarChoice(state, [TrainingAttributeReward(ClassicNewYearAttribute(start.CharacterId), 25),
-                    new(0, 0, 0, 0, 0, 20, 0), new(0, 0, 0, 0, 0, 0, 20)], tuckerRecovery);
+                Span<TrainingValues> newYearChoices = [default, new(0, 0, 0, 0, 0, 20, 0), new(0, 0, 0, 0, 0, 0, 20)];
+                if (ClassicNewYearAttribute(start.CharacterId) is int attribute)
+                    newYearChoices[0] = TrainingAttributeReward(attribute, 25);
+                else
+                    newYearChoices = newYearChoices[1..];
+                ApplyCalendarChoice(state, newYearChoices, tuckerRecovery);
                 if (tuckerSlot >= 0)
                 {
                     ApplyProgressionReward(state, TrainingAttributeReward(0, scaling.Apply(1, 10)));
@@ -169,7 +173,7 @@ public sealed partial class PioneerScenario
     }
 
     // Event 3001's first option is bound to the character's shared story, independent of outfit and current aptitudes.
-    static int ClassicNewYearAttribute(int? character) => character switch
+    static int? ClassicNewYearAttribute(int? character) => character switch
     {
         1002 or 1004 or 1008 or 1010 or 1020 or 1022 or 1031 or 1037 or 1038 or 1039
             or 1040 or 1041 or 1042 or 1046 or 1050 or 1051 or 1054 or 1064 or 1068 or 1078
@@ -185,7 +189,7 @@ public sealed partial class PioneerScenario
         1005 or 1009 or 1011 or 1017 or 1023 or 1032 or 1036 or 1047 or 1049 or 1056
             or 1057 or 1059 or 1060 or 1069 or 1071 or 1080 or 1086 or 1096 or 1097 or 1098
             or 1103 or 1105 or 1110 or 1118 or 1119 or 1133 or 1145 => 4,
-        _ => throw new UnknownMechanismException($"育成角色 {character} 缺少「新年の抱負」首项奖励。"),
+        _ => null,
     };
 
     static int UniqueUpgradeFanThreshold(int turn, int? character)

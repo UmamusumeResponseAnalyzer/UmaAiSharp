@@ -85,34 +85,7 @@ public sealed partial class PioneerScenario
                 }
                 break;
             case PioneerActionKind.Outing:
-                var friend = data.TrainingStart!.HomeActions!.Friends.Single(friend => friend.Position == action.SupportPosition);
-                var position = friend.Position - 1;
-                var shift = position * 3;
-                var step = (header.FriendOutings >> shift) & 7;
-                var card = data.TrainingStart.Deck[position];
-                var (recovery, maximum, gains) = FriendOuting(state, card, friend.CharacterId, step);
-                var (vital, maxVital) = VitalRules.Apply(header.Resources.Vital, header.Limits.Vital, recovery, maximum);
-                header.Resources = header.Resources with { Vital = vital };
-                header.Limits = header.Limits with { Vital = maxVital };
-                ApplyMotivationGain(state, 1);
-                GainFriendBond(state, position, 5);
-                header.FriendOutings += 1 << shift;
-                if (autonomous && data.IsWholeRun && friend.CharacterId == 9049)
-                {
-                    AppendTuckerGrants(state, data.TurnRules!.OrdinarySupportMask, TemporarySupportGrantSource.TuckerEvent,
-                        TuckerOutingSpecialty(step), 809049011 + step);
-                    if (card.CardId == 30257)
-                    {
-                        if (step == 1) GainHint(state, data.TurnRules.TuckerOutingWhiteHintSlot, 2);
-                        if (step == 4) GainHint(state, data.TurnRules.TuckerOutingGoldHintSlot, 3);
-                    }
-                }
-                ApplyProgressionReward(state, gains);
-                if (friend.CharacterId == 9049 && TuckerGiftAvailable(header))
-                {
-                    points = ChooseTuckerGiftPoints(state, header.Resources.Vital);
-                    ApplyProgressionReward(state, 0, 3);
-                }
+                points = ApplyFriendOuting(state, action.SupportPosition) ?? 0;
                 break;
             case PioneerActionKind.Race:
                 var rules = data.TurnRules!;
@@ -291,6 +264,42 @@ public sealed partial class PioneerScenario
         header.Stage = PioneerStage.Terminal;
         header.ActionOrdinal++;
         return TransitionResult.Settled((int)header.Stage);
+    }
+
+    public int? PreviewFriendOutingDevelopmentPoints(PioneerState state, in PioneerRuntimeAction action)
+        => action is { Kind: PioneerActionKind.Outing, CommandId: 390 }
+            ? ApplyFriendOuting(state.Clone(), action.SupportPosition) : null;
+
+    int? ApplyFriendOuting(PioneerState state, int supportPosition)
+    {
+        var friend = data.TrainingStart!.HomeActions!.Friends.Single(friend => friend.Position == supportPosition);
+        ref var header = ref state.Mutable;
+        var position = supportPosition - 1;
+        var shift = position * 3;
+        var step = (header.FriendOutings >> shift) & 7;
+        var card = data.TrainingStart.Deck[position];
+        var (recovery, maximum, gains) = FriendOuting(state, card, friend.CharacterId, step);
+        var (vital, maxVital) = VitalRules.Apply(header.Resources.Vital, header.Limits.Vital, recovery, maximum);
+        header.Resources = header.Resources with { Vital = vital };
+        header.Limits = header.Limits with { Vital = maxVital };
+        ApplyMotivationGain(state, 1);
+        GainFriendBond(state, position, 5);
+        header.FriendOutings += 1 << shift;
+        if (autonomous && data.IsWholeRun && friend.CharacterId == 9049)
+        {
+            AppendTuckerGrants(state, data.TurnRules!.OrdinarySupportMask, TemporarySupportGrantSource.TuckerEvent,
+                TuckerOutingSpecialty(step), 809049011 + step);
+            if (card.CardId == 30257)
+            {
+                if (step == 1) GainHint(state, data.TurnRules.TuckerOutingWhiteHintSlot, 2);
+                if (step == 4) GainHint(state, data.TurnRules.TuckerOutingGoldHintSlot, 3);
+            }
+        }
+        ApplyProgressionReward(state, gains);
+        if (friend.CharacterId != 9049 || !TuckerGiftAvailable(header)) return null;
+        var points = ChooseTuckerGiftPoints(state, header.Resources.Vital);
+        ApplyProgressionReward(state, 0, 3);
+        return points;
     }
 
     (int Recovery, int MaxVital, TrainingValues Gains) FriendOuting(PioneerState state, TrainingSupport card, int character, int step)
