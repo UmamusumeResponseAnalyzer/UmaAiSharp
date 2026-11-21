@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Base.Hints;
@@ -45,7 +46,7 @@ public struct PioneerStateHeader
     internal PioneerOrdinaryStoryProgress OrdinaryStories;
     internal int TraineeStoryMask;
     public bool DeferredConstruction, PioneerCompleted, StrongBrianRoute;
-    internal readonly int ScheduleVariant => StrongBrianRoute ? 1 : RaceBranch;
+    internal readonly int ScheduleVariant => StrongBrianRoute ? CharacterRaceRoutes.StrongBrianVariant : RaceBranch;
     public int UnseenFriendMask, UnlockedFriendMask, FriendOutings;
     public long FutureGainedSkillPoints;
     internal int FutureSkillUpgradeRating;

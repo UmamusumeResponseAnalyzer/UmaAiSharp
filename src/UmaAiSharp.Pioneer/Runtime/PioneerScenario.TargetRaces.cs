@@ -1,4 +1,5 @@
 using UmaAiSharp.Core;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Runtime;
@@ -11,39 +12,18 @@ public sealed partial class PioneerScenario
         1017 => [20169], 1026 => [20037], 1041 => [20128, 20204], 1063 => [20279], _ => [],
     };
 
-    bool HasBrianRouteQualification(PioneerState state)
-    {
-        var wins = state.GetSection(PioneerStateSection.RaceWins);
-        var points = 0;
-        // The Classic triple-crown races count twice. Other Classic G1 wins count once.
-        for (var turn = 25; turn <= 48; turn++)
-            if (wins[turn] is 163 or 166 or 168) points += 2;
-            else if (data.TurnRules!.IsGradeOne(wins[turn])) points++;
-        return points >= 6;
-    }
-
     static bool GoldShipRepeatWin(PioneerState state, PioneerRaceOption race)
         => race.CareerGoalId == 273 && state.GetSection(PioneerStateSection.RaceWins)[36] == 74;
 
-    static void ApplyCareerRouteAfterWin(PioneerState state, int goal, int raceMotivation, ref SimulationRandom random)
+    void ApplyCareerRouteAfterWin(PioneerState state, int goal, int raceMotivation, ref SimulationRandom random)
     {
         ref var current = ref state.Mutable;
-        switch (goal)
-        {
-            case 183 when raceMotivation <= 3:
-                current.RaceBranch = 296;
-                ApplyProgressionReward(state, TrainingAttributeReward(4, 5));
-                break;
-            case 89:
-                // shortcut: six observed draws picked 293; add one count per possible result until manual openings cover the other two.
-                var debut = random.At(current.Turn, PioneerDraw.CareerRoute).NextScaled(9);
-                current.RaceBranch = debut switch { 0 => 90, 1 => 292, _ => 293 };
-                break;
-            case 94:
-                var takarazuka = random.At(current.Turn, PioneerDraw.CareerRoute).NextScaled(6);
-                current.RaceBranch = takarazuka switch { 0 => 294, 1 => 295, _ => 95 };
-                break;
-        }
+        var character = data.TrainingStart!.CharacterId ?? current.CardId / 100;
+        var draw = random.At(current.Turn, PioneerDraw.CareerRoute);
+        if (CharacterRaceRoutes.BranchAfterWin(character, goal, raceMotivation, ref draw) is not { } branch) return;
+        current.RaceBranch = branch;
+        if (branch == CharacterRaceRoutes.TachyonMileCupGoal)
+            ApplyProgressionReward(state, TrainingAttributeReward(4, 5));
     }
 
     void ApplyCareerGoalReward(PioneerState state, PioneerRaceOption race = default)
@@ -64,7 +44,7 @@ public sealed partial class PioneerScenario
             (baseAttribute, basePoints) = (8, 52);
             if (character == 1063 && goal == 1156) Hint(hintGroups[0], 1);
         }
-        else if (character == 1016 && goal is 378 or 380 or 382 or 384)
+        else if (character == CharacterRaceRoutes.NaritaBrian && CharacterRaceRoutes.IsStrongBrianGoal(goal))
         {
             (baseAttribute, basePoints) = (5, 50);
             Hint(hintGroups[(goal - 378) / 2], 2);

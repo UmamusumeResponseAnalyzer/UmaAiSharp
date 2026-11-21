@@ -1,30 +1,44 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Base.Training;
-using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
-using UmaAiSharp.Pioneer.Hints;
 
-namespace UmaAiSharp.Pioneer.Inheritance;
+namespace UmaAiSharp.Base.Inheritance;
 
-public sealed record PioneerInheritanceParent(ParentFactorSnapshot Factors, ImmutableArray<RelationSource> Relations);
-public sealed record PioneerInheritanceContext(PioneerInheritanceParent First, PioneerInheritanceParent Second,
+public sealed record InheritanceParent(ParentFactorSnapshot Factors, ImmutableArray<RelationSource> Relations);
+public record InheritanceContext(InheritanceParent First, InheritanceParent Second,
     bool HasUmaPlan, ImmutableArray<int> Aptitudes);
-public readonly record struct PioneerInheritanceFactor(int Id, int Type, int Group, int Stars, int EffectGroup);
-public readonly record struct PioneerInheritanceEffect(int Group, int EffectId, int Target, int Value, int Count);
-public sealed record PioneerInheritanceAddon(int FactorId, int RequiredGroups, ImmutableArray<int> Groups);
-public readonly record struct PioneerInheritanceRate(int FactorType, int EffectGroup, int BasisPoints);
-public readonly record struct PioneerInheritanceWeight(int EffectGroup, int EffectId, int Count);
-public sealed record PioneerInheritanceCalibration(ImmutableArray<PioneerInheritanceRate> Rates,
-    ImmutableArray<PioneerInheritanceWeight> Weights, ImmutableArray<int> SaturatedHintWeights);
-public sealed record PioneerInheritanceData(ImmutableArray<PioneerInheritanceFactor> Factors,
-    ImmutableArray<PioneerInheritanceEffect> Effects, ImmutableArray<InheritanceSkill> Skills,
+public readonly record struct InheritanceFactor(int Id, int Type, int Group, int Stars, int EffectGroup);
+public readonly record struct InheritanceEffect(int Group, int EffectId, int Target, int Value, int Count);
+public sealed record InheritanceAddon(int FactorId, int RequiredGroups, ImmutableArray<int> Groups);
+public readonly record struct InheritanceRate(int FactorType, int EffectGroup, int BasisPoints);
+public readonly record struct InheritanceWeight(int EffectGroup, int EffectId, int Count);
+public sealed record InheritanceCalibration(ImmutableArray<InheritanceRate> Rates,
+    ImmutableArray<InheritanceWeight> Weights, ImmutableArray<int> SaturatedHintWeights);
+public sealed record InheritanceData(ImmutableArray<InheritanceFactor> Factors,
+    ImmutableArray<InheritanceEffect> Effects, ImmutableArray<InheritanceSkill> Skills,
     ImmutableArray<RelationPoint> RelationPoints, ImmutableArray<RelationMembership> RelationMemberships,
-    ImmutableArray<RelationSaddle> Saddles, ImmutableArray<PioneerInheritanceAddon> Addons, PioneerInheritanceCalibration Calibration);
+    ImmutableArray<RelationSaddle> Saddles, ImmutableArray<InheritanceAddon> Addons, InheritanceCalibration Calibration);
 
-public sealed class PioneerInheritanceRules
+// The spans describe the complete resulting state for one roll and are only valid during scoring.
+public readonly ref struct InheritanceCandidate(AttributeValues attributes, int skillPoints, TrainingLimits limits,
+    AttributeValues overflow, ReadOnlySpan<int> aptitudes, ReadOnlySpan<int> hintLevels)
 {
+    public AttributeValues Attributes { get; } = attributes;
+    public int SkillPoints { get; } = skillPoints;
+    public TrainingLimits Limits { get; } = limits;
+    public AttributeValues Overflow { get; } = overflow;
+    public ReadOnlySpan<int> Aptitudes { get; } = aptitudes;
+    public ReadOnlySpan<int> HintLevels { get; } = hintLevels;
+}
+
+public sealed class MidRunInheritanceRules
+{
+    public const int ClassicTurn = 31;
+    public const int SeniorTurn = 55;
+
     readonly record struct Effect(int Target, int Value, int Count, int HintIndex, bool Owned);
     sealed record Bundle(int Weight, Effect[] Effects);
     sealed record Opportunity(int Probability, Bundle[] Bundles, int TotalWeight, ulong AddonGroup);
@@ -38,8 +52,8 @@ public sealed class PioneerInheritanceRules
         + opportunities.Concat(addons.Select(addon => addon.Opportunity)).Sum(opportunity =>
             opportunity.Bundles.Sum(bundle => 48L + 32L * bundle.Effects.Length));
 
-    public PioneerInheritanceRules(PioneerInheritanceData data, PioneerInheritanceContext context, int characterId, int cardId,
-        PioneerHintRules hints, ImmutableArray<int> ownedSkills)
+    public MidRunInheritanceRules(InheritanceData data, InheritanceContext context, int characterId, int cardId,
+        Func<HintSkill, int> registerHint, ImmutableArray<int> ownedSkills)
     {
         var factors = data.Factors.ToFrozenDictionary(factor => factor.Id);
         var pedigree = new InheritancePedigree(data.Factors.Select(factor => new InitialFactor(factor.Id, factor.Type, factor.Group, factor.Stars)));
@@ -76,7 +90,7 @@ public sealed class PioneerInheritanceRules
                     .Where(effect => effect.Target != 41 || factor.Type != 3 || factor.Group != cardId)
                     .Select(effect => effect.Target == 41
                         ? new Effect(41, effect.Value, effect.Count,
-                            hints.Slot(new(skills[effect.Value].GroupId, skills[effect.Value].Rarity)), owned.Contains(effect.Value))
+                            registerHint(new(skills[effect.Value].GroupId, skills[effect.Value].Rarity)), owned.Contains(effect.Value))
                         : new Effect(effect.Target, effect.Value, effect.Count, -1, false))])).ToArray();
             if (bundles.Length == 0 || bundles.Sum(bundle => bundle.Weight) <= 0)
                 throw new InvalidDataException($"继承因子 {factor.Id} 缺少效果档权重。");
@@ -99,7 +113,7 @@ public sealed class PioneerInheritanceRules
     }
 
     public void Apply(ref TrainingValues resources, ref TrainingLimits limits, Span<int> aptitudes, Span<int> hints,
-        ref AttributeValues totalOverflow, ref SimulationRandom random)
+        ref AttributeValues totalOverflow, Func<InheritanceCandidate, int> scoreCandidate, ref SimulationRandom random)
     {
         Span<int> attributes = stackalloc int[5];
         Span<int> caps = stackalloc int[5];
@@ -109,7 +123,7 @@ public sealed class PioneerInheritanceRules
         Span<int> rolledHints = stackalloc int[hints.Length];
         Span<int> bestAptitudes = stackalloc int[10];
         Span<int> bestHints = stackalloc int[hints.Length];
-        var best = int.MinValue;
+        var best = 0;
         var result = resources;
         var resultCaps = limits;
         var resultOverflow = default(AttributeValues);
@@ -180,12 +194,18 @@ public sealed class PioneerInheritanceRules
                     break;
                 }
             }
-            var value = LotteryValue(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4], points);
-            if (value <= best) continue;
-            best = value;
+            var candidateCaps = new TrainingLimits(caps[0], caps[1], caps[2], caps[3], caps[4], limits.Vital);
+            var candidateOverflow = new AttributeValues(overflow[0], overflow[1], overflow[2], overflow[3], overflow[4]);
+            if (candidateCount > 1)
+            {
+                var value = scoreCandidate(new(new(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4]),
+                    points, candidateCaps, candidateOverflow, rolledAptitudes, rolledHints));
+                if (candidate > 0 && value <= best) continue;
+                best = value;
+            }
             result = new(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4], resources.Vital, points);
-            resultCaps = new(caps[0], caps[1], caps[2], caps[3], caps[4], limits.Vital);
-            resultOverflow = new(overflow[0], overflow[1], overflow[2], overflow[3], overflow[4]);
+            resultCaps = candidateCaps;
+            resultOverflow = candidateOverflow;
             rolledAptitudes.CopyTo(bestAptitudes);
             rolledHints.CopyTo(bestHints);
         }
@@ -195,12 +215,6 @@ public sealed class PioneerInheritanceRules
         bestAptitudes.CopyTo(aptitudes);
         bestHints.CopyTo(hints);
     }
-
-    // shortcut: temporary inheritance comparison, raw-equivalent attribute gains plus twice the skill Pt.
-    public static int LotteryValue(int speed, int stamina, int power, int guts, int wisdom, int points)
-        => Raw(speed) + Raw(stamina) + Raw(power) + Raw(guts) + Raw(wisdom) + 2 * points;
-
-    static int Raw(int display) => display + Math.Max(0, display - 1200);
 
     int DrawHintConversion(ref SimulationRandom random)
     {

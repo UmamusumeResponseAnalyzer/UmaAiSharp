@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
@@ -422,7 +423,8 @@ public sealed class PioneerRuntimeData
                 header.HasCharm = entry.CharacterEffects.Contains(8);
                 header.HasAttention = entry.CharacterEffects.Contains(9);
                 header.StrongBrianRoute = entry.HomeActions?.StrongBrianRoute
-                    ?? (entry.ObservedStoryHistory?.Any(story => story is { StoryId: PioneerEvent.BrianRouteStory, ChoiceNumber: 1 }) == true);
+                    ?? (entry.ObservedStoryHistory?.Any(story =>
+                        CharacterRaceRoutes.BrianRouteFromStory(story.StoryId, story.ChoiceNumber) == true) == true);
                 if (entry.CheckpointResults is { } checkpoints)
                 {
                     Span<int> results = stackalloc int[5];

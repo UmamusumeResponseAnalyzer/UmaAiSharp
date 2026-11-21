@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Collections.Frozen;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Inheritance;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer;
@@ -69,7 +71,7 @@ public sealed class PioneerAutonomousSession
     {
         cancellationToken.ThrowIfCancellationRequested();
         var turn = Int(common["chara_info"]!.AsObject(), "turn");
-        if (turn < 55 && inheritance is null)
+        if (turn < MidRunInheritanceRules.SeniorTurn && inheritance is null)
             throw new UnknownMechanismException($"第 {turn} 回合缺少本局开局冻结的亲本因子与胜鞍，无法模拟后续继承。");
         var planning = Int(common["chara_info"]!.AsObject(), "playing_state") == 35
             ? ReadPlanningPanel(common, pioneer, compiler) : null;
@@ -240,10 +242,8 @@ public sealed class PioneerAutonomousSession
         var reservedId = chara["reserve_race_program_id"]?.GetValue<int>() ?? 0;
         if (reservedId > 0 && races.FirstOrDefault(race => race.ProgramId == reservedId) is { ProgramId: > 0 } reserved)
             scheduled.TryAdd(currentTurn, reserved);
-        bool? strongBrianRoute = currentGoals.Any(id => id is 378 or 380 or 382 or 384) ? true
-            : currentGoals.Any(id => id is 379 or 381 or 383 or 385) ? false : null;
         return new(enabled.Contains(801), enabled.Contains(301), enabled.Contains(390), friends.ToImmutable(), races,
             [.. scheduled.Select(pair => new PioneerScheduledRace(pair.Key, pair.Value))], unseen, grade, blocked,
-            [.. careerGoals], history, strongBrianRoute);
+            [.. careerGoals], history, CharacterRaceRoutes.BrianRouteFromSelectedGoals(currentGoals));
     }
 }

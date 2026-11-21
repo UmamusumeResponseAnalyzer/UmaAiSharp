@@ -43,4 +43,56 @@ public sealed class RaceRouteTests
         Assert.Throws<InvalidDataException>(() => catalog.ResolveSelected(113501, 122, []));
         Assert.Throws<UnknownMechanismException>(() => catalog.ResolveSelected(113501, 122, [9998]));
     }
+
+    [Theory]
+    [InlineData(0, 293, 95)]
+    [InlineData(3, 292, 294)]
+    [InlineData(10, 90, 294)]
+    [InlineData(11, 293, 295)]
+    public void FukukitaruDrawsReachTheCorrespondingCareerGoals(int seed, int debutGoal, int takarazukaGoal)
+    {
+        var edits = CharacterRaceRoutes.GoalEdits(1056);
+        var debut = new SimulationRandom((ulong)seed);
+        var takarazuka = debut;
+        Assert.Equal(debutGoal, CharacterRaceRoutes.BranchAfterWin(1056, 89, 3, ref debut));
+        Assert.Equal(takarazukaGoal, CharacterRaceRoutes.BranchAfterWin(1056, 94, 3, ref takarazuka));
+        Assert.Contains(new CharacterGoalEdit(debutGoal, AddedGoal: debutGoal), edits);
+        Assert.Contains(new CharacterGoalEdit(takarazukaGoal, AddedGoal: takarazukaGoal), edits);
+    }
+
+    [Fact]
+    public void DeterministicCharacterGoalsRespectMotivationCancellationsAndAdditions()
+    {
+        var random = new SimulationRandom(123);
+        Assert.Null(CharacterRaceRoutes.BranchAfterWin(1032, 183, 4, ref random));
+        Assert.Equal(296, CharacterRaceRoutes.BranchAfterWin(1032, 183, 3, ref random));
+        Assert.Null(CharacterRaceRoutes.BranchAfterWin(1016, 183, 3, ref random));
+        Assert.Equal(123UL, random.State);
+        Assert.Equal(new CharacterGoalEdit(296, 184, 296), Assert.Single(CharacterRaceRoutes.GoalEdits(1032)));
+        Assert.Equal(new CharacterGoalEdit(0, 627, BlockRemovedTurn: true), Assert.Single(CharacterRaceRoutes.GoalEdits(1062)));
+        Assert.Equal([new CharacterGoalEdit(0, 1523, 1524), new(0, AddedGoal: 1529)], CharacterRaceRoutes.GoalEdits(1135).AsSpan().ToArray());
+        Assert.Empty(CharacterRaceRoutes.GoalEdits(1001));
+    }
+
+    [Fact]
+    public void BrianQualificationCountsClassicWinsAndTheSelectedRouteRemainsObservable()
+    {
+        var wins = new int[73];
+        wins[24] = wins[49] = 79;
+        wins[31] = 163;
+        wins[34] = 166;
+        wins[48] = 79;
+        Assert.False(CharacterRaceRoutes.QualifiesForStrongBrianRoute(wins, id => id == 79));
+        wins[25] = 79;
+        Assert.True(CharacterRaceRoutes.QualifiesForStrongBrianRoute(wins, id => id == 79));
+        wins[25] = wins[48] = 0;
+        wins[44] = 168;
+        Assert.True(CharacterRaceRoutes.QualifiesForStrongBrianRoute(wins, id => id == 79));
+        Assert.Null(CharacterRaceRoutes.BrianRouteFromSelectedGoals([371, 372]));
+        Assert.False(CharacterRaceRoutes.BrianRouteFromSelectedGoals([371, 379]));
+        Assert.True(CharacterRaceRoutes.BrianRouteFromSelectedGoals([371, 382]));
+        Assert.True(CharacterRaceRoutes.BrianRouteFromStory(501016409, 1));
+        Assert.False(CharacterRaceRoutes.BrianRouteFromStory(501016409, 2));
+        Assert.Null(CharacterRaceRoutes.BrianRouteFromStory(501016408, 1));
+    }
 }

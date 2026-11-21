@@ -64,7 +64,6 @@ public readonly record struct PioneerEvent(int EventId, int CharacterId, int Sto
 {
     public const int TrainingHintStory = 801000003;
     public const int ReporterEndingStory = 400000091;
-    public const int BrianRouteStory = 501016409;
 
     public static bool IsCharacterEndingStory(int storyId) => storyId is > 500000111 and < 600000000 && storyId % 1000 == 111;
     internal static bool IsReporterTrainingStory(int storyId) => storyId is >= 400000031 and <= 400000034;

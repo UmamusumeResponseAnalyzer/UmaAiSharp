@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
+using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer;
@@ -186,7 +187,7 @@ public static class PioneerImport
                     packetSha256 = Convert.ToHexStringLower(SHA256.HashData(packet)), masterSha256 = rules.SourceMasterSha256,
                     compiled.RulesIdentity, decision = scenario.Inspect(root, 0).Decision.Id, candidateCount = candidates.Length,
                     trainingHistory = captured?.History, estimatedTrainingHistory = estimated is not null, eventRewards = revealed?.History,
-                    inheritance = trainingContext is null || trainingContext.Turn >= 55 ? null
+                    inheritance = trainingContext is null || trainingContext.Turn >= MidRunInheritanceRules.SeniorTurn ? null
                         : inheritance is { } family ? (family.HasUmaPlan ? "umaPlan" : "ordinary") : "missingPedigree",
                     currentStoryProgress = currentProgress.StoryId > 0 ? (PioneerStoryProgress?)currentProgress : null,
                     observedStoryOccurrences = captured?.ObservedStories.Length,

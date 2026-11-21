@@ -8,7 +8,6 @@ using UmaAiSharp.Pioneer.Game;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.Hints;
-using UmaAiSharp.Pioneer.Inheritance;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Scoring;
 using UmaAiSharp.Pioneer.Training;
@@ -18,7 +17,7 @@ namespace UmaAiSharp.Pioneer.Offline;
 public static class PioneerMasterReader
 {
     public static PioneerRulesSnapshot ReadRules(string path, PioneerTurnCalibration calibration,
-        PioneerInheritanceCalibration inheritance)
+        InheritanceCalibration inheritance)
     {
         using var db = OpenReadOnly(path);
         using var source = File.OpenRead(path);
@@ -121,12 +120,12 @@ public static class PioneerMasterReader
         })];
     }
 
-    static PioneerInheritanceData ReadInheritance(SqliteConnection db, PioneerInheritanceCalibration calibration) => new(
+    static InheritanceData ReadInheritance(SqliteConnection db, InheritanceCalibration calibration) => new(
         [.. ReadIntegers(db, "SELECT factor_id,factor_type,factor_group_id,rarity,effect_group_id FROM succession_factor ORDER BY factor_id")
-            .Select(row => new PioneerInheritanceFactor(row["factor_id"], row["factor_type"], row["factor_group_id"],
+            .Select(row => new InheritanceFactor(row["factor_id"], row["factor_type"], row["factor_group_id"],
                 row["rarity"], row["effect_group_id"]))],
         [.. ReadIntegers(db, "SELECT factor_group_id,effect_id,target_type,value_1,value_2 FROM succession_factor_effect ORDER BY id")
-            .Select(row => new PioneerInheritanceEffect(row["factor_group_id"], row["effect_id"], row["target_type"],
+            .Select(row => new InheritanceEffect(row["factor_group_id"], row["effect_id"], row["target_type"],
                 row["value_1"], row["value_2"]))],
         [.. ReadIntegers(db, "SELECT id,group_id,rarity FROM skill_data ORDER BY id")
             .Select(row => new InheritanceSkill(row["id"], row["group_id"], row["rarity"]))],
@@ -144,9 +143,9 @@ public static class PioneerMasterReader
             var values = Enumerable.Range(1, 6).Select(index => row[$"condition_value_{index}"]);
             return row["condition_type"] switch
             {
-                1 => new PioneerInheritanceAddon(row["factor_id"], values.Count(value => value != 0),
+                1 => new InheritanceAddon(row["factor_id"], values.Count(value => value != 0),
                     [.. values.Where(value => value != 0)]),
-                2 => new PioneerInheritanceAddon(row["factor_id"], row["condition_value_1"],
+                2 => new InheritanceAddon(row["factor_id"], row["condition_value_1"],
                     [.. values.Skip(1).Where(value => value != 0)]),
                 _ => throw new InvalidDataException($"未知继承附加因子条件 {row["condition_type"]}。"),
             };

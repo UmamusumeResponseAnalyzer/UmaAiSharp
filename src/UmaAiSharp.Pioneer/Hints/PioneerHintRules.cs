@@ -27,22 +27,22 @@ public sealed class PioneerHintRules
         var ownedIds = progress.OwnedSkills.Select(skill => skill.Id).ToHashSet();
         var learned = skills.Where(skill => ownedIds.Contains(skill.Id))
             .Select(skill => new HintSkill(skill.GroupId, skill.Rarity)).Distinct().ToImmutableArray();
-        foreach (var hint in progress.Levels) initialLevels[Slot(hint.Skill)] = hint.Level;
+        foreach (var hint in progress.Levels) initialLevels[RegisterHint(hint.Skill)] = hint.Level;
         foreach (var support in deck)
         {
             if (support.TrainingCommandId == 0) continue;
             var pool = catalog.Single(card => card.CardId == support.CardId);
             var entries = HintRewardPool.Evaluate(pool.Skills, progress.Levels, learned);
             cards[support.Position - 1] = new(support,
-                [.. entries.Where(entry => entry.Exclusion == HintPoolExclusion.None).Select(entry => Slot(entry.Skill))],
+                [.. entries.Where(entry => entry.Exclusion == HintPoolExclusion.None).Select(entry => RegisterHint(entry.Skill))],
                 pool.AttributeReward);
         }
         if (observed is not null)
-            foreach (var skill in observed) Slot(skill);
+            foreach (var skill in observed) RegisterHint(skill);
     }
 
     // Deck pools and both inheritance lotteries use the same level for a given skill group and rarity.
-    internal int Slot(HintSkill skill)
+    public int RegisterHint(HintSkill skill)
     {
         if (slots.TryGetValue(skill, out var index)) return index;
         slots.Add(skill, initialLevels.Count);

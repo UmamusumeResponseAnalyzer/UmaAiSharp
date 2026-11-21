@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
@@ -569,8 +570,9 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
     void RecordCurrentStory(PioneerState state, int? choice = null)
     {
         ref readonly var header = ref state.Header;
-        if (header.Event.StoryId == PioneerEvent.BrianRouteStory && header.Turn == 49)
-            state.Mutable.StrongBrianRoute = choice == 1;
+        if (header.Turn == CharacterRaceRoutes.BrianChoiceTurn &&
+            CharacterRaceRoutes.BrianRouteFromStory(header.Event.StoryId, choice) is { } strong)
+            state.Mutable.StrongBrianRoute = strong;
         state.RecordStory(new(header.Event.StoryId, header.Turn, header.RawPlayingState,
             header.Event.PlayTiming, header.Event.CharacterId, 0, 0, choice ?? header.RequiredChoice));
     }

@@ -7,7 +7,7 @@ using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Ending;
 using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.Hints;
-using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Pioneer.Scoring;
 using UmaAiSharp.Pioneer.Training;
 
@@ -78,7 +78,7 @@ public sealed class PioneerTurnRules
     internal int RaceRewardPercent { get; }
     internal int FanRewardPercent { get; }
     internal bool WholeRun => !uraFirstPlaceFans.IsDefaultOrEmpty;
-    internal PioneerInheritanceRules? Inheritance { get; }
+    internal MidRunInheritanceRules? Inheritance { get; }
     internal PioneerHintRules? Hints { get; }
     internal FutureSkillRating? SkillRating { get; }
     internal int EndingHintSlot { get; }
@@ -98,7 +98,7 @@ public sealed class PioneerTurnRules
     public PioneerTurnRules(PioneerTurnCalibration calibration, IEnumerable<(int Command, int Level, int Failure)> coefficients,
         PioneerStart.TrainingTurn start, int appearedSupportMask, ImmutableArray<int> appearedProjectMembers,
         ImmutableArray<TrainingFacility> facilities, ImmutableArray<PioneerFacilityBase> facilityBases = default,
-        ImmutableArray<int> uraFirstPlaceFans = default, PioneerInheritanceRules? inheritance = null, PioneerHintRules? hints = null,
+        ImmutableArray<int> uraFirstPlaceFans = default, MidRunInheritanceRules? inheritance = null, PioneerHintRules? hints = null,
         PioneerOrdinaryStoryProgress initialStories = default, ImmutableArray<PioneerRaceOption>[]? raceCalendar = null,
         PioneerSkillRatingData? skillRating = null, ImmutableArray<HintSkill> seniorIslandHints = default,
         ImmutableArray<PioneerRaceScheduleEdit> scheduleEdits = default)
@@ -147,23 +147,23 @@ public sealed class PioneerTurnRules
             if (hints is null || skillRating is null) throw new InvalidDataException("整局规则缺少技能评分数据。");
             if (seniorIslandHints.IsDefault || seniorIslandHints.Length != 6)
                 throw new InvalidDataException("整局规则缺少第65回合的六项剧本提示。");
-            EndingHintSlot = hints.Slot(PioneerEndingSettlement.HighHint.Skill);
-            LowEndingHintSlot = hints.Slot(PioneerEndingSettlement.LowFinalReviewHint.Skill);
-            HighFinalReviewHintSlot = hints.Slot(new(20051, 2));
-            LowFinalReviewHintSlot = hints.Slot(new(20051, 1));
-            SeniorIslandHintSlots = [.. seniorIslandHints.Select(hints.Slot)];
+            EndingHintSlot = hints.RegisterHint(PioneerEndingSettlement.HighHint.Skill);
+            LowEndingHintSlot = hints.RegisterHint(PioneerEndingSettlement.LowFinalReviewHint.Skill);
+            HighFinalReviewHintSlot = hints.RegisterHint(new(20051, 2));
+            LowFinalReviewHintSlot = hints.RegisterHint(new(20051, 1));
+            SeniorIslandHintSlots = [.. seniorIslandHints.Select(hints.RegisterHint)];
             if (start.Deck.Any(card => card.CardId is 30257 or 10128))
             {
-                TuckerNewYearHintSlot = hints.Slot(new(20324, 1));
-                TuckerUnlockHintSlot = hints.Slot(new(20038, 1));
+                TuckerNewYearHintSlot = hints.RegisterHint(new(20324, 1));
+                TuckerUnlockHintSlot = hints.RegisterHint(new(20038, 1));
             }
             if (start.Deck.Any(card => card.CardId == 30257))
             {
-                TuckerOutingWhiteHintSlot = hints.Slot(new(20365, 1));
-                TuckerOutingGoldHintSlot = hints.Slot(new(20365, 2));
+                TuckerOutingWhiteHintSlot = hints.RegisterHint(new(20365, 1));
+                TuckerOutingGoldHintSlot = hints.RegisterHint(new(20365, 2));
             }
             foreach (var group in PioneerScenario.GoalRaceHintGroups(start.CharacterId ?? start.CardId / 100))
-                hints.Slot(new(group, 1));
+                hints.RegisterHint(new(group, 1));
             SkillRating = new(skillRating, progress, hints, start.CardId, start.Environment.Current, start.CharacterEffects.AsSpan());
             var unique = progress.OwnedSkills.SingleOrDefault(skill => skill.Id is >= 10_000 and < 200_000);
             UniqueSkillLevelRating = unique is null ? 0

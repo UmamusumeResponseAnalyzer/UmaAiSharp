@@ -3,12 +3,13 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.Hints;
-using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Scoring;
 using UmaAiSharp.Pioneer.Training;
@@ -18,7 +19,7 @@ namespace UmaAiSharp.Pioneer.Game;
 public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrainingRulesData Training,
     PioneerFacilityRulesData Facilities, PioneerEventPartnersData EventPartners, ImmutableArray<PioneerRaceRule> Races,
     PioneerMasterData Construction, PioneerTurnCalibration TurnCalibration, ImmutableArray<PioneerStoryProgress> StoryProgress,
-    PioneerProgressionData Progression, PioneerInheritanceData Inheritance, ImmutableArray<PioneerCardHints> CardHints,
+    PioneerProgressionData Progression, InheritanceData Inheritance, ImmutableArray<PioneerCardHints> CardHints,
     ImmutableArray<int> TraineeRandomStories, PioneerSkillRatingData SkillRating, ImmutableArray<int> RaceOnlyCharacterEffects)
 {
     static readonly (int Character, int SkillGroup)[] SeniorIslandLinks =
@@ -66,8 +67,8 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
         var seniorHints = ImmutableArray.CreateBuilder<HintSkill>(SeniorIslandLinks.Length);
         foreach (var (character, group) in SeniorIslandLinks)
             seniorHints.Add(new(group, linked.Contains(character) ? 2 : 1));
-        var inheritance = start.Inheritance is { } parents ? new PioneerInheritanceRules(Inheritance, parents,
-            start.CharacterId ?? start.CardId / 100, start.CardId, hints, [.. progress.OwnedSkills.Select(skill => skill.Id)]) : null;
+        var inheritance = start.Inheritance is { } parents ? new MidRunInheritanceRules(Inheritance, parents,
+            start.CharacterId ?? start.CardId / 100, start.CardId, hints.RegisterHint, [.. progress.OwnedSkills.Select(skill => skill.Id)]) : null;
         var observed = start.ObservedStoryHistory ?? [];
         var supportStories = observed.Where(story => story.SupportCardId != 0
             && start.Deck.Any(card => card.TrainingCommandId != 0 && card.CardId == story.SupportCardId)).ToArray();
@@ -85,27 +86,9 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
 
     ImmutableArray<PioneerRaceScheduleEdit> CompileScheduleEdits(int character)
     {
-        switch (character)
-        {
-            case 1016:
-                var edits = ImmutableArray.CreateBuilder<PioneerRaceScheduleEdit>(8);
-                for (var strong = 378; strong <= 384; strong += 2)
-                {
-                    edits.Add(new(0, Added: Goal(strong + 1)));
-                    edits.Add(new(1, strong + 1, Goal(strong)));
-                }
-                return edits.MoveToImmutable();
-            case 1032:
-                return [new(296, 184, Goal(296))];
-            case 1056:
-                return [.. new[] { 90, 292, 293, 95, 294, 295 }.Select(goal => new PioneerRaceScheduleEdit(goal, Added: Goal(goal)))];
-            case 1062:
-                return [new(0, 627, BlockedTurn: Goal(627).Turn)];
-            case 1135:
-                return [new(0, 1523, Goal(1524)), new(0, Added: Goal(1529))];
-            default:
-                return [];
-        }
+        return [.. CharacterRaceRoutes.GoalEdits(character).Select(edit => new PioneerRaceScheduleEdit(
+            edit.Variant, edit.RemovedGoal, edit.AddedGoal == 0 ? null : Goal(edit.AddedGoal),
+            edit.BlockRemovedTurn ? Goal(edit.RemovedGoal).Turn : 0))];
 
         PioneerScheduledRace Goal(int id)
         {

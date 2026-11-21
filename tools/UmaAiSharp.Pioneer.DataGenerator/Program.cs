@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
 using UmaAiSharp.Pioneer.Offline;
-using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Pioneer.Runtime;
 
 if (args.Length != 4)
@@ -27,7 +27,7 @@ try
     using var fitted = File.OpenRead(args[2]);
     var calibration = JsonSerializer.Deserialize<PioneerTurnCalibration>(fitted, json) ?? throw new InvalidDataException("回合校准文件为空。");
     using var fittedInheritance = File.OpenRead(args[3]);
-    var inheritance = JsonSerializer.Deserialize<PioneerInheritanceCalibration>(fittedInheritance, json)
+    var inheritance = JsonSerializer.Deserialize<InheritanceCalibration>(fittedInheritance, json)
         ?? throw new InvalidDataException("继承校准文件为空。");
     var rules = PioneerMasterReader.ReadRules(args[0], calibration, inheritance);
     using var resource = new MemoryStream();

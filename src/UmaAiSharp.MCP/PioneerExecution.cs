@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer;
@@ -145,7 +146,7 @@ public static class PioneerExecution
         PioneerTurnRules? turnRules = null;
         if (training is not null)
         {
-            if (autonomous && training.Turn < 55 && training.Inheritance is null)
+            if (autonomous && training.Turn < MidRunInheritanceRules.SeniorTurn && training.Inheritance is null)
                 throw new UnknownMechanismException($"第 {training.Turn} 回合缺少本局开局冻结的亲本因子与胜鞍，请使用包含亲本与开局响应的抓包前缀导入。");
             var observedHints = outcomes.OfType<PioneerConditionalOutcome.ObservedEventResult>()
                 .SelectMany(outcome => outcome.Changes?.Hints ?? []).Select(hint => hint.Skill);

@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Pioneer.Runtime;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.Pioneer.Game;
@@ -12,8 +13,8 @@ public readonly record struct PioneerInheritanceLottery(int LotteryId, Attribute
 // One tracker per viewer. A run keeps its opening pedigree when the same parents are strengthened later.
 public sealed class PioneerInheritanceCapture
 {
-    readonly Dictionary<int, PioneerInheritanceParent> archive = [];
-    (string Run, PioneerInheritanceParent First, PioneerInheritanceParent Second, bool? UmaPlan)? frozen;
+    readonly Dictionary<int, InheritanceParent> archive = [];
+    (string Run, InheritanceParent First, InheritanceParent Second, bool? UmaPlan)? frozen;
 
     public void Observe(JsonObject data, string endpoint)
     {
@@ -89,8 +90,7 @@ public sealed class PioneerInheritanceCapture
         var before = new AttributeValues(Int(currentState, "speed"), Int(currentState, "stamina"), Int(currentState, "power"),
             Int(currentState, "guts"), Int(currentState, "wiz"));
         var beforePoints = Int(currentState, "skill_point");
-        var beforeValue = PioneerInheritanceRules.LotteryValue(before.Speed, before.Stamina, before.Power,
-            before.Guts, before.Wisdom, beforePoints);
+        var beforeValue = PioneerContinuationPolicy.InheritanceValue(before, beforePoints);
         return [.. Objects(options, "succession_gain_info_array").Select(option =>
         {
             var attributes = new AttributeValues(Int(option, "speed"), Int(option, "stamina"), Int(option, "power"),
@@ -99,8 +99,7 @@ public sealed class PioneerInheritanceCapture
             return new PioneerInheritanceLottery(Int(option, "lottery_id"), new(
                     attributes.Speed - before.Speed, attributes.Stamina - before.Stamina, attributes.Power - before.Power,
                     attributes.Guts - before.Guts, attributes.Wisdom - before.Wisdom), points - beforePoints,
-                PioneerInheritanceRules.LotteryValue(attributes.Speed, attributes.Stamina, attributes.Power,
-                    attributes.Guts, attributes.Wisdom, points) - beforeValue);
+                PioneerContinuationPolicy.InheritanceValue(attributes, points) - beforeValue);
         }).OrderByDescending(option => option.Value)];
     }
 
@@ -126,7 +125,7 @@ public sealed class PioneerInheritanceCapture
         }
     }
 
-    static PioneerInheritanceParent ReadParent(JsonObject parent, Dictionary<int, JsonObject> members)
+    static InheritanceParent ReadParent(JsonObject parent, Dictionary<int, JsonObject> members)
     {
         return new(new(
             [.. members.Select(member => new PedigreeFactorSlot(member.Key,

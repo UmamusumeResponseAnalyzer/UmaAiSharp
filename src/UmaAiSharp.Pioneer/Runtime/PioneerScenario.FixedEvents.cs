@@ -1,4 +1,5 @@
 using UmaAiSharp.Base.Training;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Base.Events;
@@ -117,8 +118,9 @@ public sealed partial class PioneerScenario
             case (49, true):
                 ApplyCalendarChoice(state, [new(0, 0, 0, 0, 0, 30, 0), new(8, 8, 8, 8, 8, 0, 0),
                     new(0, 0, 0, 0, 0, 0, 35)]);
-                if (data.TrainingStart!.CharacterId == 1016)
-                    header.StrongBrianRoute = HasBrianRouteQualification(state);
+                if (data.TrainingStart!.CharacterId == CharacterRaceRoutes.NaritaBrian)
+                    header.StrongBrianRoute = CharacterRaceRoutes.QualifiesForStrongBrianRoute(
+                        state.GetSection(PioneerStateSection.RaceWins), data.TurnRules!.IsGradeOne);
                 break;
             case (49, false):
                 // Fit item counts 24/14/61/79/18. Both top prizes settle the same resources.
