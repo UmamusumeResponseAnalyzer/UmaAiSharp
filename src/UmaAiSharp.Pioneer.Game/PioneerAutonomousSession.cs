@@ -207,7 +207,7 @@ public sealed class PioneerAutonomousSession
         ulong blocked = 0;
         foreach (var turn in disabledRaces.Select(node => node!.GetValue<int>()))
             if (turn is >= 13 and <= 72) blocked |= 1UL << (turn - 13);
-        var races = ImmutableArray<PioneerRaceOption>.Empty;
+        var races = ImmutableArray<RaceOption>.Empty;
         if (enabled.Contains(401) && (home!["race_entry_restriction"]?.GetValue<int>() ?? 0) == 0
             && !disabledRaces.Any(turn => turn!.GetValue<int>() == currentTurn)
             && common["race_condition_array"] is JsonArray raceConditions)
@@ -215,35 +215,33 @@ public sealed class PioneerAutonomousSession
             var target = !enabled.Any(id => TrainingBaseTable.CommandIndex(id) >= 0);
             var currentIds = raceConditions.OfType<JsonObject>().Select(row => Int(row, "program_id")).ToHashSet();
             var fans = Int(chara, "fans");
-            races = [.. rules.Races.Where(race => currentIds.Contains(race.ProgramId) && fans >= race.RequiredFans
-                && (race.Grade switch { 900 => grade == 1, 800 => grade == 2, _ => grade >= 3 }))
+            races = [.. rules.Races.Where(race => currentIds.Contains(race.ProgramId))
+                .Select(race => race.Option(false)).Where(race => race.CanEnter(fans, grade))
                 .Select(race =>
                 {
                     var goal = fixedGoals.FirstOrDefault(goal => goal.Turn == currentTurn && goal.ProgramId == race.ProgramId);
-                    return race.Option(goal.Id != 0 || target && (race.Grade == 900 || fixedGoals.All(goal => goal.Turn != currentTurn)))
-                        with { CareerGoalId = goal.Id };
+                    return race with { Target = goal.Id != 0 || target && (race.Grade == 900 || fixedGoals.All(goal => goal.Turn != currentTurn)),
+                        CareerGoalId = goal.Id };
                 })];
         }
-        var scheduled = new SortedDictionary<int, PioneerRaceOption>();
-        foreach (var group in fixedGoals.Where(goal => goal.Turn > currentTurn || !ready).GroupBy(goal => goal.Turn))
-        {
-            var programs = group.Select(goal => goal.ProgramId).Distinct().ToArray();
-            if (programs.Length == 1)
-                scheduled.Add(group.Key, raceById[programs[0]].Option(true) with { CareerGoalId = group.First().Id });
-        }
-        foreach (var reservation in reservations ?? [])
-        {
-            var race = raceById[reservation.ProgramId];
-            var turn = rules.Progression.RaceCalendar.FirstOrDefault(date =>
-                date.Year == reservation.Year && date.Month == race.Month && date.Half == race.Half).Turn;
-            if (turn >= firstDecisionTurn && (!ready || turn > currentTurn || races.Any(option => option.ProgramId == race.ProgramId)))
-                scheduled.TryAdd(turn, race.Option(false));
-        }
-        var reservedId = chara["reserve_race_program_id"]?.GetValue<int>() ?? 0;
-        if (reservedId > 0 && races.FirstOrDefault(race => race.ProgramId == reservedId) is { ProgramId: > 0 } reserved)
-            scheduled.TryAdd(currentTurn, reserved);
+        var scheduled = CharacterRaceSchedule.FromSelectedGoals(fixedGoals.Where(goal => goal.Turn > currentTurn || !ready),
+            id => raceById[id].Option(true), AvailableReservations());
         return new(enabled.Contains(801), enabled.Contains(301), enabled.Contains(390), friends.ToImmutable(), races,
-            [.. scheduled.Select(pair => new PioneerScheduledRace(pair.Key, pair.Value))], unseen, grade, blocked,
-            [.. careerGoals], history, CharacterRaceRoutes.BrianRouteFromSelectedGoals(currentGoals));
+            scheduled, unseen, grade, blocked, [.. careerGoals], history, CharacterRaceRoutes.BrianRouteFromSelectedGoals(currentGoals));
+
+        IEnumerable<ScheduledRace> AvailableReservations()
+        {
+            foreach (var reservation in reservations ?? [])
+            {
+                var race = raceById[reservation.ProgramId];
+                var turn = rules.Progression.RaceCalendar.FirstOrDefault(date =>
+                    date.Year == reservation.Year && date.Month == race.Month && date.Half == race.Half).Turn;
+                if (turn >= firstDecisionTurn && (!ready || turn > currentTurn || races.Any(option => option.ProgramId == race.ProgramId)))
+                    yield return new(turn, race.Option(false));
+            }
+            var reservedId = chara["reserve_race_program_id"]?.GetValue<int>() ?? 0;
+            if (reservedId > 0 && races.FirstOrDefault(race => race.ProgramId == reservedId) is { ProgramId: > 0 } reserved)
+                yield return new(currentTurn, reserved);
+        }
     }
 }

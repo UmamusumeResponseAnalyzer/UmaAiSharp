@@ -22,17 +22,8 @@ public sealed record InheritanceData(ImmutableArray<InheritanceFactor> Factors,
     ImmutableArray<RelationPoint> RelationPoints, ImmutableArray<RelationMembership> RelationMemberships,
     ImmutableArray<RelationSaddle> Saddles, ImmutableArray<InheritanceAddon> Addons, InheritanceCalibration Calibration);
 
-// The spans describe the complete resulting state for one roll and are only valid during scoring.
-public readonly ref struct InheritanceCandidate(AttributeValues attributes, int skillPoints, TrainingLimits limits,
-    AttributeValues overflow, ReadOnlySpan<int> aptitudes, ReadOnlySpan<int> hintLevels)
-{
-    public AttributeValues Attributes { get; } = attributes;
-    public int SkillPoints { get; } = skillPoints;
-    public TrainingLimits Limits { get; } = limits;
-    public AttributeValues Overflow { get; } = overflow;
-    public ReadOnlySpan<int> Aptitudes { get; } = aptitudes;
-    public ReadOnlySpan<int> HintLevels { get; } = hintLevels;
-}
+public readonly record struct InheritanceLottery(int LotteryId, AttributeValues Attributes, int SkillPoints);
+public readonly record struct RankedInheritanceLottery(int LotteryId, AttributeValues AttributeGain, int SkillPointGain, int Value);
 
 public sealed class MidRunInheritanceRules
 {
@@ -113,7 +104,7 @@ public sealed class MidRunInheritanceRules
     }
 
     public void Apply(ref TrainingValues resources, ref TrainingLimits limits, Span<int> aptitudes, Span<int> hints,
-        ref AttributeValues totalOverflow, Func<InheritanceCandidate, int> scoreCandidate, ref SimulationRandom random)
+        ref AttributeValues totalOverflow, ref SimulationRandom random)
     {
         Span<int> attributes = stackalloc int[5];
         Span<int> caps = stackalloc int[5];
@@ -194,18 +185,15 @@ public sealed class MidRunInheritanceRules
                     break;
                 }
             }
-            var candidateCaps = new TrainingLimits(caps[0], caps[1], caps[2], caps[3], caps[4], limits.Vital);
-            var candidateOverflow = new AttributeValues(overflow[0], overflow[1], overflow[2], overflow[3], overflow[4]);
             if (candidateCount > 1)
             {
-                var value = scoreCandidate(new(new(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4]),
-                    points, candidateCaps, candidateOverflow, rolledAptitudes, rolledHints));
+                var value = Score(new(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4]), points);
                 if (candidate > 0 && value <= best) continue;
                 best = value;
             }
             result = new(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4], resources.Vital, points);
-            resultCaps = candidateCaps;
-            resultOverflow = candidateOverflow;
+            resultCaps = new(caps[0], caps[1], caps[2], caps[3], caps[4], limits.Vital);
+            resultOverflow = new(overflow[0], overflow[1], overflow[2], overflow[3], overflow[4]);
             rolledAptitudes.CopyTo(bestAptitudes);
             rolledHints.CopyTo(bestHints);
         }
@@ -214,6 +202,27 @@ public sealed class MidRunInheritanceRules
         totalOverflow += resultOverflow;
         bestAptitudes.CopyTo(aptitudes);
         bestHints.CopyTo(hints);
+    }
+
+    public static IEnumerable<RankedInheritanceLottery> RankLotteries(AttributeValues before, int beforePoints,
+        IEnumerable<InheritanceLottery> options)
+    {
+        var beforeValue = Score(before, beforePoints);
+        return options.Select(option =>
+        {
+            var after = option.Attributes;
+            return new RankedInheritanceLottery(option.LotteryId, new(after.Speed - before.Speed, after.Stamina - before.Stamina,
+                after.Power - before.Power, after.Guts - before.Guts, after.Wisdom - before.Wisdom), option.SkillPoints - beforePoints,
+                Score(after, option.SkillPoints) - beforeValue);
+        }).OrderByDescending(option => option.Value);
+    }
+
+    // The recommender values raw-equivalent attributes plus twice the skill Pt.
+    static int Score(AttributeValues attributes, int skillPoints)
+    {
+        static int Raw(int display) => display + Math.Max(0, display - 1200);
+        return Raw(attributes.Speed) + Raw(attributes.Stamina) + Raw(attributes.Power)
+            + Raw(attributes.Guts) + Raw(attributes.Wisdom) + 2 * skillPoints;
     }
 
     int DrawHintConversion(ref SimulationRandom random)

@@ -118,9 +118,6 @@ public sealed partial class PioneerScenario
             case (49, true):
                 ApplyCalendarChoice(state, [new(0, 0, 0, 0, 0, 30, 0), new(8, 8, 8, 8, 8, 0, 0),
                     new(0, 0, 0, 0, 0, 0, 35)]);
-                if (data.TrainingStart!.CharacterId == CharacterRaceRoutes.NaritaBrian)
-                    header.StrongBrianRoute = CharacterRaceRoutes.QualifiesForStrongBrianRoute(
-                        state.GetSection(PioneerStateSection.RaceWins), data.TurnRules!.IsGradeOne);
                 break;
             case (49, false):
                 // Fit item counts 24/14/61/79/18. Both top prizes settle the same resources.
@@ -163,10 +160,13 @@ public sealed partial class PioneerScenario
             case (65, false):
                 SettleSeniorIslandHint(state);
                 break;
-            case (70, true) when (data.TrainingStart!.CharacterId ?? header.CardId / 100) == 1062:
-                ApplyProgressionReward(state, TrainingAttributeReward(3, 5));
-                break;
         }
+
+        if (!arriving) return;
+        var routeEvent = CharacterRaceRoutes.OnTurnStart(data.TrainingStart!.CharacterId ?? header.CardId / 100,
+            turn, header.LastTargetRaceMotivation, state.GetSection(PioneerStateSection.RaceWins), data.TurnRules!.RacesByProgram);
+        header.ApplyRouteSelection(routeEvent);
+        if (routeEvent.Reward != default) ApplyProgressionReward(state, routeEvent.Reward);
     }
 
     // Event 3001's first option is bound to the character's shared story, independent of outfit and current aptitudes.

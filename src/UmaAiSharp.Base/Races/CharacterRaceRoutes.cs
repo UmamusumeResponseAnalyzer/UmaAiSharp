@@ -1,9 +1,12 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Hints;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 
 namespace UmaAiSharp.Base.Races;
 
 public readonly record struct CharacterGoalEdit(int Variant, int RemovedGoal = 0, int AddedGoal = 0, bool BlockRemovedTurn = false);
+public readonly record struct CharacterRouteEvent(int? NextGoal = null, bool? StrongBrian = null, TrainingValues Reward = default);
 
 public static class CharacterRaceRoutes
 {
@@ -41,10 +44,9 @@ public static class CharacterRaceRoutes
         }
     }
 
-    public static int? BranchAfterWin(int characterId, int goalId, int raceMotivation, ref SimulationRandom random)
+    public static int? BranchAfterWin(int characterId, int goalId, ref SimulationRandom random)
         => (characterId, goalId) switch
         {
-            (1032, 183) when raceMotivation <= 3 => TachyonMileCupGoal,
             // Fitted weights: 1:1:7 after debut and 1:1:4 after Takarazuka.
             // All six observed debut draws picked 293; the other two retain one prior count.
             (1056, 89) => FukukitaruDebutGoals[Math.Min(random.NextScaled(9), 2)],
@@ -52,12 +54,32 @@ public static class CharacterRaceRoutes
             _ => null,
         };
 
-    public static bool QualifiesForStrongBrianRoute(ReadOnlySpan<int> winsByTurn, Func<int, bool> isGradeOne)
+    public static CharacterRouteEvent OnTurnStart(int characterId, int turn, int lastTargetRaceMotivation,
+        ReadOnlySpan<int> winsByTurn, IReadOnlyDictionary<int, RaceOption> races)
+        => (characterId, turn) switch
+        {
+            (1032, 32) => FromStory(501032402, null, lastTargetRaceMotivation),
+            (1062, 70) => FromStory(501062406, null, lastTargetRaceMotivation),
+            (NaritaBrian, BrianChoiceTurn) => new(StrongBrian: QualifiesForStrongBrianRoute(winsByTurn, races)),
+            _ => default,
+        };
+
+    public static CharacterRouteEvent FromStory(int storyId, int? choice, int lastTargetRaceMotivation)
+        => storyId switch
+        {
+            501032402 when choice is null or 0 => new(NextGoal: lastTargetRaceMotivation is >= 1 and <= 3 ? TachyonMileCupGoal : null,
+                Reward: new(0, 0, 0, 0, 5, 0, 0)),
+            501062406 when choice is null or 0 => new(Reward: new(0, 0, 0, 5, 0, 0, 0)),
+            501016409 => new(StrongBrian: choice switch { 1 => true, 2 => false, _ => null }),
+            _ => default,
+        };
+
+    static bool QualifiesForStrongBrianRoute(ReadOnlySpan<int> winsByTurn, IReadOnlyDictionary<int, RaceOption> races)
     {
         var points = 0;
         foreach (var programId in winsByTurn[25..BrianChoiceTurn])
             if (programId is 163 or 166 or 168) points += 2;
-            else if (isGradeOne(programId)) points++;
+            else if (races.TryGetValue(programId, out var race) && race.Grade == 100) points++;
         return points >= 6;
     }
 
@@ -74,6 +96,15 @@ public static class CharacterRaceRoutes
         return strong;
     }
 
-    public static bool? BrianRouteFromStory(int storyId, int? choice)
-        => storyId == 501016409 ? choice == 1 : null;
+    public static ReadOnlySpan<int> GoalRaceHintGroups(int characterId) => characterId switch
+    {
+        1003 => [20190], 1008 => [20049], NaritaBrian => [20135, 20049, 20061, 20036],
+        1017 => [20169], 1026 => [20037], 1041 => [20128, 20204], 1063 => [20279], _ => [],
+    };
+
+    public static (int Attribute, int SkillPoints, HintLevel Hint)? VictoryReward(int characterId, int goal, int raceRewardPercent)
+        => characterId == NaritaBrian && IsStrongBrianGoal(goal)
+            ? (5 * raceRewardPercent / 100, 50 * raceRewardPercent / 100,
+                new(new(GoalRaceHintGroups(characterId)[(goal - 378) / 2], 1), 2))
+            : null;
 }

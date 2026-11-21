@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Pioneer.Game;
@@ -171,7 +172,7 @@ public static class PioneerMasterReader
             SELECT id,turn,condition_id FROM single_mode_route_race
             WHERE target_type=1 AND race_type=0 AND condition_type=1 AND turn BETWEEN 1 AND 72
             ORDER BY id
-            """).Select(row => new PioneerFixedRaceGoal(row["id"], row["turn"], row["condition_id"]))],
+            """).Select(row => new FixedRaceGoal(row["id"], row["turn"], row["condition_id"]))],
         [.. ReadIntegers(db, """
             SELECT g.id,g.turn,g.condition_type,g.condition_id,g.condition_value_1,g.condition_value_2,
                 COALESCE(MAX(p.turn),12)+1 AS first_turn

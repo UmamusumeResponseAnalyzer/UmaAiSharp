@@ -1,5 +1,6 @@
 using UmaAiSharp.Core;
 using UmaAiSharp.Base.Events;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Pioneer.Events;
 using UmaAiSharp.Pioneer.Training;
 
@@ -111,10 +112,15 @@ public sealed partial class PioneerScenario
         ref var header = ref state.Mutable;
         if (data.OutcomeAt(header.ActionOrdinal) is not PioneerConditionalOutcome.ObservedEventResult outcome)
             return MissingOutcome(state, PioneerStopCode.ObservedEventResultRequired);
+        var route = CharacterRaceRoutes.FromStory(header.Event.StoryId, outcome.ChoiceNumber, header.LastTargetRaceMotivation);
         if (outcome.Changes is { } changes)
         {
             if (!ApplyObservedEventChanges(state, changes))
                 return Missing(state, PioneerStopCode.ConstructionSettlementRequired);
+        }
+        else if (route != default)
+        {
+            if (route.Reward != default) ApplyProgressionReward(state, route.Reward);
         }
         else
         {

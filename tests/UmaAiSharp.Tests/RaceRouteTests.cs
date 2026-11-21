@@ -54,8 +54,8 @@ public sealed class RaceRouteTests
         var edits = CharacterRaceRoutes.GoalEdits(1056);
         var debut = new SimulationRandom((ulong)seed);
         var takarazuka = debut;
-        Assert.Equal(debutGoal, CharacterRaceRoutes.BranchAfterWin(1056, 89, 3, ref debut));
-        Assert.Equal(takarazukaGoal, CharacterRaceRoutes.BranchAfterWin(1056, 94, 3, ref takarazuka));
+        Assert.Equal(debutGoal, CharacterRaceRoutes.BranchAfterWin(1056, 89, ref debut));
+        Assert.Equal(takarazukaGoal, CharacterRaceRoutes.BranchAfterWin(1056, 94, ref takarazuka));
         Assert.Contains(new CharacterGoalEdit(debutGoal, AddedGoal: debutGoal), edits);
         Assert.Contains(new CharacterGoalEdit(takarazukaGoal, AddedGoal: takarazukaGoal), edits);
     }
@@ -64,14 +64,26 @@ public sealed class RaceRouteTests
     public void DeterministicCharacterGoalsRespectMotivationCancellationsAndAdditions()
     {
         var random = new SimulationRandom(123);
-        Assert.Null(CharacterRaceRoutes.BranchAfterWin(1032, 183, 4, ref random));
-        Assert.Equal(296, CharacterRaceRoutes.BranchAfterWin(1032, 183, 3, ref random));
-        Assert.Null(CharacterRaceRoutes.BranchAfterWin(1016, 183, 3, ref random));
+        Assert.Null(CharacterRaceRoutes.BranchAfterWin(1032, 183, ref random));
         Assert.Equal(123UL, random.State);
         Assert.Equal(new CharacterGoalEdit(296, 184, 296), Assert.Single(CharacterRaceRoutes.GoalEdits(1032)));
         Assert.Equal(new CharacterGoalEdit(0, 627, BlockRemovedTurn: true), Assert.Single(CharacterRaceRoutes.GoalEdits(1062)));
         Assert.Equal([new CharacterGoalEdit(0, 1523, 1524), new(0, AddedGoal: 1529)], CharacterRaceRoutes.GoalEdits(1135).AsSpan().ToArray());
         Assert.Empty(CharacterRaceRoutes.GoalEdits(1001));
+    }
+
+    [Theory]
+    [InlineData(3, 296)]
+    [InlineData(4, null)]
+    public void TachyonReceivesWisdomWhenTheReportIsConfirmedAfterSatsuki(int raceMotivation, int? nextGoal)
+    {
+        var races = new Dictionary<int, RaceOption>();
+        Assert.Equal(default, CharacterRaceRoutes.OnTurnStart(1032, 31, raceMotivation, [], races));
+        var report = CharacterRaceRoutes.FromStory(501032402, null, raceMotivation);
+        Assert.Equal(nextGoal, report.NextGoal);
+        Assert.Equal(5, report.Reward.Wisdom);
+        Assert.Equal(report, CharacterRaceRoutes.OnTurnStart(1032, 32, raceMotivation, [], races));
+        Assert.Equal(5, CharacterRaceRoutes.OnTurnStart(1062, 70, 0, [], races).Reward.Guts);
     }
 
     [Fact]
@@ -82,17 +94,22 @@ public sealed class RaceRouteTests
         wins[31] = 163;
         wins[34] = 166;
         wins[48] = 79;
-        Assert.False(CharacterRaceRoutes.QualifiesForStrongBrianRoute(wins, id => id == 79));
+        var races = new Dictionary<int, RaceOption> { [79] = new(79, 100, 0, false, null) };
+        Assert.False(CharacterRaceRoutes.OnTurnStart(1016, 49, 0, wins, races).StrongBrian);
         wins[25] = 79;
-        Assert.True(CharacterRaceRoutes.QualifiesForStrongBrianRoute(wins, id => id == 79));
+        Assert.True(CharacterRaceRoutes.OnTurnStart(1016, 49, 0, wins, races).StrongBrian);
         wins[25] = wins[48] = 0;
         wins[44] = 168;
-        Assert.True(CharacterRaceRoutes.QualifiesForStrongBrianRoute(wins, id => id == 79));
+        Assert.True(CharacterRaceRoutes.OnTurnStart(1016, 49, 0, wins, races).StrongBrian);
         Assert.Null(CharacterRaceRoutes.BrianRouteFromSelectedGoals([371, 372]));
         Assert.False(CharacterRaceRoutes.BrianRouteFromSelectedGoals([371, 379]));
         Assert.True(CharacterRaceRoutes.BrianRouteFromSelectedGoals([371, 382]));
-        Assert.True(CharacterRaceRoutes.BrianRouteFromStory(501016409, 1));
-        Assert.False(CharacterRaceRoutes.BrianRouteFromStory(501016409, 2));
-        Assert.Null(CharacterRaceRoutes.BrianRouteFromStory(501016408, 1));
+        Assert.True(CharacterRaceRoutes.FromStory(501016409, 1, 0).StrongBrian);
+        Assert.False(CharacterRaceRoutes.FromStory(501016409, 2, 0).StrongBrian);
+        Assert.Null(CharacterRaceRoutes.FromStory(501016409, null, 0).StrongBrian);
+        Assert.Null(CharacterRaceRoutes.FromStory(501016408, 1, 0).StrongBrian);
+        var prize = CharacterRaceRoutes.VictoryReward(1016, 382, 130)!.Value;
+        Assert.Equal((6, 65, 20061, 2), (prize.Attribute, prize.SkillPoints, prize.Hint.Skill.GroupId, prize.Hint.Level));
+        Assert.Null(CharacterRaceRoutes.VictoryReward(1016, 383, 130));
     }
 }

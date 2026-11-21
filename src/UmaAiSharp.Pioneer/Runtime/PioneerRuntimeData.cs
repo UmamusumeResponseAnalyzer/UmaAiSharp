@@ -111,7 +111,8 @@ public sealed class PioneerRuntimeData
             {
                 if (!ValidObservedEvent(result.Event) || result.ChoiceNumber < 0 || result.Next is null
                     || (result.Changes is { } observedChanges ? !ValidObservedChanges(observedChanges)
-                        : !PioneerEvent.IsReporterTrainingStory(result.Event.StoryId)))
+                        : !PioneerEvent.IsReporterTrainingStory(result.Event.StoryId)
+                          && CharacterRaceRoutes.FromStory(result.Event.StoryId, result.ChoiceNumber, 0) == default))
                     throw new InvalidDataException($"动作{outcome.ActionOrdinal}须提供有效的实包事件身份、选择、变化和续步。");
                 if (result.Changes is { } changes)
                 {
@@ -424,7 +425,7 @@ public sealed class PioneerRuntimeData
                 header.HasAttention = entry.CharacterEffects.Contains(9);
                 header.StrongBrianRoute = entry.HomeActions?.StrongBrianRoute
                     ?? (entry.ObservedStoryHistory?.Any(story =>
-                        CharacterRaceRoutes.BrianRouteFromStory(story.StoryId, story.ChoiceNumber) == true) == true);
+                        CharacterRaceRoutes.FromStory(story.StoryId, story.ChoiceNumber, 0).StrongBrian == true) == true);
                 if (entry.CheckpointResults is { } checkpoints)
                 {
                     Span<int> results = stackalloc int[5];

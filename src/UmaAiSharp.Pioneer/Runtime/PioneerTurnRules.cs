@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Scoring;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
@@ -66,15 +67,13 @@ public sealed class PioneerTurnRules
     internal int OrdinarySupportMask => ordinarySupportMask;
     internal int TuckerMask => tuckerMask;
     readonly ImmutableArray<int> uraFirstPlaceFans;
-    readonly FrozenDictionary<int, PioneerRaceOption?[]> schedules;
+    internal CharacterRaceSchedule Schedule { get; }
     readonly (int Turn, int CareerFans)[] fanCheckpoints;
-    readonly ImmutableArray<PioneerRaceOption>[] raceCalendar;
-    readonly FrozenDictionary<int, PioneerRaceOption> racesByProgram;
-    readonly ulong blockedRaceTurns;
+    readonly ImmutableArray<RaceOption>[] raceCalendar;
+    internal FrozenDictionary<int, RaceOption> RacesByProgram { get; }
     internal ImmutableArray<PioneerCareerGoal> CareerGoals { get; }
     internal ImmutableArray<int> InitialCareerCounts { get; }
     internal int InitialGrade { get; }
-    internal IEnumerable<int> ScheduleVariants => schedules.Keys;
     internal int RaceRewardPercent { get; }
     internal int FanRewardPercent { get; }
     internal bool WholeRun => !uraFirstPlaceFans.IsDefaultOrEmpty;
@@ -99,9 +98,9 @@ public sealed class PioneerTurnRules
         PioneerStart.TrainingTurn start, int appearedSupportMask, ImmutableArray<int> appearedProjectMembers,
         ImmutableArray<TrainingFacility> facilities, ImmutableArray<PioneerFacilityBase> facilityBases = default,
         ImmutableArray<int> uraFirstPlaceFans = default, MidRunInheritanceRules? inheritance = null, PioneerHintRules? hints = null,
-        PioneerOrdinaryStoryProgress initialStories = default, ImmutableArray<PioneerRaceOption>[]? raceCalendar = null,
+        PioneerOrdinaryStoryProgress initialStories = default, ImmutableArray<RaceOption>[]? raceCalendar = null,
         PioneerSkillRatingData? skillRating = null, ImmutableArray<HintSkill> seniorIslandHints = default,
-        ImmutableArray<PioneerRaceScheduleEdit> scheduleEdits = default)
+        ImmutableArray<RaceScheduleEdit> scheduleEdits = default)
     {
         if (calibration.OrdinaryRest.IsDefaultOrEmpty || calibration.Arrivals.IsDefaultOrEmpty || calibration.Placement.IsDefaultOrEmpty
             || calibration.OrdinaryRest.Any(row => row.StoryEpisode is not (701 or 718) || row.Count <= 0)
@@ -162,7 +161,7 @@ public sealed class PioneerTurnRules
                 TuckerOutingWhiteHintSlot = hints.RegisterHint(new(20365, 1));
                 TuckerOutingGoldHintSlot = hints.RegisterHint(new(20365, 2));
             }
-            foreach (var group in PioneerScenario.GoalRaceHintGroups(start.CharacterId ?? start.CardId / 100))
+            foreach (var group in CharacterRaceRoutes.GoalRaceHintGroups(start.CharacterId ?? start.CardId / 100))
                 hints.RegisterHint(new(group, 1));
             SkillRating = new(skillRating, progress, hints, start.CardId, start.Environment.Current, start.CharacterEffects.AsSpan());
             var unique = progress.OwnedSkills.SingleOrDefault(skill => skill.Id is >= 10_000 and < 200_000);
@@ -178,57 +177,26 @@ public sealed class PioneerTurnRules
                 tuckerRepeatStamina[index] = TuckerRepeatStamina * (row.Triggered / (double)row.Opportunities);
             }
         director = calibration.Director;
-        this.raceCalendar = raceCalendar ?? new ImmutableArray<PioneerRaceOption>[79];
+        this.raceCalendar = raceCalendar ?? new ImmutableArray<RaceOption>[79];
         var homeActions = start.HomeActions;
         InitialGrade = homeActions?.Grade ?? 3;
-        blockedRaceTurns = homeActions?.BlockedRaceTurns ?? 0;
+        var blockedRaceTurns = homeActions?.BlockedRaceTurns ?? 0;
         CareerGoals = homeActions?.CareerGoals ?? [];
-        var scheduledRaces = new PioneerRaceOption?[79];
-        if (homeActions is { } home)
-            foreach (var race in home.ScheduledRaces)
-            {
-                if (race.Turn <= 0 || race.Turn >= scheduledRaces.Length || scheduledRaces[race.Turn] is not null)
-                    throw new InvalidDataException("未来必经赛的回合无效或重复。");
-                scheduledRaces[race.Turn] = race.Race;
-            }
         if (scheduleEdits.IsDefault) scheduleEdits = [];
-        foreach (var edit in scheduleEdits)
-            if (edit.BlockedTurn != 0) blockedRaceTurns |= 1UL << (edit.BlockedTurn - 13);
-        ApplyEdits(scheduledRaces, 0);
-        var variants = new Dictionary<int, PioneerRaceOption?[]> { [0] = scheduledRaces };
-        foreach (var variant in scheduleEdits.Select(edit => edit.Variant).Where(variant => variant != 0).Distinct())
-        {
-            var calendar = (PioneerRaceOption?[])scheduledRaces.Clone();
-            ApplyEdits(calendar, variant);
-            variants.Add(variant, calendar);
-        }
-        schedules = variants.ToFrozenDictionary();
+        Schedule = new(start.Turn, 78, homeActions?.ScheduledRaces ?? [],
+            Enumerable.Range(13, 60).Where(turn => (blockedRaceTurns & (1UL << (turn - 13))) != 0), scheduleEdits);
 
-        void ApplyEdits(PioneerRaceOption?[] calendar, int variant)
-        {
-            foreach (var edit in scheduleEdits)
-            {
-                if (edit.Variant != variant) continue;
-                if (edit.RemovedGoal != 0)
-                    for (var day = start.Turn; day < calendar.Length; day++)
-                        if (calendar[day] is { Target: true } race && race.CareerGoalId == edit.RemovedGoal)
-                            calendar[day] = null;
-                if (edit.Added is { } added && added.Turn > start.Turn && calendar[added.Turn] is not { Target: true })
-                    calendar[added.Turn] = added.Race;
-            }
-        }
-
-        racesByProgram = (homeActions?.Races ?? []).Concat(this.raceCalendar.Where(day => !day.IsDefaultOrEmpty).SelectMany(day => day))
+        RacesByProgram = (homeActions?.Races ?? []).Concat(this.raceCalendar.Where(day => !day.IsDefaultOrEmpty).SelectMany(day => day))
             .Concat((homeActions?.ScheduledRaces ?? []).Select(race => race.Race))
             .Concat(scheduleEdits.Where(edit => edit.Added.HasValue).Select(edit => edit.Added!.Value.Race))
             .DistinctBy(race => race.ProgramId).ToFrozenDictionary(race => race.ProgramId);
         InitialCareerCounts = [.. CareerGoals.Select(goal => (homeActions?.RaceHistory ?? []).Count(race =>
             race.Turn >= goal.FirstTurn && race.Turn <= goal.Deadline && race.Rank <= goal.MaximumRank
-            && racesByProgram.TryGetValue(race.ProgramId, out var program) && program.Grade <= goal.MaximumGrade))];
+            && RacesByProgram.TryGetValue(race.ProgramId, out var program) && program.Grade <= goal.MaximumGrade))];
         var careerFans = CareerGoals.Where(goal => goal.FanTarget > 0).GroupBy(goal => goal.Deadline)
             .ToDictionary(group => group.Key, group => group.Max(goal => goal.FanTarget));
-        fanCheckpoints = [.. Enumerable.Range(1, scheduledRaces.Length - 1)
-            .Where(turn => schedules.Values.Any(calendar => calendar[turn] is { Target: true }) || careerFans.ContainsKey(turn))
+        fanCheckpoints = [.. Enumerable.Range(1, 78)
+            .Where(turn => Schedule.HasTarget(turn) || careerFans.ContainsKey(turn))
             .Select(turn => (turn, careerFans.GetValueOrDefault(turn)))];
         uraFanAdjustments = (calibration.UraFans.IsDefault ? [] : calibration.UraFans).GroupBy(row => row.Turn)
             .ToFrozenDictionary(group => group.Key, group => (group.ToArray(), group.Sum(row => row.Count)));
@@ -243,15 +211,12 @@ public sealed class PioneerTurnRules
         facilityStates = facilities.ToFrozenDictionary(facility => (facility.Id, facility.StateId));
     }
 
-    internal PioneerRaceOption? ScheduledRace(int turn, int variant)
-        => schedules[variant][turn] is { } race && (race.Target || !RaceBlocked(turn)) ? race : null;
-
     internal (int Shortfall, int Deadline) FirstFanShortfall(int turn, int fans, int variant, int minimumWinPercent)
     {
         foreach (var (day, careerFans) in fanCheckpoints)
         {
             if (day < turn) continue;
-            if (day > turn && ScheduledRace(day, variant) is { Target: true } race)
+            if (day > turn && Schedule.RaceAt(day, variant) is { Target: true } race)
             {
                 if (fans < race.RequiredFans) return (race.RequiredFans - fans, day - 1);
                 fans += FirstPlaceFans(race.FirstPlaceFans, minimumWinPercent);
@@ -265,14 +230,6 @@ public sealed class PioneerTurnRules
     internal int FirstPlaceFans(int baseFans, int performancePercent)
         => checked((int)(((long)baseFans * FanRewardPercent * performancePercent + 5000) / 10000));
 
-    internal static bool CanEnterRace(int fans, int grade, in PioneerRaceOption race)
-        => fans >= race.RequiredFans && (race.Target || race.Grade switch
-        {
-            900 => grade == 1,
-            800 => grade == 2,
-            _ => grade >= 3,
-        });
-
     internal int ReachableRaceCount(int turn, int fans, int grade, int variant, in PioneerCareerGoal goal, int winPercent)
     {
         var days = goal.Deadline - turn;
@@ -283,13 +240,13 @@ public sealed class PioneerTurnRules
         for (var day = turn + 1; day <= goal.Deadline; day++)
         {
             next[..(maximum + 2)].Fill(-1);
-            var scheduled = ScheduledRace(day, variant);
+            var scheduled = Schedule.RaceAt(day, variant);
             var options = OptionalRaces(day, grade);
             for (var wins = 0; wins <= maximum; wins++)
             {
                 var before = current[wins];
                 if (before < 0) continue;
-                if (scheduled is { } required && CanEnterRace(before, grade, required))
+                if (scheduled is { } required && required.CanEnter(before, grade))
                 {
                     var counted = day >= goal.FirstTurn && required.Grade <= goal.MaximumGrade;
                     var count = wins + (counted ? 1 : 0);
@@ -305,7 +262,7 @@ public sealed class PioneerTurnRules
                 // Optional races are ordered by first-place fans. Keep the largest reachable result of each kind.
                 foreach (var option in options)
                 {
-                    if (!CanEnterRace(before, grade, option)) continue;
+                    if (!option.CanEnter(before, grade)) continue;
                     var counted = day >= goal.FirstTurn && option.Grade <= goal.MaximumGrade;
                     if (counted ? foundCounted : foundOther) continue;
                     var count = wins + (counted ? 1 : 0);
@@ -325,14 +282,10 @@ public sealed class PioneerTurnRules
         return maximum;
     }
 
-    internal PioneerRaceOption RaceOption(int programId) => racesByProgram[programId];
-    internal bool IsGradeOne(int programId) => racesByProgram.TryGetValue(programId, out var race) && race.Grade == 100;
-    internal bool RaceBlocked(int turn)
-        => turn is >= 13 and <= 72 && (blockedRaceTurns & (1UL << (turn - 13))) != 0;
-
-    internal ImmutableArray<PioneerRaceOption> OptionalRaces(int turn, int grade)
+    internal RaceOption RaceOption(int programId) => RacesByProgram[programId];
+    internal ImmutableArray<RaceOption> OptionalRaces(int turn, int grade)
     {
-        if (turn is < 13 or > 72 || RaceBlocked(turn) || grade < 2 || raceCalendar[turn].IsDefault) return [];
+        if (turn is < 13 or > 72 || Schedule.IsBlocked(turn) || grade < 2 || raceCalendar[turn].IsDefault) return [];
         return raceCalendar[turn];
     }
 
@@ -340,8 +293,8 @@ public sealed class PioneerTurnRules
         + (SkillRating?.SharedMemoryBytes ?? 0)
         + 128L * (arrivals.Count + trainingCoefficients.Count)
         + facilityStates.Values.Sum(facility => 96L + 32L * facility.Effects.Length) + 32L * (facilityBases.IsDefault ? 0 : facilityBases.Length)
-        + raceCalendar.Sum(day => day.IsDefault ? 0L : 48L * day.Length) + 48L * racesByProgram.Count + 8L * fanCheckpoints.Length
-        + schedules.Count * 79L * 56
+        + raceCalendar.Sum(day => day.IsDefault ? 0L : 48L * day.Length) + 48L * RacesByProgram.Count + 8L * fanCheckpoints.Length
+        + Schedule.Variants.Length * 79L * 56
         + 64L * placements.Count + uraFanAdjustments.Values.Sum(group => 64L + 16L * group.Frequencies.Length)
         + arrivals.Values.Sum(entry => 32L + entry.Ordinary.Sum(row => 48L + row.Resources.SharedMemoryBytes));
 

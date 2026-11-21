@@ -46,7 +46,14 @@ public struct PioneerStateHeader
     internal PioneerOrdinaryStoryProgress OrdinaryStories;
     internal int TraineeStoryMask;
     public bool DeferredConstruction, PioneerCompleted, StrongBrianRoute;
+    internal byte LastTargetRaceMotivation;
     internal readonly int ScheduleVariant => StrongBrianRoute ? CharacterRaceRoutes.StrongBrianVariant : RaceBranch;
+
+    internal void ApplyRouteSelection(CharacterRouteEvent result)
+    {
+        if (result.StrongBrian is { } strong) StrongBrianRoute = strong;
+        if (result.NextGoal is { } goal) RaceBranch = goal;
+    }
     public int UnseenFriendMask, UnlockedFriendMask, FriendOutings;
     public long FutureGainedSkillPoints;
     internal int FutureSkillUpgradeRating;

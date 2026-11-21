@@ -3,7 +3,6 @@ using System.Text.Json.Nodes;
 using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Inheritance;
-using UmaAiSharp.Pioneer.Runtime;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.Pioneer.Game;
@@ -86,21 +85,14 @@ public sealed class PioneerInheritanceCapture
             || events.FirstOrDefault() is not JsonObject current || Int(current, "story_id") != 400000040
             || current["succession_event_info"]?["succession_gain_info_array"] is not JsonArray options)
             return [];
-        var currentState = common["chara_info"]!.AsObject();
-        var before = new AttributeValues(Int(currentState, "speed"), Int(currentState, "stamina"), Int(currentState, "power"),
-            Int(currentState, "guts"), Int(currentState, "wiz"));
-        var beforePoints = Int(currentState, "skill_point");
-        var beforeValue = PioneerContinuationPolicy.InheritanceValue(before, beforePoints);
-        return [.. Objects(options, "succession_gain_info_array").Select(option =>
-        {
-            var attributes = new AttributeValues(Int(option, "speed"), Int(option, "stamina"), Int(option, "power"),
-                Int(option, "guts"), Int(option, "wiz"));
-            var points = Int(option, "skill_point");
-            return new PioneerInheritanceLottery(Int(option, "lottery_id"), new(
-                    attributes.Speed - before.Speed, attributes.Stamina - before.Stamina, attributes.Power - before.Power,
-                    attributes.Guts - before.Guts, attributes.Wisdom - before.Wisdom), points - beforePoints,
-                PioneerContinuationPolicy.InheritanceValue(attributes, points) - beforeValue);
-        }).OrderByDescending(option => option.Value)];
+        var before = common["chara_info"]!.AsObject();
+        var lotteries = Objects(options, "succession_gain_info_array").Select(option =>
+            new InheritanceLottery(Int(option, "lottery_id"), Attributes(option), Int(option, "skill_point")));
+        return [.. MidRunInheritanceRules.RankLotteries(Attributes(before), Int(before, "skill_point"), lotteries)
+            .Select(option => new PioneerInheritanceLottery(option.LotteryId, option.AttributeGain, option.SkillPointGain, option.Value))];
+
+        static AttributeValues Attributes(JsonObject row) =>
+            new(Int(row, "speed"), Int(row, "stamina"), Int(row, "power"), Int(row, "guts"), Int(row, "wiz"));
     }
 
     void Remember(JsonNode? rows)

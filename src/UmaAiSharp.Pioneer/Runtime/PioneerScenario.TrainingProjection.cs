@@ -30,7 +30,7 @@ public sealed partial class PioneerScenario
             hasIslandLevelEffects = start.Deck.Any(card => card.UniqueEffects.Any(effect => effect.Type == 111));
             trainingReviewTurns = [.. periods.Where(period => period.CheckPointType is 2 or 4)
                 .Select(period => period.CheckPointTurn).Order()];
-            calendars = rules.ScheduleVariants.ToFrozenDictionary(variant => variant, variant => CompileCalendar(rules, variant));
+            calendars = rules.Schedule.Variants.ToFrozenDictionary(variant => variant, variant => CompileCalendar(rules, variant));
             for (var day = 77; day > 0; day--)
             {
                 reviewLevels[day] = trainingReviewTurns.Count(turn => turn < day);
@@ -51,7 +51,7 @@ public sealed partial class PioneerScenario
 
         static TrainingCalendar CompileCalendar(PioneerTurnRules rules, int variant)
         {
-            var ordinary = Enumerable.Range(1, 72).Where(day => !IsCamp(day) && rules.ScheduledRace(day, variant) is null).ToArray();
+            var ordinary = Enumerable.Range(1, 72).Where(day => !IsCamp(day) && rules.Schedule.RaceAt(day, variant) is null).ToArray();
             var index = new int[79];
             var count = 0;
             for (var day = 1; day < index.Length; day++)
@@ -64,7 +64,7 @@ public sealed partial class PioneerScenario
             fixedRewards[78] = 10 * rules.RaceRewardPercent / 100 + 5;
             for (var day = 77; day > 0; day--)
             {
-                var race = rules.ScheduledRace(day, variant);
+                var race = rules.Schedule.RaceAt(day, variant);
                 var camp = day is not (74 or 76) && IsCamp(day) && race is null;
                 camps[day] = camps[day + 1] + (camp ? 1 : 0);
                 fixedRewards[day] = (day is 74 or 76 ? 10 * rules.RaceRewardPercent / 100

@@ -570,9 +570,8 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
     void RecordCurrentStory(PioneerState state, int? choice = null)
     {
         ref readonly var header = ref state.Header;
-        if (header.Turn == CharacterRaceRoutes.BrianChoiceTurn &&
-            CharacterRaceRoutes.BrianRouteFromStory(header.Event.StoryId, choice) is { } strong)
-            state.Mutable.StrongBrianRoute = strong;
+        state.Mutable.ApplyRouteSelection(CharacterRaceRoutes.FromStory(header.Event.StoryId,
+            choice ?? header.RequiredChoice, header.LastTargetRaceMotivation));
         state.RecordStory(new(header.Event.StoryId, header.Turn, header.RawPlayingState,
             header.Event.PlayTiming, header.Event.CharacterId, 0, 0, choice ?? header.RequiredChoice));
     }
@@ -700,7 +699,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         header.ObservedEventChoiceCount = 0;
         header.CommandId = 0;
         header.PendingTrainingLevelCommandId = 0;
-        var scheduled = autonomous ? data.TurnRules!.ScheduledRace(next, header.ScheduleVariant) : null;
+        var scheduled = autonomous ? data.TurnRules!.Schedule.RaceAt(next, header.ScheduleVariant) : null;
         if (scheduled is { Target: true, CareerGoalId: > 0 } required && header.Fans < required.RequiredFans)
             return EndCareer(state, required.CareerGoalId);
         var scheduledRace = autonomous && ActiveScheduledRace(state) is not null;

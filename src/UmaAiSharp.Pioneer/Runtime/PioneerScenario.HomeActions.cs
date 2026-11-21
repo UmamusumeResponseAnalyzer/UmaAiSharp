@@ -1,3 +1,4 @@
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using System.Collections.Immutable;
@@ -105,9 +106,9 @@ public sealed partial class PioneerScenario
                 }
                 if (race.Target)
                 {
-                    var raceMotivation = header.Motivation;
+                    header.LastTargetRaceMotivation = (byte)header.Motivation;
                     ApplyCareerGoalReward(state, race);
-                    if (autonomous && data.IsWholeRun) ApplyCareerRouteAfterWin(state, race.CareerGoalId, raceMotivation, ref random);
+                    if (autonomous && data.IsWholeRun) ApplyCareerRouteAfterWin(state, race.CareerGoalId, ref random);
                 }
                 else
                 {
@@ -225,7 +226,7 @@ public sealed partial class PioneerScenario
         int Loss(int value, int bit) => (mask & bit) == 0 ? value : TrainingFailureSettlement.LoseAttribute(value, 10);
     }
 
-    ImmutableArray<PioneerRaceOption> RaceOptions(PioneerState state)
+    ImmutableArray<RaceOption> RaceOptions(PioneerState state)
     {
         var current = state.Header;
         var rules = data.TurnRules!;
@@ -236,7 +237,7 @@ public sealed partial class PioneerScenario
         return autonomous && data.IsWholeRun ? rules.OptionalRaces(current.Turn, current.RaceGrade) : [];
     }
 
-    IEnumerable<PioneerRaceOption> RaceCandidates(PioneerState state)
+    IEnumerable<RaceOption> RaceCandidates(PioneerState state)
     {
         var current = state.Header;
         var races = RaceOptions(state);
@@ -246,7 +247,7 @@ public sealed partial class PioneerScenario
         var grades = 0;
         foreach (var race in races)
         {
-            if (!PioneerTurnRules.CanEnterRace(current.Fans, current.RaceGrade, race) || mandatory && !race.Target) continue;
+            if (!race.CanEnter(current.Fans, current.RaceGrade) || mandatory && !race.Target) continue;
             var bit = 1 << (race.Grade / 100);
             if (collapse && (grades & bit) != 0 && (current.CardId / 100, current.Turn, race.ProgramId)
                 is not ((1007, 36, 74) or (1008, 35, 73) or (1041, 42, 75))) continue;
@@ -255,12 +256,12 @@ public sealed partial class PioneerScenario
         }
     }
 
-    PioneerRaceOption? ActiveScheduledRace(PioneerState state)
+    RaceOption? ActiveScheduledRace(PioneerState state)
     {
         var rules = data.TurnRules;
         var turn = state.Header.Turn;
-        return rules?.ScheduledRace(turn, state.Header.ScheduleVariant) is { } race
-            && PioneerTurnRules.CanEnterRace(state.Header.Fans, state.Header.RaceGrade, race) ? race : null;
+        return rules?.Schedule.RaceAt(turn, state.Header.ScheduleVariant) is { } race
+            && race.CanEnter(state.Header.Fans, state.Header.RaceGrade) ? race : null;
     }
 
     static (int Attribute, int Skill) OptionalRaceReward(int grade, int percent)

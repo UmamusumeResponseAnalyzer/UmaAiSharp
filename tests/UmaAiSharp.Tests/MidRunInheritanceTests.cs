@@ -32,10 +32,10 @@ public sealed class MidRunInheritanceTests
     }
 
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(true, false, true)]
-    [InlineData(true, true, false)]
-    public void UmaPlanChoosesBetweenIndependentWholeResults(bool hasUmaPlan, bool tie, bool chooseSecond)
+    [InlineData(false, 1, false)]
+    [InlineData(true, 1, true)]
+    [InlineData(true, 6, false)] // Six Pt ties three Pt plus three displayed Speed above 1200.
+    public void UmaPlanChoosesBetweenIndependentWholeResults(bool hasUmaPlan, int firstPoints, bool chooseSecond)
     {
         var relatives = Enum.GetValues<InheritanceSlot>()
             .Select(slot => new RelationSource(slot, (int)slot + 2, [])).ToImmutableArray();
@@ -44,7 +44,7 @@ public sealed class MidRunInheritanceTests
             new(new([new(1, []), new(10, []), new(20, [])], []), relatives[3..]),
             hasUmaPlan, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
         var data = new InheritanceData([new(101, 1, 1, 1, 10)],
-            [new(1, 1, 1, 6, 0), new(1, 1, 11, 1, 0), new(1, 1, 41, 1001, 1),
+            [new(1, 1, 1, 6, 0), new(1, 1, 11, 1, 0), new(1, 1, 41, 1001, 1), new(1, 1, 6, firstPoints, 0),
              new(1, 2, 1, 15, 0), new(1, 2, 61, 3, 0), new(1, 2, 12, 2, 0),
              new(1, 2, 41, 1001, 4), new(1, 2, 6, 3, 0)],
             [new(1001, 100, 1)], [new(1, 0)],
@@ -62,16 +62,10 @@ public sealed class MidRunInheritanceTests
         int[] hints = [-1];
         var overflow = new AttributeValues(7, 0, 0, 0, 0);
         var random = new SimulationRandom(1);
-        var comparisons = 0;
-        rules.Apply(ref resources, ref limits, aptitudes, hints, ref overflow, candidate =>
-        {
-            comparisons++;
-            return tie ? int.MinValue : candidate.HintLevels[0];
-        }, ref random);
+        rules.Apply(ref resources, ref limits, aptitudes, hints, ref overflow, ref random);
 
-        Assert.Equal(hasUmaPlan ? 2 : 0, comparisons);
         Assert.Equal(chooseSecond ? 1203 : 1200, resources.Speed);
-        Assert.Equal(chooseSecond ? 3 : 0, resources.SkillPoints);
+        Assert.Equal(chooseSecond ? 3 : firstPoints, resources.SkillPoints);
         Assert.Equal(chooseSecond ? 1203 : 1200, limits.Speed);
         Assert.Equal(chooseSecond ? 11 : 9, overflow.Speed);
         Assert.Equal(chooseSecond ? 1 : 2, aptitudes[0]);

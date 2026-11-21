@@ -1,3 +1,4 @@
+using UmaAiSharp.Base.Races;
 using DisplayAttributeGain = UmaAiSharp.Base.Training.AttributeGain;
 using System.Numerics;
 using UmaAiSharp.Base.Scoring;
@@ -54,7 +55,7 @@ public sealed partial class PioneerScenario
         var inCamp = CampCommands(current);
         var daysToCamp = nextCamp == 0 ? 0 : nextCamp - turn;
         var actionAfterThisTurn = turn + 1;
-        while (actionAfterThisTurn < 78 && rules.ScheduledRace(actionAfterThisTurn, current.ScheduleVariant) is not null) actionAfterThisTurn++;
+        while (actionAfterThisTurn < 78 && rules.Schedule.RaceAt(actionAfterThisTurn, current.ScheduleVariant) is not null) actionAfterThisTurn++;
         var campAhead = actionAfterThisTurn < 78 && IsCamp(actionAfterThisTurn);
         var mood = current.Motivation;
         var effects = state.GetSection(PioneerStateSection.CharacterEffects);
@@ -111,7 +112,7 @@ public sealed partial class PioneerScenario
             if (nextThreshold != int.MaxValue && !deferredConstruction)
             {
                 var firstUse = actionAfterThisTurn;
-                while (firstUse <= 72 && (IsCamp(firstUse) || rules.ScheduledRace(firstUse, current.ScheduleVariant) is not null)) firstUse++;
+                while (firstUse <= 72 && (IsCamp(firstUse) || rules.Schedule.RaceAt(firstUse, current.ScheduleVariant) is not null)) firstUse++;
                 if (firstUse <= 72)
                 {
                     ticketValue = TicketValue(state, nextThreshold, attributeForecast, attributeWeights);
@@ -431,7 +432,7 @@ public sealed partial class PioneerScenario
                     : Math.Min(72, turn + Math.Max(1, (nextThreshold - points + 59) / 60));
                 var chances = 0;
                 for (var day = turn + 1; day <= nextIssue; day++)
-                    if (!IsCamp(day) && rules.ScheduledRace(day, state.Header.ScheduleVariant) is null) chances++;
+                    if (!IsCamp(day) && rules.Schedule.RaceAt(day, state.Header.ScheduleVariant) is null) chances++;
                 if (spendTicket && !crosses)
                     carry = otherIslandValue * Math.Clamp((chances - tickets + 1) / 2.0, 0, 1);
                 else if (!spendTicket && (crosses || chances < tickets))
@@ -444,7 +445,7 @@ public sealed partial class PioneerScenario
     static double AssessmentPointValue(int gain, int target, int points, int daysToReview)
         => Math.Min(gain, Math.Max(0, target - points)) * (daysToReview <= 3 ? .18 : .09);
 
-    double UpcomingUniqueUpgradeValue(in PioneerStateHeader state, in PioneerRaceOption race, double skillPointValue)
+    double UpcomingUniqueUpgradeValue(in PioneerStateHeader state, in RaceOption race, double skillPointValue)
     {
         var next = state.Turn + 1;
         if (next is not (51 or 55 or 72) || next == 55 && state.DirectorBond < 60) return 0;
@@ -473,7 +474,7 @@ public sealed partial class PioneerScenario
         if (threshold == 0) return award;
 
         var next = current.Turn + 1;
-        while (next <= 72 && (IsCamp(next) || data.TurnRules!.ScheduledRace(next, current.ScheduleVariant) is not null)) next++;
+        while (next <= 72 && (IsCamp(next) || data.TurnRules!.Schedule.RaceAt(next, current.ScheduleVariant) is not null)) next++;
         if (next > 72) return award;
 
         var period = data.TrainingStart!.PlanningPeriods[current.CompletedCheckpoint];
@@ -768,7 +769,7 @@ public sealed partial class PioneerScenario
             ordinary[turn] = ordinary[turn + 1];
             camps[turn] = camps[turn + 1];
             islands[turn] = islands[turn + 1];
-            if (turn is 74 or 76 || turnRules.ScheduledRace(turn, header.ScheduleVariant) is not null) continue;
+            if (turn is 74 or 76 || turnRules.Schedule.RaceAt(turn, header.ScheduleVariant) is not null) continue;
             if (IsCamp(turn)) camps[turn]++;
             else
             {

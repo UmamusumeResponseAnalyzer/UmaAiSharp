@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Races;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Base.Events;
@@ -72,17 +73,12 @@ public readonly record struct PioneerEvent(int EventId, int CharacterId, int Sto
 public readonly record struct PioneerStoryOccurrence(int StoryId, int Turn, int Phase, int PlayTiming,
     int CharacterId, int SupportCardId, int PartnerId, int ChoiceNumber, int ProgressStage = 0, int ProgressLength = 0);
 
-public readonly record struct PioneerRaceOption(int ProgramId, int Grade, int FirstPlaceFans, bool Target, string? Name,
-    int RequiredFans = 0, int CareerGoalId = 0);
-public readonly record struct PioneerScheduledRace(int Turn, PioneerRaceOption Race);
-public readonly record struct PioneerRaceScheduleEdit(int Variant, int RemovedGoal = 0,
-    PioneerScheduledRace? Added = null, int BlockedTurn = 0);
 public readonly record struct PioneerRaceHistory(int Turn, int ProgramId, int Rank);
 public readonly record struct PioneerRaceReservation(int Year, int ProgramId);
 public readonly record struct PioneerCareerGoal(int Id, int FirstTurn, int Deadline, int FanTarget, int MaximumGrade, int MaximumRank, int RaceCount);
 public readonly record struct PioneerFriendProgress(int Position, int CharacterId, bool OutingUnlocked, int Outings);
 public sealed record PioneerHomeActions(bool Treatment, bool Outing, bool FriendOuting, ImmutableArray<PioneerFriendProgress> Friends,
-    ImmutableArray<PioneerRaceOption> Races, ImmutableArray<PioneerScheduledRace> ScheduledRaces, int UnseenFriendMask,
+    ImmutableArray<RaceOption> Races, ImmutableArray<ScheduledRace> ScheduledRaces, int UnseenFriendMask,
     int Grade = 3, ulong BlockedRaceTurns = 0,
     ImmutableArray<PioneerCareerGoal>? CareerGoals = null, ImmutableArray<PioneerRaceHistory>? RaceHistory = null,
     bool? StrongBrianRoute = null);

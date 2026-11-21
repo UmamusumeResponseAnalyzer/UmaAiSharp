@@ -81,26 +81,19 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
             start, placement.AppearedSupportMask, placement.AppearedProjectMembers,
             Facilities.States, Facilities.Bases, Progression.UraFirstPlaceFans,
             inheritance, hints, new(first, second, third, trainee), CompileRaceCalendar(start), SkillRating,
-            seniorHints.MoveToImmutable(), CompileScheduleEdits(start.CharacterId ?? start.CardId / 100));
-    }
+            seniorHints.MoveToImmutable(), CharacterRaceSchedule.ResolveEdits(start.CharacterId ?? start.CardId / 100, ResolveGoal));
 
-    ImmutableArray<PioneerRaceScheduleEdit> CompileScheduleEdits(int character)
-    {
-        return [.. CharacterRaceRoutes.GoalEdits(character).Select(edit => new PioneerRaceScheduleEdit(
-            edit.Variant, edit.RemovedGoal, edit.AddedGoal == 0 ? null : Goal(edit.AddedGoal),
-            edit.BlockRemovedTurn ? Goal(edit.RemovedGoal).Turn : 0))];
-
-        PioneerScheduledRace Goal(int id)
+        ScheduledRace ResolveGoal(int id)
         {
             var goal = Progression.FixedRaceGoals.Single(row => row.Id == id);
             var race = Races.Single(row => row.ProgramId == goal.ProgramId);
-            return new(goal.Turn, race.Option(true) with { CareerGoalId = id });
+            return goal.Schedule(race.Option(true));
         }
     }
 
-    ImmutableArray<PioneerRaceOption>[] CompileRaceCalendar(PioneerStart.TrainingTurn start)
+    ImmutableArray<RaceOption>[] CompileRaceCalendar(PioneerStart.TrainingTurn start)
     {
-        var calendar = new ImmutableArray<PioneerRaceOption>[79];
+        var calendar = new ImmutableArray<RaceOption>[79];
         var groups = Progression.CharacterPrograms.Where(row => row.CharacterId == start.CardId / 100)
             .SelectMany(row => new[] { row.ProgramGroup, row.SecondProgramGroup }).Append(0).ToHashSet();
         var byDate = Races.Where(race => race.Grade is >= 100 and <= 800 && groups.Contains(race.ProgramGroup))
@@ -191,13 +184,12 @@ public readonly record struct PioneerNpcIdentity(int PartnerId, int CharacterId)
 public readonly record struct PioneerRaceRule(int ProgramId, int RequiredFans, string? Name, int Grade = 0, int FirstPlaceFans = 0,
     int ProgramGroup = 0, int Permission = 0, int Month = 0, int Half = 0)
 {
-    internal PioneerRaceOption Option(bool target) => new(ProgramId, Grade, FirstPlaceFans, target, Name, RequiredFans);
+    internal RaceOption Option(bool target) => new(ProgramId, Grade, FirstPlaceFans, target, Name, RequiredFans);
 }
 public readonly record struct PioneerStoryProgress(int StoryId, int Stage, int Length, int SupportCardId = 0);
-public readonly record struct PioneerFixedRaceGoal(int Id, int Turn, int ProgramId);
 public readonly record struct PioneerRaceDate(int Turn, int Year, int Month, int Half);
 public readonly record struct PioneerCharacterRaceProgram(int CharacterId, int ProgramGroup, int SecondProgramGroup);
 public sealed record PioneerProgressionData(ImmutableArray<CheckpointPointBonus> CheckpointBonuses,
     ImmutableArray<CheckpointEffect> CheckpointEffects, ImmutableArray<int> UraFirstPlaceFans,
-    ImmutableArray<PioneerFixedRaceGoal> FixedRaceGoals, ImmutableArray<PioneerCareerGoal> CareerGoals,
+    ImmutableArray<FixedRaceGoal> FixedRaceGoals, ImmutableArray<PioneerCareerGoal> CareerGoals,
     ImmutableArray<PioneerRaceDate> RaceCalendar, ImmutableArray<PioneerCharacterRaceProgram> CharacterPrograms);

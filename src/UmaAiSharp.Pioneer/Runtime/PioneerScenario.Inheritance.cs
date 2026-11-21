@@ -13,8 +13,7 @@ public sealed partial class PioneerScenario
         var before = header.Resources.SkillPoints;
         var lottery = random.At(header.Turn, PioneerDraw.Inheritance);
         inheritance.Apply(ref header.Resources, ref header.Limits, state.MutableSection(PioneerStateSection.InheritanceAptitudes),
-            state.MutableSection(PioneerStateSection.HintLevels), ref header.FutureOverflow,
-            static candidate => PioneerContinuationPolicy.InheritanceValue(candidate.Attributes, candidate.SkillPoints), ref lottery);
+            state.MutableSection(PioneerStateSection.HintLevels), ref header.FutureOverflow, ref lottery);
         header.FutureGainedSkillPoints += header.Resources.SkillPoints - before;
         header.CompletedInheritances++;
     }

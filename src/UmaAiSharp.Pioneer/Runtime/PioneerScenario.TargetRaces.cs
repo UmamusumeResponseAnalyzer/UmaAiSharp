@@ -6,27 +6,19 @@ namespace UmaAiSharp.Pioneer.Runtime;
 
 public sealed partial class PioneerScenario
 {
-    internal static ReadOnlySpan<int> GoalRaceHintGroups(int character) => character switch
-    {
-        1003 => [20190], 1008 => [20049], 1016 => [20135, 20049, 20061, 20036],
-        1017 => [20169], 1026 => [20037], 1041 => [20128, 20204], 1063 => [20279], _ => [],
-    };
-
-    static bool GoldShipRepeatWin(PioneerState state, PioneerRaceOption race)
+    static bool GoldShipRepeatWin(PioneerState state, RaceOption race)
         => race.CareerGoalId == 273 && state.GetSection(PioneerStateSection.RaceWins)[36] == 74;
 
-    void ApplyCareerRouteAfterWin(PioneerState state, int goal, int raceMotivation, ref SimulationRandom random)
+    void ApplyCareerRouteAfterWin(PioneerState state, int goal, ref SimulationRandom random)
     {
         ref var current = ref state.Mutable;
         var character = data.TrainingStart!.CharacterId ?? current.CardId / 100;
         var draw = random.At(current.Turn, PioneerDraw.CareerRoute);
-        if (CharacterRaceRoutes.BranchAfterWin(character, goal, raceMotivation, ref draw) is not { } branch) return;
-        current.RaceBranch = branch;
-        if (branch == CharacterRaceRoutes.TachyonMileCupGoal)
-            ApplyProgressionReward(state, TrainingAttributeReward(4, 5));
+        if (CharacterRaceRoutes.BranchAfterWin(character, goal, ref draw) is { } branch)
+            current.RaceBranch = branch;
     }
 
-    void ApplyCareerGoalReward(PioneerState state, PioneerRaceOption race = default)
+    void ApplyCareerGoalReward(PioneerState state, RaceOption race = default)
     {
         ref var header = ref state.Mutable;
         var character = data.TrainingStart!.CharacterId ?? header.CardId / 100;
@@ -34,26 +26,26 @@ public sealed partial class PioneerScenario
         var percent = data.TurnRules!.RaceRewardPercent;
         var goal = race.CareerGoalId;
         var wins = state.GetSection(PioneerStateSection.RaceWins);
-        var hintGroups = GoalRaceHintGroups(character);
-        var baseAttribute = 3;
-        var basePoints = 45;
+        var hintGroups = CharacterRaceRoutes.GoalRaceHintGroups(character);
+        var attribute = Scale(3);
+        var points = Scale(45);
         var attention = header.HasAttention;
 
         if (race.Target && effects.Contains(31))
         {
-            (baseAttribute, basePoints) = (8, 52);
+            (attribute, points) = (Scale(8), Scale(52));
             if (character == 1063 && goal == 1156) Hint(hintGroups[0], 1);
         }
-        else if (character == CharacterRaceRoutes.NaritaBrian && CharacterRaceRoutes.IsStrongBrianGoal(goal))
+        else if (CharacterRaceRoutes.VictoryReward(character, goal, percent) is { } prize)
         {
-            (baseAttribute, basePoints) = (5, 50);
-            Hint(hintGroups[(goal - 378) / 2], 2);
+            (attribute, points) = (prize.Attribute, prize.SkillPoints);
+            Hint(prize.Hint.Skill.GroupId, prize.Hint.Level);
         }
         else if (character == 1050 && goal == 350)
         {
             var badPractice = effects.Contains(6);
             // shortcut: the untreated branch has no Pioneer sample; use the measured clean branch and published branch difference.
-            (baseAttribute, basePoints) = badPractice ? (20, 73) : (25, 80);
+            (attribute, points) = badPractice ? (Scale(20), Scale(73)) : (Scale(25), Scale(80));
             if (badPractice) state.RemoveCharacterEffect(6);
             else
             {
@@ -63,7 +55,7 @@ public sealed partial class PioneerScenario
             ApplyMotivationGain(state, 3);
         }
 
-        ApplyProgressionReward(state, Scale(baseAttribute), Scale(basePoints));
+        ApplyProgressionReward(state, attribute, points);
         switch (character, goal)
         {
             case (1063, 1146):
