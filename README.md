@@ -63,7 +63,7 @@ Pioneer 入口、普通／合宿训练回合、已揭示事件选项及真实失
 | MCP | SQLite / MessagePack 读取、回合导入、规则输入编译、单轨迹／条件回放／批量执行、根候选推荐、差分核验及目标评价 |
 | Tests | 输入边界、规则局部样例、轨迹隔离和确定性不变量 |
 
-PioneerAiPlugin 在 URA 的训练面板显示行动建议，在「建设规划」工作区显示有序方案排名。两处都使用自主整局模拟和 `goalPath`，可用 `model` 选取公式。
+PioneerAiPlugin 在 URA 的训练面板显示行动建议，在「建设规划」工作区显示有序方案排名。两处都按 `goalPath` 模拟到终局，并对分差接近的候选配对加样。可用 `model` 选取公式。
 
 ## 打包 PioneerAiPlugin
 

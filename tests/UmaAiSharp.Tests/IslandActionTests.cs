@@ -37,6 +37,7 @@ public sealed class IslandActionTests
                 ["inputs"] = new JsonArray(new JsonObject { ["path"] = "fixture/expansion-20261108/extract-01/frames.jsonl", ["sha256"] = hash })
             }.ToJsonString());
             var masterPath = Path.Combine(directory, "master.sqlite");
+            fixture["tables"]!["single_mode_chara_effect_buff"] = new JsonArray(new JsonObject { ["effect_id"] = 36L });
             using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = masterPath, Pooling = false }.ToString()))
             {
                 connection.Open();

@@ -18,10 +18,10 @@ public static class RestRules
         return current.StoryId % 1000 == 701 ? 70 : 50;
     }
 
-    public static void ValidateEffects(ReadOnlySpan<int> effects)
+    public static void ValidateEffects(ReadOnlySpan<int> effects, ReadOnlySpan<int> raceOnlyEffects = default)
     {
         foreach (var effect in effects)
-            if (effect is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 25 or 26 or 27 or 31 or 36))
-                throw new UnknownMechanismException($"角色效果{effect}在休息时的解除或附加后果尚未接入。");
+            if (effect is not (>= 1 and <= 13 or 25 or 26 or 27 or 31 or 40) && !raceOnlyEffects.Contains(effect))
+                throw new UnknownMechanismException($"角色效果 {effect} 缺少休息时的解除或附加结果规则。");
     }
 }

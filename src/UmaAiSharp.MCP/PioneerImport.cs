@@ -168,7 +168,7 @@ public static class PioneerImport
             var estimated = PioneerAutonomousSession.EstimateTrainingHistory(start, rules);
             var compiled = PioneerRuntimeData.Compile(start, [], identity, rules.Construction,
                 checkpointMaster: turnRules is null ? null : rules.CompileCheckpoints(), turnRules: turnRules,
-                trainingHistory: estimated);
+                trainingHistory: estimated, raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects);
             var root = compiled.CreateInitialState(); var scenario = new PioneerScenario(compiled);
             var currentProgress = rules.StoryProgress.FirstOrDefault(row => row.StoryId == root.Header.Event.StoryId);
             candidates ??= scenario.Candidates(root).ToArray();

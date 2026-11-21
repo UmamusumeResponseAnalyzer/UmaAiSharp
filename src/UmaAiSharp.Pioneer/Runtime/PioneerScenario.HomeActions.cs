@@ -14,6 +14,8 @@ public sealed partial class PioneerScenario
     const int RaceFanSamples = 3677;
     static readonly (int Percent, int Count)[] RaceFanMultipliers =
         [(100, 29), (102, 158), (104, 411), (106, 432), (108, 297), (109, 1049), (111, 1301)];
+    static readonly int MinimumRaceFanPercent = RaceFanMultipliers.Min(row => row.Percent);
+    static readonly int MaximumRaceFanPercent = RaceFanMultipliers.Max(row => row.Percent);
 
     bool HomeActionEnabled(PioneerState state, in PioneerRuntimeAction action)
     {
@@ -102,7 +104,9 @@ public sealed partial class PioneerScenario
                 }
                 if (race.Target)
                 {
+                    var raceMotivation = header.Motivation;
                     ApplyCareerGoalReward(state, race);
+                    if (autonomous && data.IsWholeRun) ApplyCareerRouteAfterWin(state, race.CareerGoalId, raceMotivation, ref random);
                 }
                 else
                 {
@@ -121,7 +125,7 @@ public sealed partial class PioneerScenario
                     {
                         if (draw < count)
                         {
-                            header.Fans += FirstPlaceFans(race.FirstPlaceFans, rules.FanRewardPercent, percent);
+                            header.Fans += rules.FirstPlaceFans(race.FirstPlaceFans, percent);
                             break;
                         }
                         draw -= count;
@@ -137,7 +141,11 @@ public sealed partial class PioneerScenario
                         header.ReporterBond = Math.Min(100, header.ReporterBond + 15 + (header.HasAttention ? 2 : 0));
                         ApplyMotivationGain(state, 1);
                     }
+                    var fatigue = random.At(header.Turn, PioneerDraw.RaceFatigue);
+                    ApplyRaceFatigue(state, NextRaceStreak(header), ref fatigue);
                 }
+                header.ConsecutiveRaces = NextRaceStreak(header);
+                header.LastRaceTurn = header.Turn;
                 header.RaceGrade = Math.Max(3, header.RaceGrade);
                 state.MutableSection(PioneerStateSection.RaceWins)[header.Turn] = race.ProgramId;
                 var counts = state.MutableSection(PioneerStateSection.CareerRaceCounts);
@@ -166,13 +174,55 @@ public sealed partial class PioneerScenario
         return AdvanceTurn(state, source, ref random);
     }
 
-    static int FirstPlaceFans(int baseFans, int deckPercent, int performancePercent)
-        => checked((int)(((long)baseFans * deckPercent * performancePercent + 5000) / 10000));
-
     static (int Interviews, int Races) ReporterInterviewFrequency(int grade) => grade switch
     {
         100 => (264, 895), 200 => (15, 56), 300 => (24, 69), _ => (20, 50),
     };
+
+    static int NextRaceStreak(in PioneerStateHeader state)
+        => state.LastRaceTurn == state.Turn - 1 ? state.ConsecutiveRaces + 1 : 1;
+
+    // Matched Pioneer race-out windows with consecutive starts. The fourth group includes longer streaks.
+    static (int Light, int Heavy, int Total) RaceFatigueFrequency(int streak) => streak switch
+    {
+        3 => (78, 0, 129),
+        >= 4 => (19, 8, 27),
+        _ => (0, 0, 1),
+    };
+
+    static void ApplyRaceFatigue(PioneerState state, int streak, ref SimulationRandom random)
+    {
+        var (light, heavy, total) = RaceFatigueFrequency(streak);
+        if (light + heavy == 0) return;
+        var branch = random.NextScaled(total);
+        if (branch >= light + heavy) return;
+        ApplyMotivationGain(state, -1);
+        // shortcut: fit condition gains and Lucky Charm consumption together until more complete penalty windows are available.
+        var lightPenalty = branch < light;
+        if (random.NextScaled(lightPenalty ? 95 : 8) < (lightPenalty ? 15 : 2))
+        {
+            if (state.GetSection(PioneerStateSection.CharacterEffects).Contains(26)) state.RemoveCharacterEffect(26);
+            else state.AddCharacterEffect(3);
+        }
+        if (lightPenalty) return;
+        Span<int> attributes = [0, 1, 2, 3, 4];
+        var mask = 0;
+        for (var remaining = 5; remaining > 2; remaining--)
+        {
+            var draw = random.NextScaled(remaining);
+            mask |= 1 << attributes[draw];
+            attributes[draw] = attributes[remaining - 1];
+        }
+        ref var header = ref state.Mutable;
+        var values = header.Resources;
+        header.Resources = values with
+        {
+            Speed = Loss(values.Speed, 1), Stamina = Loss(values.Stamina, 2), Power = Loss(values.Power, 4),
+            Guts = Loss(values.Guts, 8), Wisdom = Loss(values.Wisdom, 16),
+        };
+
+        int Loss(int value, int bit) => (mask & bit) == 0 ? value : TrainingFailureSettlement.LoseAttribute(value, 10);
+    }
 
     ImmutableArray<PioneerRaceOption> RaceOptions(PioneerState state)
     {
@@ -185,14 +235,6 @@ public sealed partial class PioneerScenario
         return autonomous && data.IsWholeRun ? rules.OptionalRaces(current.Turn, current.RaceGrade) : [];
     }
 
-    static bool CanEnterRace(in PioneerStateHeader state, in PioneerRaceOption race)
-        => state.Fans >= race.RequiredFans && (race.Target || race.Grade switch
-        {
-            900 => state.RaceGrade == 1,
-            800 => state.RaceGrade == 2,
-            _ => state.RaceGrade >= 3,
-        });
-
     IEnumerable<PioneerRaceOption> RaceCandidates(PioneerState state)
     {
         var current = state.Header;
@@ -203,7 +245,7 @@ public sealed partial class PioneerScenario
         var grades = 0;
         foreach (var race in races)
         {
-            if (!CanEnterRace(current, race) || mandatory && !race.Target) continue;
+            if (!PioneerTurnRules.CanEnterRace(current.Fans, current.RaceGrade, race) || mandatory && !race.Target) continue;
             var bit = 1 << (race.Grade / 100);
             if (collapse && (grades & bit) != 0 && (current.CardId / 100, current.Turn, race.ProgramId)
                 is not ((1007, 36, 74) or (1008, 35, 73) or (1041, 42, 75))) continue;
@@ -216,8 +258,8 @@ public sealed partial class PioneerScenario
     {
         var rules = data.TurnRules;
         var turn = state.Header.Turn;
-        return rules?.ScheduledRace(turn, state.Header.StrongBrianRoute) is { } race && state.Header.Fans >= race.RequiredFans
-            && (race.Target || !rules.RaceBlocked(turn)) ? race : null;
+        return rules?.ScheduledRace(turn, state.Header.ScheduleVariant) is { } race
+            && PioneerTurnRules.CanEnterRace(state.Header.Fans, state.Header.RaceGrade, race) ? race : null;
     }
 
     static (int Attribute, int Skill) OptionalRaceReward(int grade, int percent)
@@ -289,11 +331,8 @@ public sealed partial class PioneerScenario
         {
             AppendTuckerGrants(state, data.TurnRules!.OrdinarySupportMask, TemporarySupportGrantSource.TuckerEvent,
                 TuckerOutingSpecialty(step), 809049011 + step);
-            if (card.CardId == 30257)
-            {
-                if (step == 1) GainHint(state, data.TurnRules.TuckerOutingWhiteHintSlot, 2);
-                if (step == 4) GainHint(state, data.TurnRules.TuckerOutingGoldHintSlot, 3);
-            }
+            var (slot, levels) = TuckerOutingHint(card.CardId, step);
+            if (levels != 0) GainHint(state, slot, levels);
         }
         ApplyProgressionReward(state, gains);
         if (friend.CharacterId != 9049 || !TuckerGiftAvailable(header)) return null;
@@ -335,6 +374,22 @@ public sealed partial class PioneerScenario
 
     static int TuckerOutingSpecialty(int step) => step switch { 2 => 30, 4 => 120, _ => 20 };
 
+    TrainingValues TuckerFirstTrainingReward(int position)
+    {
+        var gain = EventEffectScaling.FromSupport(data.TrainingStart!.Deck[position]).Apply(1, 5);
+        return new(gain, gain, gain, 0, 0, 0, 0);
+    }
+
+    const int TuckerFirstTrainingMaxVital = 4;
+    const int TuckerFirstTrainingBond = 10;
+
+    (int Slot, int Levels) TuckerOutingHint(int cardId, int step) => (cardId, step) switch
+    {
+        (30257, 1) => (data.TurnRules!.TuckerOutingWhiteHintSlot, 2),
+        (30257, 4) => (data.TurnRules!.TuckerOutingGoldHintSlot, 3),
+        _ => default,
+    };
+
     void ApplyTuckerRepeat(PioneerState state, int participants, bool island, ref SimulationRandom random)
     {
         if (data.TrainingStart?.HomeActions is not { } home) return;
@@ -363,11 +418,10 @@ public sealed partial class PioneerScenario
             if ((first & (1 << (friend.Position - 1))) == 0) continue;
             ApplyMotivationGain(state, 1);
             if (friend.CharacterId != 9049) continue;
-            var gain = EventEffectScaling.FromSupport(data.TrainingStart.Deck[friend.Position - 1]).Apply(1, 5);
-            var maximum = Math.Min(VitalRules.Maximum, header.Limits.Vital + 4);
+            var maximum = Math.Min(VitalRules.Maximum, header.Limits.Vital + TuckerFirstTrainingMaxVital);
             header.Limits = header.Limits with { Vital = maximum };
-            GainFriendBond(state, friend.Position - 1, 10);
-            ApplyProgressionReward(state, new(gain, gain, gain, 0, 0, 0, 0));
+            GainFriendBond(state, friend.Position - 1, TuckerFirstTrainingBond);
+            ApplyProgressionReward(state, TuckerFirstTrainingReward(friend.Position - 1));
         }
     }
 
@@ -427,6 +481,10 @@ public sealed partial class PioneerScenario
     }
 
     static void ApplyMotivationGain(PioneerState state, int gain)
-        => state.Mutable.Motivation = MotivationRules.Apply(state.Header.Motivation, gain, false,
-            state.GetSection(PioneerStateSection.CharacterEffects).Contains(5)).Value;
+    {
+        var effects = state.GetSection(PioneerStateSection.CharacterEffects);
+        var result = MotivationRules.Apply(state.Header.Motivation, gain, effects.Contains(25), effects.Contains(5));
+        state.Mutable.Motivation = result.Value;
+        if (result.ConsumePositiveThinking) state.RemoveCharacterEffect(25);
+    }
 }

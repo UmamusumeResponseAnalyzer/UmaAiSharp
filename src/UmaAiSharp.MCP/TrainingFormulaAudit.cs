@@ -37,6 +37,7 @@ public static class TrainingFormulaAudit
         var sources = new[] { (observationPath, "observations"), (exchangesPath, "exchanges"), (masterPath, "master") };
         var fingerprints = sources.Select(source => Fingerprint(source.Item1, source.Item2)).ToArray();
         var master = new PioneerMasterCompiler(PioneerMasterReader.ReadTraining(masterPath));
+        var raceOnlyEffects = PioneerMasterReader.ReadRaceOnlyCharacterEffects(masterPath);
         var exchanges = File.ReadLines(exchangesPath).Select(line => JsonSerializer.Deserialize<ExchangeSummary>(line, EvidenceJson.ReadOptions)
             ?? throw new InvalidDataException("请求响应关联记录不能为null。")).ToDictionary(value => value.Key, StringComparer.Ordinal);
         var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -92,7 +93,7 @@ public static class TrainingFormulaAudit
                     var characterEffects = Integers(Array(chara, "chara_effect_id_array"), "chara_effect_id_array");
                     if (characterEffects.Distinct().Count() != characterEffects.Length)
                         throw new InvalidDataException("chara_effect_id_array包含重复效果，拒绝重复计入失败率偏移。");
-                    var bias = TrainingFailureRate.StatusBias(characterEffects);
+                    var bias = TrainingFailureRate.StatusBias(characterEffects, raceOnlyEffects);
                     var input = master.Input(chara, command, pioneer);
                     var resolved = input.Supports.Select(card => TrainingSupportEffects.Resolve(card,
                         training.BaseCommandId, level, input.Fans)).ToArray();

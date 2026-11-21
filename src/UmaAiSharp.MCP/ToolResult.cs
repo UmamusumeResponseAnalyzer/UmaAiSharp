@@ -19,11 +19,18 @@ public sealed record ToolResult(string Status, object Summary, IReadOnlyDictiona
         _ => throw new ArgumentOutOfRangeException(nameof(status))
     };
 
-    internal static object[] SearchStops<TAction>(RootSearchResult<TAction> result) where TAction : notnull
-        => result.Candidates.SelectMany(candidate => candidate.Batch.Results).Where(sample => sample.Stop.HasValue)
-            .GroupBy(sample => (sample.Stop!.Value.Reason, sample.Stop.Value.Code))
-            .Select(group => (object)new { group.Key.Reason, group.Key.Code, count = group.Count(),
-                firstPosition = group.Min(sample => sample.Progress.Position) }).ToArray();
+    internal static object[] Stops<TOutcome>(IEnumerable<TrajectoryResult<TOutcome>> samples)
+        => samples.Where(sample => sample.Stop.HasValue)
+            .GroupBy(sample => (sample.Stop!.Value.Reason, sample.Stop.Value.Code, sample.Stop.Value.Detail))
+            .Select(group => (object)new
+            {
+                group.Key.Reason,
+                group.Key.Code,
+                group.Key.Detail,
+                count = group.Count(),
+                firstPosition = group.Min(sample => sample.Progress.Position),
+                firstTurn = group.Key.Detail is null ? (long?)null : group.Min(sample => sample.Stop!.Value.Argument0),
+            }).ToArray();
 }
 
 internal static class ToolArguments

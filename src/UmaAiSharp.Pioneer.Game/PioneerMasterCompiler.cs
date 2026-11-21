@@ -146,12 +146,7 @@ public sealed class PioneerMasterCompiler
         foreach (var id in restIds)
         {
             var row = visibleCommands.SingleOrDefault(row => Int(row, "command_id") == id);
-            if (row is null)
-            {
-                if (id == RestRules.CampCommand && Int(chara, "turn") is 74 or 76 or 78
-                    && commands.All(command => !command.Enabled)) continue;
-                throw new InvalidDataException($"当前面板缺少休息指令{id}的可用状态。");
-            }
+            if (row is null) continue;
             var ordinary = id == RestRules.OrdinaryCommand;
             if (Int(row, "command_type") != (ordinary ? 7 : 3) || Int(row, "is_enable") is not (0 or 1))
                 throw new InvalidDataException($"休息指令{id}的类型或启用标记无效。");

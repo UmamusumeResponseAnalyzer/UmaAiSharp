@@ -88,7 +88,8 @@ public sealed class PioneerAutonomousSession
         var placement = PioneerPlacementSeed.Observe(common["chara_info"]!.AsObject(), pioneer);
         PioneerStart start = planning is null ? training : planning with { Continuation = training };
         var data = PioneerRuntimeData.Compile(start, [], identity, rules.Construction, checkpoints,
-            rules.CompileTurnRules(training, placement), trainingHistory: estimated, model: model);
+            rules.CompileTurnRules(training, placement), trainingHistory: estimated, model: model,
+            raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects);
         var scenario = new PioneerScenario(data, autonomous: true);
         var root = data.CreateInitialState();
         var candidates = scenario.Candidates(root).ToArray();
@@ -96,7 +97,7 @@ public sealed class PioneerAutonomousSession
         var result = RootSearch.Evaluate(scenario, new PioneerContinuationPolicy(), root,
             candidates, goal.Compiled, seed, samples, workers, cancellationToken,
             candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes), rankByTotalRating: true,
-            adaptiveSampling: root.Header.Stage == PioneerStage.TrainingTurn);
+            pairedSampling: data.RootSampling);
         var outingPoints = result.RecommendedCandidateId is int id
             ? scenario.PreviewFriendOutingDevelopmentPoints(root, candidates.Single(candidate => candidate.Id == id).Action)
             : null;

@@ -40,9 +40,11 @@ public struct PioneerStateHeader
     public int CompletedInheritances;
     public int FailedCareerGoal;
     internal int RaceGrade;
+    internal int LastRaceTurn, ConsecutiveRaces, RaceBranch;
     internal PioneerOrdinaryStoryProgress OrdinaryStories;
     internal int TraineeStoryMask;
     public bool DeferredConstruction, PioneerCompleted, StrongBrianRoute;
+    internal readonly int ScheduleVariant => StrongBrianRoute ? 1 : RaceBranch;
     public int UnseenFriendMask, UnlockedFriendMask, FriendOutings;
     public long FutureGainedSkillPoints;
     internal int FutureSkillUpgradeRating;

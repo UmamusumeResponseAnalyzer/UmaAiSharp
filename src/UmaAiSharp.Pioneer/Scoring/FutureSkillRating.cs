@@ -26,6 +26,9 @@ internal sealed class FutureSkillRating
         + groups.Sum(group => 64L + group.Chain.Length * 40L + group.HintUnlocks.Length * 8L);
     public long ScratchBytes => (maxSpend + 1L) * sizeof(int) * 2L;
 
+    // shortcut: price Pt at the nominal catalogue rate until terminal scoring knows the final menu and budget.
+    public double RatingPerPoint(int discount) => ptPrice * 100 / (100 - discount);
+
     public FutureSkillRating(PioneerSkillRatingData catalog, PioneerHintProgress progress, PioneerHintRules hints,
         int cardId, in TrainingValues resources, ReadOnlySpan<int> effects)
     {
@@ -68,7 +71,6 @@ internal sealed class FutureSkillRating
         }
         groups = [.. menu];
         startingRating = BestRating(resources, hints.InitialLevels, progress.Aptitudes.AsSpan(), PurchaseDiscount(effects));
-        // shortcut: nominal average rating per Pt prices local Hint gains, while terminal scoring optimizes the actual menu.
         Span<int> allAvailable = stackalloc int[hints.StateCapacity];
         allAvailable.Clear();
         Span<Choice> choices = stackalloc Choice[maxChoices];
@@ -99,7 +101,7 @@ internal sealed class FutureSkillRating
         var group = groups[index];
         var before = Surplus(choices[..BuildChoices(group, hints, aptitudes, resources, discount, choices)]);
         var after = Surplus(choices[..BuildChoices(group, hints, aptitudes, resources, discount, choices, slot, newLevel)]);
-        return (after - before) / ptPrice;
+        return after - before;
     }
 
     double Surplus(ReadOnlySpan<Choice> choices)

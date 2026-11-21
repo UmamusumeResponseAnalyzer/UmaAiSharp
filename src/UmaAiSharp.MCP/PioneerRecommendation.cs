@@ -43,7 +43,7 @@ public static class PioneerRecommendation
             compiledGoal, seed, samples, workers, cancellationToken,
             candidates.Sum(candidate => candidate.Action.OwnedPayloadBytes),
             rankByTotalRating: wholeRun,
-            adaptiveSampling: wholeRun && loaded.Root.Header.Stage == PioneerStage.TrainingTurn);
+            pairedSampling: loaded.Data.RootSampling);
         var elapsed = Stopwatch.GetElapsedTime(timer);
         var bytes = GC.GetTotalAllocatedBytes(true) - allocated;
         var action = result.RecommendedCandidateId is { } recommended
@@ -66,7 +66,7 @@ public static class PioneerRecommendation
             recommendedCandidateId = result.RecommendedCandidateId,
             recommendedAction = action, recommendationEvaluation = evaluation,
             samplesPerCandidate = samples, result.SampleLimitPerCandidate, candidateCount = candidates.Length,
-            stops = ToolResult.SearchStops(result)
+            stops = ToolResult.Stops(result.Candidates.SelectMany(candidate => candidate.Batch.Results))
         }, ToolResult.SearchStatus(result.Status));
     }
 }

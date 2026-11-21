@@ -176,15 +176,20 @@ public sealed partial class PioneerScenario
     static void ApplyReporterEnding(PioneerState state)
     {
         ref readonly var header = ref state.Header;
+        var (attribute, pt) = ReporterEndingReward(header.ReporterBond, header.HasAttention);
+        ApplyProgressionReward(state, attribute, pt);
+    }
+
+    static (int Attribute, int SkillPoints) ReporterEndingReward(int bond, bool attention)
+    {
         // shortcut: the upper two attention tiers use one matched packet each (bonds 75 and 100).
-        var (attribute, pt) = (header.ReporterBond, header.HasAttention) switch
+        return (bond, attention) switch
         {
             (>= 90, true) => (11, 42), (>= 70, true) => (9, 30),
             (>= 40, true) => (0, 20), (_, true) => (0, 10),
             (>= 90, false) => (5, 20), (>= 70, false) => (3, 10),
             (>= 40, false) => (0, 10), _ => (0, 5),
         };
-        ApplyProgressionReward(state, attribute, pt);
     }
 
     static void ApplyProgressionReward(PioneerState state, int attribute, int skill)

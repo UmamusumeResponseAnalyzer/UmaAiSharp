@@ -23,7 +23,7 @@ public enum PioneerStopCode
     NextTurnEventsUnknown, IslandContinuationUnknown, ConstructionRemainderUnknown,
     HintRemainderUnknown, TuckerRemainderUnknown, ProjectRemainderUnknown, CheckpointRemainderUnknown,
     EventContinuationUnknown, UnsupportedComponentInput, InvalidAction, WrongEventIdentity,
-    OutcomeIdentityMismatch, NoCompleteTerminal, PlanningContinuationRequired, TrainingEventsRequired, TrainingFailureEventRequired,
+    OutcomeIdentityMismatch, PlanningContinuationRequired = 1018, TrainingEventsRequired, TrainingFailureEventRequired,
     EventRewardOutcomeRequired, EventRewardRemainderRequired, TrainingLevelContinuationRequired,
     RestAvailabilityRequired, RestOutcomeRequired, RestContinuationRequired, RestCharacterRequired,
     NextTurnPhaseRequired, TurnArrivalOutcomeRequired, TurnEventDispatchRequired,
@@ -73,6 +73,8 @@ public readonly record struct PioneerStoryOccurrence(int StoryId, int Turn, int 
 public readonly record struct PioneerRaceOption(int ProgramId, int Grade, int FirstPlaceFans, bool Target, string? Name,
     int RequiredFans = 0, int CareerGoalId = 0);
 public readonly record struct PioneerScheduledRace(int Turn, PioneerRaceOption Race);
+public readonly record struct PioneerRaceScheduleEdit(int Variant, int RemovedGoal = 0,
+    PioneerScheduledRace? Added = null, int BlockedTurn = 0);
 public readonly record struct PioneerRaceHistory(int Turn, int ProgramId, int Rank);
 public readonly record struct PioneerRaceReservation(int Year, int ProgramId);
 public readonly record struct PioneerCareerGoal(int Id, int FirstTurn, int Deadline, int FanTarget, int MaximumGrade, int MaximumRank, int RaceCount);
@@ -209,4 +211,5 @@ public readonly record struct PioneerDecisionView(PioneerStage Stage, int Turn, 
     PioneerKnownParts KnownParts, TrainingValues Resources, int Motivation, int CommandId,
     PioneerEvent Event, int MinimumChoice, int MaximumChoice, PioneerDevelopmentState? Planning = null,
     int AvailableTrainingCommands = 0, ImmutableArray<DeclaredEventChoice> EventChoices = default, bool IsCamp = false,
-    TrainingBoard? TrainingBoard = null, int? AvailableRestCommands = null, PioneerRuntimeAction? SuggestedAction = null);
+    TrainingBoard? TrainingBoard = null, int? AvailableRestCommands = null, PioneerRuntimeAction? SuggestedAction = null,
+    string? SuggestionError = null);

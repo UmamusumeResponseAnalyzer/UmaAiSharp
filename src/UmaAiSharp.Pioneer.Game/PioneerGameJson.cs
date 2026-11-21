@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
 using UmaAiSharp.Pioneer.Training;
 
@@ -26,7 +27,8 @@ internal static class PioneerGameJson
                     foreach (var property in info.Properties)
                         if (property.Set is not null
                             && !(info.Type == typeof(PioneerRuntimeAction) && property.Name is "plan" or "storyId" or "supportPosition")
-                            && !(info.Type == typeof(TrainingPlacement) && property.Name is "director" or "reporter"))
+                            && !(info.Type == typeof(TrainingPlacement) && property.Name is "director" or "reporter")
+                            && !(info.Type == typeof(SimulationStop) && property.Name == "detail"))
                             property.IsRequired = true;
             } }
         },

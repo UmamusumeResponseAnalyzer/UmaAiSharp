@@ -54,6 +54,7 @@ public static class IslandActionAudit
         }
         if (frames.Count != wanted.Count) throw new InvalidDataException("岛训练严格窗口引用的前后帧不完整。");
         var master = new PioneerMasterCompiler(PioneerMasterReader.ReadTraining(masterPath));
+        var raceOnlyEffects = PioneerMasterReader.ReadRaceOnlyCharacterEffects(masterPath);
         var facilities = new PioneerFacilityCompiler(PioneerMasterReader.ReadFacilities(masterPath));
         Dictionary<(int Type, int Result), int> pointBonuses;
         using (var connection = EvidenceAudit.OpenReadOnly(masterPath))
@@ -113,7 +114,7 @@ public static class IslandActionAudit
                     Integers(Array(command, "tips_event_partner_array"), "tips_event_partner_array").ToImmutableArray());
                 var upper = Objects(Array(pioneer, "command_info_array"), "pioneer.command_info_array").Single(row => Int(row, "command_id") == 3101);
                 var observedGains = new TrainingFormulaPrediction(Values(command), Values(upper), []);
-                var settled = IslandActionRules.SettleResolvedSuccess(state, observedGains);
+                var settled = IslandActionRules.SettleResolvedSuccess(state, observedGains, raceOnlyEffects);
                 var afterChara = Object(after, "c");
                 var afterPioneer = Object(after, "s");
                 var afterBonds = Objects(Array(afterChara, "evaluation_info_array"), "evaluation_info_array")
@@ -140,7 +141,7 @@ public static class IslandActionAudit
                     if (levels.Count != 5) throw new InvalidDataException("岛训练缺少五项普通训练等级。");
                     var input = new IslandTrainingInput(environment, levels.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToImmutableArray(),
                         facilities.Base(3101, facilityState), facilityState, assignments);
-                    var generated = IslandActionRules.ApplySuccessCandidate(state, input);
+                    var generated = IslandActionRules.ApplySuccessCandidate(state, input, raceOnlyEffects);
                     generatedMatches = generated.TrainingGains.Common == observedGains.Common && generated.TrainingGains.Scenario == observedGains.Scenario
                         && generated.ValuesAfter == settled.ValuesAfter && generated.DevelopmentPointsAfter == settled.DevelopmentPointsAfter;
                     Count("GeneratedSettlements");

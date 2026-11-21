@@ -32,17 +32,21 @@ public sealed class RootSearchTests
         }));
     }
 
-    [Fact]
-    public void PairedSearchExtendsOnlyUnresolvedCandidatesAndRanksByTerminalRating()
+    [Theory]
+    [InlineData(PairedSampling.CompareContenders)]
+    [InlineData(PairedSampling.CompareToLeader)]
+    public void PairedSearchExtendsOnlyUnresolvedCandidatesAndRanksByTerminalRating(PairedSampling pairedSampling)
     {
         var scenario = new Scenario(scoreTerminal: true);
         RootCandidate<int>[] candidates = [.. Candidates, new(40, 3)];
         var result = RootSearch.Evaluate(scenario, new Policy(), CreateRoot(), candidates, Goal(1189), 12345, 32, 32,
-            rankByTotalRating: true, adaptiveSampling: true);
+            rankByTotalRating: true, pairedSampling: pairedSampling);
         Assert.Equal(10, result.RecommendedCandidateId);
         Assert.Equal(new[] { 10, 30, 20, 40 }, result.Ranking);
         Assert.Equal(4096, result.Candidates[1].Batch.Results.Length);
         Assert.InRange(result.Candidates[3].Batch.Results.Length, 32, 4095);
+        if (pairedSampling == PairedSampling.CompareToLeader)
+            Assert.InRange(result.Candidates[0].Batch.Results.Length, 32, 4095);
         var fixedSamples = RootSearch.Evaluate(scenario, new Policy(), CreateRoot(), candidates, Goal(1189), 12345, 4096, 1,
             rankByTotalRating: true);
         foreach (var (adaptive, fixedResult) in result.Candidates.Zip(fixedSamples.Candidates))

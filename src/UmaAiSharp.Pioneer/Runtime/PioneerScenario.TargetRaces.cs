@@ -1,3 +1,4 @@
+using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Runtime;
@@ -23,6 +24,27 @@ public sealed partial class PioneerScenario
 
     static bool GoldShipRepeatWin(PioneerState state, PioneerRaceOption race)
         => race.CareerGoalId == 273 && state.GetSection(PioneerStateSection.RaceWins)[36] == 74;
+
+    static void ApplyCareerRouteAfterWin(PioneerState state, int goal, int raceMotivation, ref SimulationRandom random)
+    {
+        ref var current = ref state.Mutable;
+        switch (goal)
+        {
+            case 183 when raceMotivation <= 3:
+                current.RaceBranch = 296;
+                ApplyProgressionReward(state, TrainingAttributeReward(4, 5));
+                break;
+            case 89:
+                // shortcut: six observed draws picked 293; add one count per possible result until manual openings cover the other two.
+                var debut = random.At(current.Turn, PioneerDraw.CareerRoute).NextScaled(9);
+                current.RaceBranch = debut switch { 0 => 90, 1 => 292, _ => 293 };
+                break;
+            case 94:
+                var takarazuka = random.At(current.Turn, PioneerDraw.CareerRoute).NextScaled(6);
+                current.RaceBranch = takarazuka switch { 0 => 294, 1 => 295, _ => 95 };
+                break;
+        }
+    }
 
     void ApplyCareerGoalReward(PioneerState state, PioneerRaceOption race = default)
     {

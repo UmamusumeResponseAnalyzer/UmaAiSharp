@@ -60,16 +60,8 @@ public sealed partial class PioneerScenario
                 ApplyProgressionReward(state, index == 5 ? 0 : 5, 30);
                 return;
             }
-            var values = header.Resources;
-            var caps = header.Limits;
-            ReadOnlySpan<int> attributes = [values.Speed, values.Stamina, values.Power, values.Guts, values.Wisdom, 0];
-            ReadOnlySpan<int> limits = [caps.Speed, caps.Stamina, caps.Power, caps.Guts, caps.Wisdom, 0];
-            var left = DeclaredEventRewards.Attribute(attributes[index], limits[index], 20).Value - attributes[index];
-            var right = index == 4 ? SkillValue(20)
-                : DeclaredEventRewards.Attribute(attributes[index + 1], limits[index + 1], 20).Value - attributes[index + 1];
-            var choice = left >= right ? index : index + 1;
-            ApplyProgressionReward(state, new(choice == 0 ? 20 : 0, choice == 1 ? 20 : 0, choice == 2 ? 20 : 0,
-                choice == 3 ? 20 : 0, choice == 4 ? 20 : 0, 0, choice == 5 ? 20 : 0));
+            ApplyCalendarChoice(state, [TrainingAttributeReward(index, 20), index == 4
+                ? new(0, 0, 0, 0, 0, 0, 20) : TrainingAttributeReward(index + 1, 20)]);
         }
     }
 
@@ -168,6 +160,9 @@ public sealed partial class PioneerScenario
                 break;
             case (65, false):
                 SettleSeniorIslandHint(state);
+                break;
+            case (70, true) when (data.TrainingStart!.CharacterId ?? header.CardId / 100) == 1062:
+                ApplyProgressionReward(state, TrainingAttributeReward(3, 5));
                 break;
         }
     }

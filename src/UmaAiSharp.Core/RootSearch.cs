@@ -8,6 +8,7 @@ public readonly record struct RootCandidate<TAction>(int Id, TAction Action) whe
 public sealed record CandidateEvaluation<TAction>(RootCandidate<TAction> Candidate,
     SimulationBatch<TerminalMetrics> Batch, GoalSummary? Summary) where TAction : notnull;
 public enum SearchStatus { Completed, Stopped, Cancelled }
+public enum PairedSampling { Disabled, CompareContenders, CompareToLeader }
 public sealed record RootSearchResult<TAction>(DecisionId Decision, SearchStatus Status,
     int? RecommendedCandidateId, int[] Ranking, CandidateEvaluation<TAction>[] Candidates,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? SampleLimitPerCandidate = null) where TAction : notnull;
@@ -23,7 +24,7 @@ public static class RootSearch
         ITrajectoryPolicy<TDecision, TAction, TCursor> continuation, in TState root,
         ReadOnlySpan<RootCandidate<TAction>> candidates, CompiledGoal goal,
         ulong seed, int samplesPerCandidate, int workers, CancellationToken cancellationToken = default,
-        long? ownedActionPayloadBytes = null, bool rankByTotalRating = false, bool adaptiveSampling = false)
+        long? ownedActionPayloadBytes = null, bool rankByTotalRating = false, PairedSampling pairedSampling = PairedSampling.Disabled)
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
         ExecutionPlatform.EnsureSupported();
@@ -46,7 +47,7 @@ public static class RootSearch
             if (scenario.ValidateAction(root, candidate.Action) is { } invalid)
                 throw new ArgumentException($"候选{candidate.Id}校验失败：{invalid.Reason}，代码{invalid.Code}，位置{invalid.Position}。", nameof(candidates));
         }
-        var paired = rankByTotalRating && adaptiveSampling && actions.Length > 1;
+        var paired = rankByTotalRating && pairedSampling != PairedSampling.Disabled && actions.Length > 1;
         var sampleLimit = paired ? Math.Max(samplesPerCandidate, PairedSampleLimit) : samplesPerCandidate;
         var resultSize = Unsafe.SizeOf<TrajectoryResult<TerminalMetrics>>();
         var retainedResultBytes = checked((long)actions.Length * sampleLimit * (resultSize + 128L));
@@ -92,26 +93,40 @@ public static class RootSearch
 
             active.Sort(compare);
             if (samples == sampleLimit || active.Count == 1) break;
-            // Keep every candidate through the last unresolved comparison with a contender.
-            var keep = 1;
-            for (var i = 0; i < keep; i++)
+            if (pairedSampling == PairedSampling.CompareToLeader)
             {
-                for (var j = active.Count - 1; j >= keep; j--)
+                var leader = active[0];
+                active.RemoveAll(index =>
                 {
-                    if (PairedLeadExceedsNoise(results[active[i]], results[active[j]], goal)) continue;
-                    keep = j + 1;
-                    break;
-                }
+                    if (index == leader || !PairedLeadExceedsNoise(results[leader], results[index], goal)) return false;
+                    retired.Add(index);
+                    return true;
+                });
             }
-            if (keep < active.Count)
+            else
             {
-                retired.InsertRange(0, active.GetRange(keep, active.Count - keep));
-                active.RemoveRange(keep, active.Count - keep);
+                // Keep every candidate through the last unresolved comparison with a contender.
+                var keep = 1;
+                for (var i = 0; i < keep; i++)
+                {
+                    for (var j = active.Count - 1; j >= keep; j--)
+                    {
+                        if (PairedLeadExceedsNoise(results[active[i]], results[active[j]], goal)) continue;
+                        keep = j + 1;
+                        break;
+                    }
+                }
+                if (keep < active.Count)
+                {
+                    retired.InsertRange(0, active.GetRange(keep, active.Count - keep));
+                    active.RemoveRange(keep, active.Count - keep);
+                }
             }
             if (active.Count == 1) break;
             samples = (int)Math.Min(sampleLimit, 4L * Math.Max(MinimumPairedSamples, samples));
         }
 
+        if (pairedSampling == PairedSampling.CompareToLeader) retired.Sort(compare);
         active.AddRange(retired);
         return new(inspection.Decision.Id, status, results[active[0]].Candidate.Id,
             [.. active.Select(index => results[index].Candidate.Id)], results, paired ? sampleLimit : null);

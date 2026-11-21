@@ -17,7 +17,7 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
     PioneerFacilityRulesData Facilities, PioneerEventPartnersData EventPartners, ImmutableArray<PioneerRaceRule> Races,
     PioneerMasterData Construction, PioneerTurnCalibration TurnCalibration, ImmutableArray<PioneerStoryProgress> StoryProgress,
     PioneerProgressionData Progression, PioneerInheritanceData Inheritance, ImmutableArray<PioneerCardHints> CardHints,
-    ImmutableArray<int> TraineeRandomStories, PioneerSkillRatingData SkillRating)
+    ImmutableArray<int> TraineeRandomStories, PioneerSkillRatingData SkillRating, ImmutableArray<int> RaceOnlyCharacterEffects)
 {
     static readonly (int Character, int SkillGroup)[] SeniorIslandLinks =
         [(1031, 20311), (1040, 20266), (1027, 20245), (1069, 20322), (1021, 20161), (9049, 20046)];
@@ -78,18 +78,38 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
             start, placement.AppearedSupportMask, placement.AppearedProjectMembers,
             Facilities.States, Facilities.Bases, Progression.UraFirstPlaceFans,
             inheritance, hints, new(first, second, third, trainee), CompileRaceCalendar(start), SkillRating,
-            seniorHints.MoveToImmutable(), start.CardId / 100 == 1016 ? CompileBrianRoute() : null);
+            seniorHints.MoveToImmutable(), CompileScheduleEdits(start.CharacterId ?? start.CardId / 100));
     }
 
-    IEnumerable<(int Turn, PioneerRaceOption Normal, PioneerRaceOption Strong)> CompileBrianRoute()
+    ImmutableArray<PioneerRaceScheduleEdit> CompileScheduleEdits(int character)
     {
-        var races = Races.ToDictionary(race => race.ProgramId);
-        foreach (var pair in Progression.FixedRaceGoals.Where(goal => goal.Id is >= 378 and <= 385).GroupBy(goal => goal.Turn))
+        switch (character)
         {
-            var normal = pair.Single(goal => goal.Id % 2 == 1);
-            var strong = pair.Single(goal => goal.Id % 2 == 0);
-            yield return (pair.Key, races[normal.ProgramId].Option(true) with { CareerGoalId = normal.Id },
-                races[strong.ProgramId].Option(true) with { CareerGoalId = strong.Id });
+            case 1016:
+                var edits = ImmutableArray.CreateBuilder<PioneerRaceScheduleEdit>(8);
+                for (var strong = 378; strong <= 384; strong += 2)
+                {
+                    edits.Add(new(0, Added: Goal(strong + 1)));
+                    edits.Add(new(1, strong + 1, Goal(strong)));
+                }
+                return edits.MoveToImmutable();
+            case 1032:
+                return [new(296, 184, Goal(296))];
+            case 1056:
+                return [.. new[] { 90, 292, 293, 95, 294, 295 }.Select(goal => new PioneerRaceScheduleEdit(goal, Added: Goal(goal)))];
+            case 1062:
+                return [new(0, 627, BlockedTurn: Goal(627).Turn)];
+            case 1135:
+                return [new(0, 1523, Goal(1524)), new(0, Added: Goal(1529))];
+            default:
+                return [];
+        }
+
+        PioneerScheduledRace Goal(int id)
+        {
+            var goal = Progression.FixedRaceGoals.Single(row => row.Id == id);
+            var race = Races.Single(row => row.ProgramId == goal.ProgramId);
+            return new(goal.Turn, race.Option(true) with { CareerGoalId = id });
         }
     }
 
@@ -143,6 +163,9 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
             || EventPartners.Supports.IsDefaultOrEmpty || EventPartners.Npcs.IsDefault || EventPartners.CharacterIds.IsDefaultOrEmpty
             || Races.IsDefaultOrEmpty || Training.SupportEffects.Any(effect => effect.Values.Length != 11))
             throw new InvalidDataException("Pioneer 规则资源的训练、设施、人员或比赛数据缺失。");
+        if (RaceOnlyCharacterEffects.IsDefault || RaceOnlyCharacterEffects.Any(effect => effect <= 0)
+            || !RaceOnlyCharacterEffects.SequenceEqual(RaceOnlyCharacterEffects.Distinct().Order()))
+            throw new InvalidDataException("Pioneer 规则资源的比赛专属角色效果须为升序且不重复的正整数。");
     }
 }
 

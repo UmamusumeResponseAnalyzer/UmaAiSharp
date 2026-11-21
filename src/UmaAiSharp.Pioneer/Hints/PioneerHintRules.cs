@@ -103,20 +103,20 @@ public sealed class PioneerHintRules
         return default;
     }
 
-    internal (TrainingValues Attributes, double AttributeProbability, double EquivalentSkillPoints) ExpectedReward(int position, int bond,
+    internal (TrainingValues Attributes, double AttributeProbability, double SkillRating) ExpectedReward(int position, int bond,
         ReadOnlySpan<int> levels, ReadOnlySpan<int> aptitudes, in TrainingValues resources, int discount, FutureSkillRating rating)
     {
         var (support, pool, attributes) = cards[position];
         var (level, count) = RewardSize(support, bond);
         var eligible = 0;
-        var skillPoints = 0.0;
+        var skillRating = 0.0;
         foreach (var slot in pool)
         {
             if (levels[slot] >= 5) continue;
             eligible++;
-            skillPoints += rating.HintValue(slot, Math.Min(5, Math.Max(0, levels[slot]) + level),
+            skillRating += rating.HintValue(slot, Math.Min(5, Math.Max(0, levels[slot]) + level),
                 levels, aptitudes, resources, discount);
         }
-        return (attributes, 1.0 / (eligible + 1), Math.Min(count, eligible) * skillPoints / (eligible + 1));
+        return (attributes, 1.0 / (eligible + 1), Math.Min(count, eligible) * skillRating / (eligible + 1));
     }
 }

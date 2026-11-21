@@ -14,7 +14,8 @@ public sealed class PioneerContinuationPolicy : ITrajectoryPolicy<PioneerDecisio
         ref ScriptCursor cursor, ref SimulationRandom random)
         => decision.Context.SuggestedAction is { } action ? PolicySelection<PioneerRuntimeAction>.Selected(action)
             : PolicySelection<PioneerRuntimeAction>.Stopped(new(SimulationStopReason.UnknownMechanism,
-                (int)PioneerStopCode.UnsupportedComponentInput, (int)decision.Context.Stage));
+                (int)PioneerStopCode.UnsupportedComponentInput, (int)decision.Context.Stage, decision.Context.Turn,
+                Detail: decision.Context.SuggestionError ?? "没有合法的后续行动。"));
 
     public SimulationStop? ValidateCompletion(in ScriptCursor cursor) => null;
 }

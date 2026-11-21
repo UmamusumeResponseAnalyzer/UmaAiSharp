@@ -22,7 +22,8 @@ public readonly record struct TuckerSpecialtyContext(int SourceTurn, int RawPlay
 public static class IslandActionRules
 {
 
-    public static IslandActionSettlement ApplySuccessCandidate(IslandActionState before, IslandTrainingInput training)
+    public static IslandActionSettlement ApplySuccessCandidate(IslandActionState before, IslandTrainingInput training,
+        ImmutableArray<int> raceOnlyEffects = default)
     {
         if (training.Environment.Current != before.Values || training.Environment.Limits != before.Limits
             || training.Assignments.Length != before.Assignments.Length
@@ -34,15 +35,16 @@ public static class IslandActionRules
                     || !cards.First.Effects.SequenceEqual(cards.Second.Effects) || !cards.First.UniqueEffects.SequenceEqual(cards.Second.UniqueEffects)))
             || !training.Facilities.Select(facility => (facility.Id, facility.StateId)).SequenceEqual(before.Facilities.Select(facility => (facility.Id, facility.StateId))))
             throw new InvalidDataException("岛训练生成输入与行动前属性、上限或人员分配不一致。");
-        return SettleResolvedSuccess(before, TrainingFormulaCandidate.GenerateIsland(training));
+        return SettleResolvedSuccess(before, TrainingFormulaCandidate.GenerateIsland(training), raceOnlyEffects);
     }
 
     // Applies resolved gains only. The caller must distinguish generated gains from observed previews in its evidence.
-    public static IslandActionSettlement SettleResolvedSuccess(IslandActionState before, TrainingFormulaPrediction gains)
+    public static IslandActionSettlement SettleResolvedSuccess(IslandActionState before, TrainingFormulaPrediction gains,
+        ImmutableArray<int> raceOnlyEffects = default)
     {
         if (!before.CommandEnabled || before.Tickets <= 0)
             throw new IllegalActionException("岛训练未启用或没有可消费的岛训练券。");
-        ValidateInputs(before);
+        ValidateInputs(before, raceOnlyEffects);
         ValidateGains(gains.Common, gains.Scenario);
         var values = TrainingPreviewSettlement.Apply(before.Values, before.Limits, Parameters(gains.Common), Parameters(gains.Scenario));
         var selected = before.Assignments.SelectMany(group => group.Supports).ToArray();
@@ -59,16 +61,19 @@ public static class IslandActionRules
             afterDeck, grants, before.HintCandidates, gains);
     }
 
-    internal static void ValidateInputs(IslandActionState before)
+    internal static void ValidateInputs(IslandActionState before, ImmutableArray<int> raceOnlyEffects)
     {
         if (before.ActionTurn is < 6 or > 72 || before.RawPlayingState != 1 || before.PendingStoryIds.IsDefault
             || before.PendingStoryIds.Length != 0 || before.Tickets > 3 || before.DevelopmentPoints < 0)
             throw new UnknownMechanismException("岛训练即时分量要求回合6..72、阶段1、空待事件、券不超过3和非负发展Pt。");
         ValidateDeck(before.Deck);
         TrainingFacilityRules.Validate(before.Facilities);
-        if (before.CharacterEffects.IsDefault || before.CharacterEffects.Distinct().Count() != before.CharacterEffects.Length
-            || before.CharacterEffects.Any(effect => effect is not (7 or 8 or 9 or 10 or 11 or 12 or 13 or 25 or 26 or 27 or 31 or 36)))
-            throw new UnknownMechanismException("岛训练角色效果缺失、重复或包含未实现的羁绊效果。");
+        if (before.CharacterEffects.IsDefault || before.CharacterEffects.Any(effect => effect <= 0)
+            || before.CharacterEffects.Distinct().Count() != before.CharacterEffects.Length)
+            throw new InvalidDataException("岛训练角色效果须为明确且不重复的正整数。");
+        foreach (var effect in before.CharacterEffects)
+            if (effect is not (>= 7 and <= 13 or 25 or 26 or 27 or 31 or 40) && !raceOnlyEffects.AsSpan().Contains(effect))
+                throw new UnknownMechanismException($"角色效果 {effect} 缺少岛训练结算规则。");
         if (before.Assignments.IsDefault) throw new InvalidDataException("岛训练前人员分配缺失。");
         var selected = before.Assignments.SelectMany(group => group.Supports).ToArray();
         if (before.Assignments.Select(group => group.FacilityId).Distinct().Count() != before.Assignments.Length

@@ -99,24 +99,8 @@ public sealed partial class PioneerScenario
     IslandTrainingInput IslandInput(PioneerState state)
     {
         if (data.Start is PioneerStart.IslandTraining imported) return imported.Training;
-        ref readonly var header = ref state.Header;
-        var start = data.TrainingStart!;
-        var facilities = data.TurnRules!.CurrentFacilities(state);
-        ref readonly var board = ref header.IslandBoard;
-        var count = 0;
-        for (var i = 0; i < 6; i++)
-        {
-            var group = board[i];
-            if (group.SupportMask != 0 || group.GuestCount != 0) count++;
-        }
-        var assignments = ImmutableArray.CreateBuilder<IslandTrainingAssignment>(count);
-        for (var i = 0; i < 6; i++)
-        {
-            var group = board[i];
-            if (group.SupportMask == 0 && group.GuestCount == 0) continue;
-            assignments.Add(new(101 + i, data.IslandSupports[group.SupportMask], group.GuestCount));
-        }
-        return new(start.Environment, [], data.TurnRules.IslandBase(facilities), facilities, assignments.MoveToImmutable());
+        var rules = data.TurnRules!;
+        return rules.CreateIslandInput(state, state.Header.IslandBoard, rules.CurrentFacilities(state));
     }
 
     TrainingNumericResult PreviewIsland(PioneerState state, IslandTrainingInput input)
@@ -127,7 +111,7 @@ public sealed partial class PioneerScenario
             GoldShipBoost = header.Turn == header.SourceTurn ? input.Environment.GoldShipBoost : null };
         return data.Model.Island(input, (data.IslandDeck ?? data.TrainingDeck)!, environment,
             state.GetSection(PioneerStateSection.TrainingLevels), state.GetSection(PioneerStateSection.SupportBonds),
-            data.IslandFacilities);
+            data.IslandFacilities ?? state.TurnBoard?.IslandFacilities);
     }
 
     TransitionResult ApplyIsland(PioneerState state, ref SimulationRandom random)

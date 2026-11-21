@@ -10,7 +10,8 @@ public readonly record struct DecisionPoint<TDecision>(DecisionId Id, TDecision 
 public enum InspectionKind { Decision, Terminal, Stopped }
 public enum SimulationStopReason { UnknownMechanism, IllegalAction, ScriptMismatch, Cancelled }
 public readonly record struct SimulationStop(SimulationStopReason Reason, int Code, int Position = 0,
-    long Argument0 = 0, long Argument1 = 0);
+    long Argument0 = 0, long Argument1 = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null);
 
 public readonly record struct Inspection<TDecision>(InspectionKind Kind, DecisionPoint<TDecision> Decision,
     int Position, SimulationStop? Stop) where TDecision : notnull

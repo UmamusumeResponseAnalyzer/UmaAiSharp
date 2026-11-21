@@ -23,6 +23,8 @@ internal enum PioneerDraw
     ExtraPractice,
     TuckerSideStory,
     CheckpointHint,
+    RaceFatigue,
+    CareerRoute,
 }
 
 internal static class PioneerRandom

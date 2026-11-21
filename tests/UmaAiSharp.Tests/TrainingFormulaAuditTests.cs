@@ -24,6 +24,7 @@ public sealed class TrainingFormulaAuditTests : IDisposable
             command.CommandText = """
                 CREATE TABLE single_mode_training(command_id INTEGER, command_level INTEGER, base_command_id INTEGER, failure_rate INTEGER);
                 INSERT INTO single_mode_training VALUES(101,1,101,520);
+                CREATE TABLE single_mode_chara_effect_buff(effect_id INTEGER);
                 CREATE TABLE support_card_data(id INTEGER, rarity INTEGER, effect_table_id INTEGER, unique_effect_id INTEGER, command_id INTEGER, support_card_type INTEGER);
                 INSERT INTO support_card_data VALUES(123,2,123,0,101,$cardType);
                 CREATE TABLE support_card_unique_effect(id INTEGER);

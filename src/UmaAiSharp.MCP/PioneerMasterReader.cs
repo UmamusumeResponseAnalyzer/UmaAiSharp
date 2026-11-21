@@ -55,8 +55,19 @@ public static class PioneerMasterReader
             """).Select(row => row["story_id"]);
         return new(sha, ReadTraining(db), ReadFacilities(db), ReadEventPartners(db), races.ToImmutable(),
             ConstructionData(db, sha), calibration, progress.ToImmutable(), ReadProgression(db),
-            ReadInheritance(db, inheritance), ReadHintPools(db), [.. traineeRandomStories], ReadSkillRating(db));
+            ReadInheritance(db, inheritance), ReadHintPools(db), [.. traineeRandomStories], ReadSkillRating(db),
+            ReadRaceOnlyCharacterEffects(db));
     }
+
+    public static ImmutableArray<int> ReadRaceOnlyCharacterEffects(string path)
+    {
+        using var db = OpenReadOnly(path);
+        return ReadRaceOnlyCharacterEffects(db);
+    }
+
+    static ImmutableArray<int> ReadRaceOnlyCharacterEffects(SqliteConnection db)
+        => [.. ReadIntegers(db, "SELECT DISTINCT effect_id FROM single_mode_chara_effect_buff ORDER BY effect_id")
+            .Select(row => row["effect_id"])];
 
     static PioneerSkillRatingData ReadSkillRating(SqliteConnection db)
     {

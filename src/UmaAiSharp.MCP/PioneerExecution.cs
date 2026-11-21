@@ -92,10 +92,7 @@ public static class PioneerExecution
         using (var stream = new FileStream(outputPath, FileMode.CreateNew)) JsonSerializer.Serialize(stream, report, JsonOptions);
         var status = completed == sampleCount ? "completed"
             : batch.Results.Any(result => result.Stop?.Reason == SimulationStopReason.Cancelled) ? "cancelled" : "stopped";
-        var stops = batch.Results.Where(result => result.Stop.HasValue)
-            .GroupBy(result => (result.Stop!.Value.Reason, result.Stop.Value.Code))
-            .Select(group => new { group.Key.Reason, group.Key.Code, count = group.Count(), firstPosition = group.First().Progress.Position })
-            .ToArray();
+        var stops = ToolResult.Stops(batch.Results);
         return ToolResult.Report(outputPath, new { loaded.Mode, sampleCount, completed, careerFailures, stopped = sampleCount - completed, stops }, status);
     }
 
@@ -157,7 +154,7 @@ public static class PioneerExecution
         }
         var estimatedHistory = autonomous ? PioneerAutonomousSession.EstimateTrainingHistory(start, rules) : null;
         var data = PioneerRuntimeData.Compile(start, outcomes, identity, rules.Construction, checkpoints, turnRules,
-            trainingHistory: estimatedHistory, model: model);
+            trainingHistory: estimatedHistory, model: model, raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects);
         return new(data, data.CreateInitialState(), new(input.Script, input.Script.Sum(step => step.Action.OwnedPayloadBytes)), input.Mode,
             Convert.ToHexStringLower(SHA256.HashData(bytes)), rules.SourceMasterSha256);
     }
