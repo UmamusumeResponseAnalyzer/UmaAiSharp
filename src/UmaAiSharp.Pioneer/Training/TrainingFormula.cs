@@ -6,7 +6,7 @@ namespace UmaAiSharp.Pioneer.Training;
 
 public sealed record TrainingFormulaInput(int CommandId, int Level, int Motivation, int Fans, int GuestCount,
     TrainingValues Current, TrainingLimits Limits, TrainingValues GrowthPercent,
-    ImmutableArray<TrainingSupport> Supports, int EvaluationTrainingPercent, GoldShipTrainingBoost? GoldShipBoost);
+    ImmutableArray<TrainingSupport> Supports, int EvaluationTrainingPercent, GoldShipTrainingBoost? GoldShipBoost, int? TotalSupportBond = null);
 public sealed record ExactTrainingGain(int TargetType, string Numerator, string Denominator, int TruncatedBeforeLimit);
 public sealed record TrainingFormulaPrediction(TrainingValues Common, TrainingValues Scenario,
     ImmutableArray<ExactTrainingGain> RawGains);
@@ -17,7 +17,7 @@ public static class TrainingFormulaCandidate
     public static TrainingFormulaPrediction GenerateOrdinary(TrainingFormulaInput input)
     {
         var environment = new TrainingEnvironment(input.Motivation, input.Fans, input.Current, input.Limits,
-            input.GrowthPercent, input.GoldShipBoost);
+            input.GrowthPercent, input.GoldShipBoost, input.TotalSupportBond);
         Validate(environment);
         if (input.GuestCount < 0 || input.EvaluationTrainingPercent < 0)
             throw new ArgumentException("训练人数和评估会加成不能为负数。");
@@ -95,6 +95,8 @@ public static class TrainingFormulaCandidate
             foreach (var member in members)
             {
                 var scale = TrainingFacilityRules.EffectPercent(member.FacilityId, i);
+                training = checked(training + member.Card.PanelTrainingBonus(input.Environment.Current.Vital, input.Environment.Limits.Vital,
+                    members.Length, input.Environment.TotalSupportBond, scale));
                 if (member.Card.FriendshipEligible)
                     foreach (var bonus in member.Card.FriendshipBonuses)
                         friendship *= new TrainingRational(100L + (long)bonus * scale / 100, 100);
@@ -121,6 +123,8 @@ public static class TrainingFormulaCandidate
         ResolvedTrainingSupport[] supports, int guests, long training, long houseBasisPoints)
     {
         TrainingRational friendship = 1;
+        training = checked(training + supports.Sum(card => card.PanelTrainingBonus(environment.Current.Vital, environment.Limits.Vital,
+            supports.Length, environment.TotalSupportBond)));
         foreach (var bonus in supports.Where(card => card.FriendshipEligible).SelectMany(card => card.FriendshipBonuses))
             friendship *= new TrainingRational(100L + bonus, 100);
         var motivation = (long)supports.Sum(card => card.MotivationEffect);

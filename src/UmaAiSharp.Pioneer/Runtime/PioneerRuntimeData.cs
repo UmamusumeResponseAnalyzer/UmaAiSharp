@@ -14,8 +14,9 @@ namespace UmaAiSharp.Pioneer.Runtime;
 public sealed class PioneerRuntimeData
 {
     public bool IsWholeRun => TurnRules?.WholeRun == true;
+    public ImmutableArray<string> IgnoredMechanisms { get; }
     internal PioneerModel Model { get; }
-    internal ImmutableArray<int> RaceOnlyCharacterEffects { get; }
+    internal ImmutableArray<int> EffectsWithNoModeledTrainingModifier { get; }
     internal PioneerStart Start { get; }
     internal PioneerStart.TrainingTurn? TrainingStart { get; }
     internal ImmutableArray<PioneerConditionalOutcome> Outcomes { get; }
@@ -25,6 +26,7 @@ public sealed class PioneerRuntimeData
     internal CompiledIslandFacilities? IslandFacilities { get; }
     internal int IslandOrdinaryMask { get; }
     internal CompiledTrainingDeck? TrainingDeck { get; }
+    internal ImmutableArray<(int Position, int Chance)> ZeroFailureSupports { get; } = [];
     internal ImmutableArray<TrainingCommandOption> TrainingCommands { get; } = [];
     internal ImmutableArray<CompiledCampTraining> CampCommands { get; } = [];
     internal ImmutableArray<ImmutableArray<TrainingSupport>> IslandSupports { get; }
@@ -54,16 +56,16 @@ public sealed class PioneerRuntimeData
         ImmutableArray<PioneerConditionalOutcome> conditionalOutcomes, string rulesIdentity,
         PioneerMasterData? constructionMaster = null, CheckpointMasterData? checkpointMaster = null, PioneerTurnRules? turnRules = null,
         PioneerTrainingHistoryDistribution? trainingHistory = null, PioneerModel? model = null,
-        ImmutableArray<int> raceOnlyCharacterEffects = default)
+        ImmutableArray<int> raceOnlyCharacterEffects = default, bool forecast = false)
         => new(start, conditionalOutcomes, rulesIdentity, constructionMaster, checkpointMaster, turnRules,
-            trainingHistory, model ?? PrecisePioneerModel.Instance, raceOnlyCharacterEffects);
+            trainingHistory, model ?? PrecisePioneerModel.Instance, raceOnlyCharacterEffects, forecast);
 
     PioneerRuntimeData(PioneerStart start, ImmutableArray<PioneerConditionalOutcome> outcomes,
         string rulesIdentity, PioneerMasterData? constructionMaster, CheckpointMasterData? checkpointMaster, PioneerTurnRules? turnRules,
-        PioneerTrainingHistoryDistribution? trainingHistory, PioneerModel model, ImmutableArray<int> raceOnlyCharacterEffects)
+        PioneerTrainingHistoryDistribution? trainingHistory, PioneerModel model, ImmutableArray<int> raceOnlyCharacterEffects, bool forecast)
     {
         Model = model;
-        RaceOnlyCharacterEffects = raceOnlyCharacterEffects;
+        EffectsWithNoModeledTrainingModifier = raceOnlyCharacterEffects;
         ArgumentNullException.ThrowIfNull(start);
         ArgumentException.ThrowIfNullOrWhiteSpace(rulesIdentity);
         if (outcomes.IsDefault) throw new InvalidDataException("条件结果数组必须明确提供，未知概率时可显式为空。");
@@ -100,6 +102,8 @@ public sealed class PioneerRuntimeData
             if (outcome is PioneerConditionalOutcome.TargetRaceWin race
                 && (race.Next is null || race.ProgramId <= 0 || race.FansGained < 0 || race.PostRaceChoice is not (0 or 1)))
                 throw new InvalidDataException($"动作{outcome.ActionOrdinal}须提供目标赛第一名的节目编号、粉丝增量和续步。");
+            if (outcome is PioneerConditionalOutcome.TargetRaceWin { ExcludedAttribute: { } excluded } && !Enum.IsDefined(excluded))
+                throw new InvalidDataException($"动作{outcome.ActionOrdinal}的 excludedAttribute 须为五项训练属性之一。");
             if (outcome.FollowingFrame is { } frame)
             {
                 if (turnRules is null || !ValidObservedFrame(frame))
@@ -129,6 +133,52 @@ public sealed class PioneerRuntimeData
             previous = outcome.ActionOrdinal;
         }
         Start = start;
+        var ignored = start.IgnoredMechanisms.ToBuilder();
+        if (TrainingStart is { } panel)
+        {
+            if (planning is not null) ignored.AddRange(panel.IgnoredMechanisms);
+            if (panel.HomeActions is { } home) ignored.AddRange(home.IgnoredMechanisms);
+            if (forecast && turnRules?.WholeRun == true)
+            {
+                if (panel.Turn < 25 && PioneerScenario.ClassicNewYearAttribute(panel.CharacterId ?? panel.CardId / 100) is null)
+                    ignored.Add($"育成卡 {panel.CardId} 的第 25 回合「新年の抱負」第一项属性未核验，只比较回体和技能 Pt。");
+                if (panel.Turn < MidRunInheritanceRules.SeniorTurn && panel.Inheritance is null)
+                {
+                    var turns = panel.Turn < MidRunInheritanceRules.ClassicTurn
+                        ? $"{MidRunInheritanceRules.ClassicTurn}、{MidRunInheritanceRules.SeniorTurn}"
+                        : $"{MidRunInheritanceRules.SeniorTurn}";
+                    ignored.Add($"育成卡 {panel.CardId} 缺少开局亲本，省略第 {turns} 回合的继承收益。");
+                }
+                if (panel.CharacterId == 1007 && panel.Turn < 72)
+                    ignored.Add($"黄金船（育成卡 {panel.CardId}）故事 501007525：后续回合未抽取指定训练事件。");
+                if (panel.CharacterEffects.Contains(4))
+                    ignored.Add($"育成卡 {panel.CardId} 的太り気味（状态 4）：省略训练后随机解除及对未来岛训练速度收益的影响。");
+                foreach (var effect in panel.CharacterEffects)
+                {
+                    var trigger = effect switch { 1 => "夜ふかし気味的随机体力下降", 2 => "なまけ癖的随机缺席训练",
+                        3 => "肌あれ的随机干劲下降", _ => null };
+                    if (trigger is not null) ignored.Add($"育成卡 {panel.CardId} 的状态 {effect}：省略{trigger}。");
+                }
+                if (panel.Turn < 72)
+                {
+                    ignored.Add($"育成卡 {panel.CardId}：未来随机育成事件用通用奖励估值，未单独建模的隐藏赛后奖励不计入。");
+                    if (turnRules.InitialStories.Third < 5 && turnRules.OrdinarySupportMask != 0)
+                    {
+                        var cards = panel.Deck.Where(card => (turnRules.OrdinarySupportMask & (1 << (card.Position - 1))) != 0);
+                        ignored.Add($"普通支援卡 {string.Join("、", cards.Select(card => card.CardId))}：后续连续事件按阶段估值，省略各卡专属选项及分支奖励差异。");
+                    }
+                }
+                var unknown = panel.CharacterEffects.Where(effect => TrainingFailureStatus.KnownStatusBias(effect, raceOnlyCharacterEffects) is null).ToArray();
+                if (unknown.Length > 0)
+                {
+                    // Only the forecast treats unmodeled status modifiers as zero. Evidence tools use the master list.
+                    EffectsWithNoModeledTrainingModifier = [.. (raceOnlyCharacterEffects.IsDefault ? [] : raceOnlyCharacterEffects).Concat(unknown).Order()];
+                    foreach (var effect in unknown)
+                        ignored.Add($"育成卡 {panel.CardId} 的状态 {effect}：省略未建模的专属效果和解除条件。");
+                }
+            }
+        }
+        IgnoredMechanisms = [.. ignored.Distinct()];
         Outcomes = outcomes;
         TurnRules = turnRules;
         TrainingHistory = trainingHistory;
@@ -174,6 +224,8 @@ public sealed class PioneerRuntimeData
             ValidateTrainingTurn(turn);
             TrainingCharacterId = turn.CharacterId;
             TrainingDeck = new(turn.Deck);
+            ZeroFailureSupports = [.. turn.Deck.SelectMany(card => card.UniqueEffects.Where(effect => effect.Type == 112)
+                .Select(effect => (card.Position, effect.Value)))];
             if (turnRules is not null)
                 IslandSupports = [.. Enumerable.Range(0, 64).Select(mask =>
                     turn.Deck.Where(card => (mask & (1 << (card.Position - 1))) != 0).ToImmutableArray())];
@@ -196,16 +248,16 @@ public sealed class PioneerRuntimeData
         }
         if (start is PioneerStart.IslandTraining island)
         {
-            ValidateIslandInputs(island, RaceOnlyCharacterEffects);
+            ValidateIslandInputs(island, raceOnlyCharacterEffects);
             foreach (var card in island.State.Deck)
                 if (card.Type == 1) IslandOrdinaryMask |= 1 << (card.Position - 1);
             var panels = new TrainingSupport?[6];
             foreach (var assignment in island.Training.Assignments)
-                foreach (var panel in assignment.Supports)
+                foreach (var support in assignment.Supports)
                 {
-                    if (panel.Position is < 1 or > 6 || panels[panel.Position - 1] is not null)
+                    if (support.Position is < 1 or > 6 || panels[support.Position - 1] is not null)
                         throw new InvalidDataException("岛训练编成位置无效或重复。");
-                    panels[panel.Position - 1] = panel;
+                    panels[support.Position - 1] = support;
                 }
             IslandDeck = new([.. panels.Where(panel => panel is not null).Select(panel => panel!)]);
             IslandFacilities = TrainingNumericKernel.CompileIslandFacilities(island.Training.Facilities);
@@ -294,7 +346,8 @@ public sealed class PioneerRuntimeData
     {
         var capacity = (TrainingStart ?? start) switch
         {
-            PioneerStart.DeclaredEvent entry => checked(entry.CharacterEffects.Length + 2 * (entry.Partners?.Length ?? 0)),
+            PioneerStart.DeclaredEvent entry => checked(entry.CharacterEffects.Length + 2 * (entry.Partners?.Length ?? 0)
+                + EventRewards.Max(choice => choice.Max(settlement => settlement.Conditions.Length))),
             PioneerStart.TrainingTurn turn => checked(22 + turn.CharacterEffects.Length + Math.Max(1, turn.PendingStoryIds.Length)
                 + (turn.Development is { } development ? 2 * development.Facilities.Length
                     + (TurnRules?.WholeRun == true ? 26 : development.IslandTrainingThresholds.Length + 4 * development.Plan.Steps.Length)
@@ -681,6 +734,17 @@ public sealed class PioneerRuntimeData
             if (!ValidIslandBoard(island))
                 throw new InvalidDataException("岛训练人员不能重复，Hint必须属于同一设施的参加支援。");
         }
+        if (entry.ObservedIslandGains is { } islandGains)
+        {
+            if (entry.ObservedIsland is null) throw new InvalidDataException("岛训练面板收益缺少对应的岛训练行动。");
+            ValidateObservedGains(islandGains);
+        }
+        void ValidateObservedGains(ObservedTrainingGains observed)
+        {
+            var common = observed.Common.GetValueOrDefault();
+            _ = TrainingPreviewSettlement.Apply(entry.Environment.Current, entry.Environment.Limits,
+                common with { Vital = Math.Max(-entry.Environment.Current.Vital, common.Vital) }, observed.Scenario.GetValueOrDefault());
+        }
         if (entry.ObservedStoryHistory is { } storyHistory && (storyHistory.IsDefault || storyHistory.Any(story => story.StoryId <= 0
             || story.Turn < 1 || story.Turn > entry.Turn || story.Phase < 1 || story.PlayTiming < 0
             || story.CharacterId < 0 || story.SupportCardId < 0 || story.PartnerId < 0 || story.ChoiceNumber < 0
@@ -760,6 +824,8 @@ public sealed class PioneerRuntimeData
             throw new InvalidDataException($"训练回合{entry.Turn}应已完成{completed}期评审，输入为{entry.CompletedCheckpoint}期。");
         var deck = entry.Deck.ToDictionary(card => card.Position);
         var assigned = 0;
+        var secondPositions = entry.Deck.Where(card => card.UniqueEffects.Any(effect => effect.Type == 118 && card.Bond >= effect.Parameter1))
+            .Sum(card => 1 << (card.Position - 1));
         foreach (var command in entry.Commands)
         {
             var ordinaryCommand = TrainingBaseTable.OrdinaryCommand(command.CommandId);
@@ -771,6 +837,11 @@ public sealed class PioneerRuntimeData
                 throw new InvalidDataException("单项训练升级的当前等级必须小于5；已知成功普通次数必须是正的4倍数。");
             if ((entry.Camp is null) != (ordinaryCommand == command.CommandId))
                 throw new InvalidDataException("训练指令模式与合宿配置不一致，不能混合普通和合宿指令。");
+            if (command.Observed is { } observed)
+            {
+                if (observed.FailureRate is < 0 or > 100) throw new InvalidDataException($"训练 {command.CommandId} 的面板失败率须为 0..100。");
+                ValidateObservedGains(observed);
+            }
             if (command.Level is < 1 or > 5 || command.ExecutionCount < 0 || command.GuestCount < 0
                 || command.FailureCoefficient < 0 || command.EvaluationTrainingPercent < 0 || command.SupportPositions.IsDefault
                 || command.SupportPositions.Distinct().Count() != command.SupportPositions.Length
@@ -784,17 +855,22 @@ public sealed class PioneerRuntimeData
             {
                 var bit = 1 << (position - 1);
                 if ((assigned & bit) != 0)
-                    throw new InvalidDataException($"支援位置{position}重复出现在多个训练；当前编成核未实现双位置效果。");
+                {
+                    if ((secondPositions & bit) == 0) throw new InvalidDataException($"支援位置{position}超出本卡允许的训练位置数。");
+                    secondPositions &= ~bit;
+                }
                 assigned |= bit;
             }
             var supports = command.SupportPositions.Select(position => deck[position]).ToImmutableArray();
             if (entry.Camp is { } configuration)
                 _ = TrainingNumericKernel.GenerateCamp(new(command.CommandId, command.Level, command.GuestCount,
-                    entry.Environment, supports, configuration.Bases[index], configuration.Facilities));
+                    entry.Environment with { TotalSupportBond = entry.Deck.Sum(card => card.Bond) }, supports,
+                    configuration.Bases[index], configuration.Facilities));
             else
                 _ = TrainingNumericKernel.GenerateOrdinary(new(command.CommandId, command.Level, entry.Environment.Motivation,
                     entry.Environment.Fans, command.GuestCount, entry.Environment.Current, entry.Environment.Limits,
-                    entry.Environment.GrowthPercent, supports, command.EvaluationTrainingPercent, entry.Environment.GoldShipBoost));
+                    entry.Environment.GrowthPercent, supports, command.EvaluationTrainingPercent, entry.Environment.GoldShipBoost,
+                    entry.Deck.Sum(card => card.Bond)));
         }
     }
 

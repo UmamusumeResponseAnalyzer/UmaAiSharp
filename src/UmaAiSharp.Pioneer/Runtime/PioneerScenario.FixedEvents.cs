@@ -89,7 +89,7 @@ public sealed partial class PioneerScenario
                 var scaling = tuckerSlot >= 0 ? EventEffectScaling.FromSupport(start.Deck[tuckerSlot]) : default;
                 var tuckerRecovery = tuckerSlot >= 0 ? scaling.Apply(10, 15) : 0;
                 Span<TrainingValues> newYearChoices = [default, new(0, 0, 0, 0, 0, 20, 0), new(0, 0, 0, 0, 0, 0, 20)];
-                if (ClassicNewYearAttribute(start.CharacterId) is int attribute)
+                if (ClassicNewYearAttribute(start.CharacterId ?? header.CardId / 100) is int attribute)
                     newYearChoices[0] = TrainingAttributeReward(attribute, 25);
                 else
                     newYearChoices = newYearChoices[1..];
@@ -170,7 +170,7 @@ public sealed partial class PioneerScenario
     }
 
     // Event 3001's first option is bound to the character's shared story, independent of outfit and current aptitudes.
-    static int? ClassicNewYearAttribute(int? character) => character switch
+    internal static int? ClassicNewYearAttribute(int character) => character switch
     {
         1002 or 1004 or 1008 or 1010 or 1020 or 1022 or 1031 or 1037 or 1038 or 1039
             or 1040 or 1041 or 1042 or 1046 or 1050 or 1051 or 1054 or 1064 or 1068 or 1078

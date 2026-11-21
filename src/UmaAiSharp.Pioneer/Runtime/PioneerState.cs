@@ -62,6 +62,7 @@ public struct PioneerStateHeader
     internal bool TrainingFailureIllness;
     public int EventRewardResourceMask, EventRewardRemainingEffects;
     public TrainingBoard TrainingBoard;
+    internal int ZeroFailureSupportMask;
     public PioneerIslandBoard IslandBoard;
     public int AvailableTrainingCommands;
     public int? AvailableRestCommands;

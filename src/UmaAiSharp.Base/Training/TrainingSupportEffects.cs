@@ -15,28 +15,63 @@ public sealed record ResolvedTrainingSupport(int CardId, bool FriendshipEligible
 {
     [JsonIgnore]
     public ImmutableArray<SupportEffect> FriendshipTrainingEffects { get; internal init; } = [];
+    [JsonIgnore]
+    public ImmutableArray<SupportUniqueEffect> PanelTrainingEffects { get; internal init; } = [];
+
+    public int PanelTrainingBonus(int vital, int maxVital, int supportCount, int? totalSupportBond,
+        int scale = 100, ReadOnlySpan<int> bonds = default)
+    {
+        var bonus = 0;
+        foreach (var effect in PanelTrainingEffects)
+        {
+            var teamBond = totalSupportBond;
+            if (effect.Type == 109 && !bonds.IsEmpty)
+            {
+                teamBond = 0;
+                foreach (var bond in bonds) teamBond += bond;
+            }
+            var value = effect.Type switch
+            {
+                108 => Math.Min(effect.Parameter4, (maxVital - effect.Parameter1) * effect.Parameter2 / 100 + effect.Parameter3),
+                109 => (teamBond ?? throw new InvalidDataException($"支援卡 {CardId} 固有 109 需要全队羁绊。")) / effect.Parameter1,
+                110 => effect.Parameter1 * supportCount,
+                114 => effect.Parameter2 - Math.Max(0, 100 - vital) / effect.Parameter1,
+                _ => throw new InvalidOperationException($"无效训练面板固有 {effect.Type}。"),
+            };
+            bonus = checked(bonus + value * scale / 100);
+        }
+        return bonus;
+    }
 }
 
 public static class TrainingSupportEffects
 {
     public static ReadOnlySpan<int> SpecialtyCommands => [101, 105, 102, 103, 106];
 
-    // Unique 120 counts the full deck, including cards absent from the selected training.
+    // Uniques 103 and 120 count the full deck, including cards absent from the selected training.
     public static TrainingSupport BindDeckBonuses(TrainingSupport support, IEnumerable<(int CardId, int SupportType, int CommandId)> deck)
     {
-        if (!support.UniqueEffects.Any(effect => effect.Type == 120)) return support;
-        Span<int> counts = stackalloc int[6];
+        if (!support.UniqueEffects.Any(effect => effect.Type is 103 or 120)) return support;
+        Span<int> counts = stackalloc int[7];
         counts.Clear();
         foreach (var card in deck)
         {
-            var index = card.SupportType switch { 1 => SpecialtyCommands.IndexOf(card.CommandId), 2 or 3 => 5, _ => -1 };
-            if (index < 0) throw new UnknownMechanismException($"支援卡{card.CardId}的编成类型无法用于固有120。");
+            var index = card.SupportType switch { 1 => SpecialtyCommands.IndexOf(card.CommandId), 2 => 5, 3 => 6, _ => -1 };
+            if (index < 0) throw new UnknownMechanismException($"支援卡{card.CardId}的编成类型无法用于固有103或120。");
             counts[index]++;
         }
+        var distinctTypes = counts.Length - counts.Count(0);
+        // Friend and group are distinct for 103 but both grant skill points for 120.
+        counts[5] += counts[6];
         ReadOnlySpan<int> targets = [3, 4, 5, 6, 7, 30];
         var effects = ImmutableArray.CreateBuilder<SupportUniqueEffect>();
         foreach (var effect in support.UniqueEffects)
         {
+            if (effect.Type == 103)
+            {
+                if (distinctTypes >= effect.Value) effects.Add(new(8, effect.Parameter1, 0, 0, 0, 0));
+                continue;
+            }
             if (effect.Type != 120)
             {
                 effects.Add(effect);
@@ -83,6 +118,10 @@ public static class TrainingSupportEffects
                 case 1: friendship.Add(value); return;
                 case 27: failure.Add(value); return;
                 case 28: vital.Add(value); return;
+                case 41:
+                    for (var attribute = 3; attribute <= 7; attribute++)
+                        values[attribute] = checked(values.GetValueOrDefault(attribute) + value);
+                    return;
                 case 2 or 3 or 4 or 5 or 6 or 7 or 8 or 30 or 31:
                     values[type] = checked(values.GetValueOrDefault(type) + value); return;
                 // These fields affect initial state, events, races, hints or placement, not the selected training gain.
@@ -103,13 +142,16 @@ public static class TrainingSupportEffects
                         Add(effect.Parameter3, effect.Parameter4);
                     }
                     break;
+                case 102:
+                    if (support.Bond >= effect.Value && commandId != support.TrainingCommandId) Add(8, effect.Parameter1);
+                    break;
                 case 104:
                     if (effect.Value <= 0) throw new InvalidDataException("粉丝数固有的除数必须大于零。");
                     Add(8, Math.Min(fans / effect.Value, effect.Parameter1));
                     break;
                 case 111: Add(effect.Value, checked(trainingLevel * effect.Parameter1)); break;
                 // These affect initial attributes, training bonds or next-turn placement, not resource gains.
-                case 105 or 113 or 121 or 122: break;
+                case 105 or 108 or 109 or 110 or 112 or 113 or 114 or 115 or 118 or 121 or 122: break;
                 default: throw new UnknownMechanismException($"支援卡{support.CardId}的固有type={effect.Type}尚未实现。");
             }
         }
@@ -120,6 +162,7 @@ public static class TrainingSupportEffects
             friendship.ToImmutable(), failure.ToImmutable(), vital.ToImmutable(), training.ToImmutable(), motivation.ToImmutable())
         {
             FriendshipTrainingEffects = ReadFriendshipTrainingEffects(support),
+            PanelTrainingEffects = [.. support.UniqueEffects.Where(effect => effect.Type is 108 or 109 or 110 or 114)],
         };
     }
 

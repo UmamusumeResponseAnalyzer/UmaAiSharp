@@ -81,8 +81,9 @@ public sealed class InitialStateTests
         var bonds = InitialSupportRules.Calculate(deck).Bonds;
         Assert.Equal(40, bonds[0].Bond);
         Assert.All(bonds[1..], bond => Assert.Equal(0, bond.Bond));
-        Assert.Throws<UnknownMechanismException>(() => InitialSupportRules.Calculate(
-            deck.SetItem(0, deck[0] with { UniqueEffects = [new(115, 14, 5, 0, 0, 0)] })));
+        var team = InitialSupportRules.Calculate(deck.SetItem(0, deck[0] with { UniqueEffects = [new(115, 14, 5, 0, 0, 0)] })).Bonds;
+        Assert.Equal(30, team[0].Bond);
+        Assert.All(team[1..], bond => Assert.Equal(5, bond.Bond));
         Assert.Throws<UnknownMechanismException>(() => StateRules().Compose(Character() with { TalentLevel = 2 }, default, Sources(), deck));
         Assert.Throws<UnknownMechanismException>(() => StateRules().Compose(Character() with { Rarity = 4 }, default, Sources(), deck));
     }

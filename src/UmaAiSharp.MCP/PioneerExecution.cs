@@ -85,7 +85,7 @@ public static class PioneerExecution
             sampleCount, workers, completed, careerFailures, stopped = sampleCount - completed,
             compileMilliseconds = compileTime.TotalMilliseconds, executionMilliseconds = elapsed.TotalMilliseconds,
             processAllocatedBytes = allocated, avx512Available = ExecutionPlatform.HasAvx512,
-            results = rows, finalState,
+            results = rows, finalState, loaded.Data.IgnoredMechanisms,
             execution = new { outcomeSource = loaded.Mode.ToString(),
                 timingScope = "executionAndScheduling" }
         };
@@ -94,7 +94,7 @@ public static class PioneerExecution
         var status = completed == sampleCount ? "completed"
             : batch.Results.Any(result => result.Stop?.Reason == SimulationStopReason.Cancelled) ? "cancelled" : "stopped";
         var stops = ToolResult.Stops(batch.Results);
-        return ToolResult.Report(outputPath, new { loaded.Mode, sampleCount, completed, careerFailures, stopped = sampleCount - completed, stops }, status);
+        return ToolResult.Report(outputPath, new { loaded.Mode, sampleCount, completed, careerFailures, stopped = sampleCount - completed, stops, loaded.Data.IgnoredMechanisms }, status);
     }
 
     internal static ToolResult WriteInitializationStop(string input, string output, UnknownMechanismException error)
@@ -146,8 +146,6 @@ public static class PioneerExecution
         PioneerTurnRules? turnRules = null;
         if (training is not null)
         {
-            if (autonomous && training.Turn < MidRunInheritanceRules.SeniorTurn && training.Inheritance is null)
-                throw new UnknownMechanismException($"第 {training.Turn} 回合缺少本局开局冻结的亲本因子与胜鞍，请使用包含亲本与开局响应的抓包前缀导入。");
             var observedHints = outcomes.OfType<PioneerConditionalOutcome.ObservedEventResult>()
                 .SelectMany(outcome => outcome.Changes?.Hints ?? []).Select(hint => hint.Skill);
             turnRules = rules.CompileTurnRules(training, input.Placement ?? throw new InvalidDataException("训练起点缺少人员登场状态。"),
@@ -155,7 +153,7 @@ public static class PioneerExecution
         }
         var estimatedHistory = autonomous ? PioneerAutonomousSession.EstimateTrainingHistory(start, rules) : null;
         var data = PioneerRuntimeData.Compile(start, outcomes, identity, rules.Construction, checkpoints, turnRules,
-            trainingHistory: estimatedHistory, model: model, raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects);
+            trainingHistory: estimatedHistory, model: model, raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects, forecast: autonomous);
         return new(data, data.CreateInitialState(), new(input.Script, input.Script.Sum(step => step.Action.OwnedPayloadBytes)), input.Mode,
             Convert.ToHexStringLower(SHA256.HashData(bytes)), rules.SourceMasterSha256);
     }
@@ -185,7 +183,7 @@ public static class PioneerExecution
             case "targetRaceWin":
                 var race = Read<TargetRaceWinInput>(payload);
                 return new PioneerConditionalOutcome.TargetRaceWin(race.ActionOrdinal, race.ProgramId, race.FansGained,
-                    race.Next, race.PostRaceChoice);
+                    race.Next, race.PostRaceChoice, race.ExcludedAttribute);
             case "trainingFailure":
                 var failure = Read<FailureInput>(payload);
                 return new PioneerConditionalOutcome.TrainingFailure(failure.ActionOrdinal, failure.Event);
@@ -211,7 +209,7 @@ public static class PioneerExecution
     sealed record ObservedEventResultInput(int ActionOrdinal, PioneerEvent Event, int ChoiceNumber,
         PioneerObservedEventChanges? Changes, PioneerTurnObservation Next);
     sealed record TargetRaceWinInput(int ActionOrdinal, int ProgramId, int FansGained, PioneerTurnObservation Next,
-        int PostRaceChoice = 0);
+        int PostRaceChoice = 0, TrainingAttribute? ExcludedAttribute = null);
     sealed record PenaltyInput(int ActionOrdinal, UmaAiSharp.Pioneer.Training.ResolvedFailureBranch Branch, PioneerTurnObservation? Next = null);
     sealed record HintInput(int ActionOrdinal, int GroupIndex);
     sealed record NpcInput(int ActionOrdinal, ImmutableArray<int> NpcIds);

@@ -25,18 +25,23 @@ public static class PioneerMasterReader
         var sha = Convert.ToHexStringLower(SHA256.HashData(source));
         using var query = db.CreateCommand();
         query.CommandText = """
-            SELECT p.id,p.need_fan_count,t.text,r.grade,COALESCE(f.fan_count,0),p.program_group,p.race_permission,p.month,p.half
+            SELECT p.id,p.need_fan_count,t.text,r.grade,COALESCE(f.fan_count,0),p.program_group,p.race_permission,p.month,p.half,
+                   p.base_program_id,p.random_group_id
             FROM single_mode_program p
             JOIN race_instance i ON i.id=p.race_instance_id
             JOIN race r ON r.id=i.race_id
+            JOIN race_course_set course ON course.id=r.course_set
             LEFT JOIN single_mode_fan_count f ON f.fan_set_id=p.fan_set_id AND f."order"=1
             LEFT JOIN text_data t ON t.category=28 AND t."index"=p.race_instance_id
+            -- Longchamp, Santa Anita and Del Mar belong to L'Arc and Beyond Dreams.
+            WHERE course.race_track_id NOT IN (10201,10202,10203)
             ORDER BY p.id
             """;
         var races = ImmutableArray.CreateBuilder<PioneerRaceRule>();
         using (var rows = query.ExecuteReader())
             while (rows.Read()) races.Add(new(rows.GetInt32(0), rows.GetInt32(1), rows.IsDBNull(2) ? null : rows.GetString(2),
-                rows.GetInt32(3), rows.GetInt32(4), rows.GetInt32(5), rows.GetInt32(6), rows.GetInt32(7), rows.GetInt32(8)));
+                rows.GetInt32(3), rows.GetInt32(4), rows.GetInt32(5), rows.GetInt32(6), rows.GetInt32(7), rows.GetInt32(8),
+                rows.GetInt32(9), rows.GetInt32(10)));
         query.CommandText = """
             SELECT story_id,MIN(show_progress_1),MIN(show_progress_2),
                 CASE WHEN MIN(support_card_id)=MAX(support_card_id) THEN MIN(support_card_id) ELSE 0 END
@@ -169,9 +174,10 @@ public static class PioneerMasterReader
             ORDER BY g.race_group_id
             """).Select(row => row["fans"])],
         [.. ReadIntegers(db, """
-            SELECT id,turn,condition_id FROM single_mode_route_race
-            WHERE target_type=1 AND race_type=0 AND condition_type=1 AND turn BETWEEN 1 AND 72
-            ORDER BY id
+            SELECT g.id,g.turn,g.condition_id FROM single_mode_route_race g
+            JOIN single_mode_scenario_group s ON s.group_id=g.scenario_group_id AND s.scenario_id=11
+            WHERE g.target_type=1 AND g.race_type IN (0,4) AND g.condition_type=1 AND g.turn BETWEEN 1 AND 72
+            ORDER BY g.id
             """).Select(row => new FixedRaceGoal(row["id"], row["turn"], row["condition_id"]))],
         [.. ReadIntegers(db, """
             SELECT g.id,g.turn,g.condition_type,g.condition_id,g.condition_value_1,g.condition_value_2,
@@ -189,8 +195,24 @@ public static class PioneerMasterReader
             SELECT turn,year,month,half FROM single_mode_turn WHERE turn_set_id=11 AND race_entry_type=1 AND turn BETWEEN 12 AND 72
             ORDER BY turn
             """).Select(row => new PioneerRaceDate(row["turn"], row["year"], row["month"], row["half"]))],
-        [.. ReadIntegers(db, "SELECT chara_id,program_group,program_group_2 FROM single_mode_chara_program WHERE chara_id>0 ORDER BY id")
-            .Select(row => new PioneerCharacterRaceProgram(row["chara_id"], row["program_group"], row["program_group_2"]))]);
+        [.. ReadIntegers(db, "SELECT chara_id,program_group FROM single_mode_chara_program ORDER BY id")
+            .Select(row => new PioneerCharacterRaceProgram(row["chara_id"], row["program_group"]))],
+        [.. ReadIntegers(db, """
+            SELECT r.chara_id,g.id,g.sort_id,g.turn,g.determine_race,g.condition_type,g.target_type
+            FROM single_mode_route r JOIN single_mode_route_race g ON g.race_set_id=r.race_set_id
+            JOIN single_mode_scenario_group s ON s.group_id=g.scenario_group_id AND s.scenario_id=11
+            WHERE r.scenario_id IN (0,11) AND (g.determine_race!=0 OR g.target_type!=1 OR g.condition_type NOT IN (1,2,3))
+            ORDER BY r.chara_id,g.sort_id,g.id
+            """).Select(row => new SpecialRaceGoal(row["chara_id"], row["id"], row["sort_id"], row["turn"],
+                row["determine_race"], row["condition_type"], row["target_type"]))],
+        [.. ReadIntegers(db, """
+            SELECT m.race_group_id,m.race_program_id FROM single_mode_race_group m
+            JOIN single_mode_program p ON p.id=m.race_program_id
+            WHERE p.random_group_id>0
+            ORDER BY m.race_group_id,m.race_program_id
+            """).Select(row => new PioneerRaceGroupMember(row["race_group_id"], row["race_program_id"]))],
+        [.. ReadIntegers(db, "SELECT chara_id,turn,gain_id FROM single_mode_race_restrict_turn ORDER BY chara_id,turn,gain_id")
+            .Select(row => new PioneerRaceRestriction(row["chara_id"], row["turn"], row["gain_id"]))]);
 
     public static PioneerTrainingRulesData ReadTraining(string path)
     {

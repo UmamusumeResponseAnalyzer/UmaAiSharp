@@ -57,6 +57,18 @@ public sealed class TrainingFormulaTests
         Assert.Equal(expected, TrainingSupportEffects.Resolve(bound with { Bond = 80 }, 103, 1, 0).BaseBonuses);
     }
 
+    [Theory]
+    [InlineData(2, 0)]
+    [InlineData(3, 10)]
+    public void Unique103CountsFriendAndGroupAsDifferentDeckTypes(int lastCardType, int expected)
+    {
+        var card = new TrainingSupport(1, 50, 1, 101, 0, [], [new(103, 5, 10, 0, 0, 0)]);
+        var bound = TrainingSupportEffects.BindDeckBonuses(card,
+            [(1, 1, 101), (2, 1, 101), (3, 1, 105), (4, 1, 102), (5, 2, 0), (6, lastCardType, 0)]);
+        Assert.Equal(expected, TrainingSupportEffects.Resolve(bound, 101, 1, 0).TrainingEffect);
+        Assert.Equal(expected, new CompiledTrainingDeck([bound]).Resolve(1, 0, 101, 1, 0).TrainingEffect);
+    }
+
     [Fact]
     public void QuantizesRealIntegerBoundaryWhilePreservingTheUnquantizedExactRational()
     {

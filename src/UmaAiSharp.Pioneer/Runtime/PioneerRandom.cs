@@ -25,6 +25,7 @@ internal enum PioneerDraw
     CheckpointHint,
     RaceFatigue,
     CareerRoute,
+    ZeroFailureSupport,
 }
 
 internal static class PioneerRandom

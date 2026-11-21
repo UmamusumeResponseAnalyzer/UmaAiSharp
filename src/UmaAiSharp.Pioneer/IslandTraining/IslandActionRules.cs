@@ -56,8 +56,10 @@ public static class IslandActionRules
         var pointGain = DevelopmentPointGain(before.CompletedCheckpoint, before.CheckpointBonusPercent, participants, friendship);
         var extraBond = before.CharacterEffects.Contains(8) ? 2 : 0;
         var afterDeck = before.Deck.Select(card => card with { Bond = Math.Min(100, card.Bond + (card.Type == 1 ? 10 : 7) + extraBond) }).ToImmutableArray();
-        var grants = selected.Where(card => deck[card.Position].Type == 1).OrderBy(card => card.Position)
-            .Select(card => new TemporarySupportGrant(before.ActionTurn, TemporarySupportGrantSource.IslandTraining, null, card.Position, 19, 60)).ToImmutableArray();
+        var grants = selected.Any(card => card.CardId == 30257)
+            ? selected.Where(card => deck[card.Position].Type == 1).OrderBy(card => card.Position)
+                .Select(card => new TemporarySupportGrant(before.ActionTurn, TemporarySupportGrantSource.IslandTraining, null, card.Position, 19, 60)).ToImmutableArray()
+            : [];
         return new(before.ActionTurn, values, checked(before.DevelopmentPoints + pointGain), pointGain, before.Tickets - 1,
             afterDeck, grants, before.HintCandidates, gains);
     }
@@ -85,8 +87,6 @@ public static class IslandActionRules
         foreach (var support in selected)
             if (!deck.TryGetValue(support.Position, out var card) || card.CardId != support.CardId || card.Level != support.Level || card.Bond != support.Bond)
                 throw new InvalidDataException("本次参加支援与完整deck的身份、等级或羁绊不一致。");
-        if (!selected.Any(card => card.CardId == 30257))
-            throw new UnknownMechanismException("岛训练参加者中缺少Tucker30257，当前规则未实现该编成的+60效果。");
         if (before.HintCandidates.IsDefault || before.HintCandidates.Distinct().Count() != before.HintCandidates.Length
             || before.HintCandidates.Any(position => !selected.Any(card => card.Position == position) || deck[position].Type != 1))
             throw new InvalidDataException("岛训练Hint候选必须明确、唯一且属于行动前参加的普通支援。");
@@ -128,10 +128,8 @@ public static class IslandActionRules
     static void ValidateDeck(ImmutableArray<IslandActionSupport> deck)
     {
         if (deck.IsDefault || deck.Length != 6 || deck.Select(card => card.Position).Distinct().Count() != 6
-            || deck.Any(card => card.Position is < 1 or > 6 || card.Bond is < 0 or > 100 || card.Type is not (1 or 2)))
-            throw new InvalidDataException("岛训练需要六个唯一位置的完整普通/友人支援及0..100羁绊。");
-        if (deck.Count(card => card.Type == 1) != 5 || deck.Count(card => card.Type == 2 && card.CardId == 30257 && card.Level == 50) != 1)
-            throw new UnknownMechanismException("岛训练羁绊及临时效果仅覆盖五普通支援与Lv50 Tucker30257；其它友人、团卡或无Tucker未核验。");
+            || deck.Any(card => card.Position is < 1 or > 6 || card.Bond is < 0 or > 100 || card.Level < 1 || card.Type is not (1 or 2 or 3)))
+            throw new InvalidDataException("岛训练需要六个唯一位置的完整支援类型、等级及0..100羁绊。");
     }
 
     static TrainingParameterChange[] Parameters(TrainingValues values) => [new(1, values.Speed), new(2, values.Stamina),

@@ -1,4 +1,5 @@
 using UmaAiSharp.Core;
+using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Base.Races;
 using UmaAiSharp.Pioneer.Training;
 
@@ -12,13 +13,22 @@ public sealed partial class PioneerScenario
     void ApplyCareerRouteAfterWin(PioneerState state, int goal, ref SimulationRandom random)
     {
         ref var current = ref state.Mutable;
-        var character = data.TrainingStart!.CharacterId ?? current.CardId / 100;
+        var start = data.TrainingStart!;
+        var character = start.CharacterId ?? current.CardId / 100;
+        if (goal == 1474 && start.HomeActions?.EspoirRoute is { } route)
+        {
+            var starts = 1; // Today's Nambu Hai is recorded after its reward is settled.
+            foreach (var program in state.GetSection(PioneerStateSection.RaceWins)[start.Turn..current.Turn])
+                if (program > 0) starts++;
+            current.RaceBranch = route.GoalAfter(starts);
+            return;
+        }
         var draw = random.At(current.Turn, PioneerDraw.CareerRoute);
         if (CharacterRaceRoutes.BranchAfterWin(character, goal, ref draw) is { } branch)
             current.RaceBranch = branch;
     }
 
-    void ApplyCareerGoalReward(PioneerState state, RaceOption race = default)
+    void ApplyCareerGoalReward(PioneerState state, RaceOption race = default, TrainingAttribute? excludedAttribute = null)
     {
         ref var header = ref state.Mutable;
         var character = data.TrainingStart!.CharacterId ?? header.CardId / 100;
@@ -54,10 +64,37 @@ public sealed partial class PioneerScenario
             }
             ApplyMotivationGain(state, 3);
         }
+        else if (character == 1075 && goal is 1708 or 1712)
+            points = Scale(75);
+        else if (character == 1022 && goal == 549)
+            points = Scale(35);
 
-        ApplyProgressionReward(state, attribute, points);
+        if (excludedAttribute is null) ApplyProgressionReward(state, attribute, points);
+        else ApplyProgressionReward(state, new(
+            excludedAttribute == TrainingAttribute.Speed ? 0 : attribute, excludedAttribute == TrainingAttribute.Stamina ? 0 : attribute,
+            excludedAttribute == TrainingAttribute.Power ? 0 : attribute, excludedAttribute == TrainingAttribute.Guts ? 0 : attribute,
+            excludedAttribute == TrainingAttribute.Wisdom ? 0 : attribute, 0, points));
         switch (character, goal)
         {
+            case (1022, 549) when data.TrainingStart!.HomeActions?.RunningStyle == 4:
+                Hint(hintGroups[5], 1);
+                break;
+            case (1022, >= 550 and <= 553):
+                Hint(hintGroups[goal - 550], 2);
+                if (goal == 553) Hint(hintGroups[4], 2);
+                break;
+            case (1031, 684):
+                Hint(hintGroups[0], 1);
+                break;
+            case (1031, 690):
+                Hint(hintGroups[1], 2);
+                break;
+            case (1075, 1707):
+                Hint(hintGroups[0], 1);
+                break;
+            case (1075, 1708 or 1712):
+                Hint(hintGroups[goal == 1708 ? 1 : 2], 3);
+                break;
             case (1063, 1146):
                 state.AddCharacterEffect(31);
                 break;

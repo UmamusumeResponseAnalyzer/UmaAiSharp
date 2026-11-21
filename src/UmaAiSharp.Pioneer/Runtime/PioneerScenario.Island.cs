@@ -26,6 +26,11 @@ public sealed partial class PioneerScenario
             yield break;
         }
         if (current.Stage != PioneerStage.TrainingTurn) yield break;
+        if (IsForcedCharacterRest(state))
+        {
+            yield return new(RestRules.OrdinaryCommand, PioneerRuntimeAction.Rest(RestRules.OrdinaryCommand));
+            yield break;
+        }
         if (ActiveScheduledRace(state) is { } scheduled)
         {
             yield return new(100000 + scheduled.ProgramId, new(PioneerActionKind.Race, scheduled.ProgramId));
@@ -110,9 +115,11 @@ public sealed partial class PioneerScenario
         var environment = input.Environment with
         { Current = header.Resources, Limits = header.Limits, Motivation = header.Motivation, Fans = header.Fans,
             GoldShipBoost = header.Turn == header.SourceTurn ? input.Environment.GoldShipBoost : null };
-        return data.Model.Island(input, (data.IslandDeck ?? data.TrainingDeck)!, environment,
+        var prediction = data.Model.Island(input, (data.IslandDeck ?? data.TrainingDeck)!, environment,
             state.GetSection(PioneerStateSection.TrainingLevels), state.GetSection(PioneerStateSection.SupportBonds),
             data.IslandFacilities ?? state.TurnBoard?.IslandFacilities);
+        return autonomous && header.ActionOrdinal == 0 && data.TrainingStart?.ObservedIslandGains is { } observed
+            ? observed.Apply(prediction, environment) : prediction;
     }
 
     TransitionResult ApplyIsland(PioneerState state, ref SimulationRandom random)
@@ -158,7 +165,11 @@ public sealed partial class PioneerScenario
         if (!wholeRun && !observedArrival)
         {
             if (data.TrainingStart is null)
-                AppendTuckerGrants(state, mask & ordinaryMask, TemporarySupportGrantSource.IslandTraining);
+            {
+                var deck = ((PioneerStart.IslandTraining)data.Start).State.Deck;
+                if (deck.Any(card => card.CardId == 30257 && (mask & (1 << (card.Position - 1))) != 0))
+                    AppendTuckerGrants(state, mask & ordinaryMask, TemporarySupportGrantSource.IslandTraining);
+            }
             else
             {
                 if (data.IsWholeRun && !ApplyConstructionThresholds(state, before))

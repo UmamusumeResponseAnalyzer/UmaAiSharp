@@ -32,6 +32,14 @@ public sealed class PioneerEventCaptureTests
         Assert.NotEmpty(start.Choices);
     }
 
+    [Fact]
+    public void CurrentRewardCanPrecedeAnotherQueuedEvent()
+    {
+        using var fixture = new Capture();
+        fixture.Populate("queuedEvent");
+        Assert.NotNull(PioneerEventCapture.Read(fixture.Path, 14));
+    }
+
     [Theory]
     [InlineData("missingRequest")]
     [InlineData("requestAfterMutation")]
@@ -112,6 +120,12 @@ public sealed class PioneerEventCaptureTests
             var request = new JsonObject { ["event_id"] = current["event_id"]!.GetValue<int>() };
             if (fault == "eventMismatch") request["event_id"] = -1;
             if (fault == "multipleEvents") State["data"]!["unchecked_event_array"]!.AsArray().Add(current.DeepClone());
+            if (fault == "queuedEvent")
+            {
+                var next = current.DeepClone().AsObject();
+                next["event_id"] = current["event_id"]!.GetValue<int>() + 1;
+                State["data"]!["unchecked_event_array"]!.AsArray().Add(next);
+            }
             if (fault != "missingState") Add(10, "response", "check_event", 10, State);
             if (fault != "missingRequest") Add(11, "request", "get_choice_reward", 11, request);
             if (fault == "conflictingRequest") request["event_id"] = -1;

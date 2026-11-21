@@ -28,6 +28,8 @@ internal static class PioneerGameJson
                         if (property.Set is not null
                             && !(info.Type == typeof(PioneerRuntimeAction) && property.Name is "plan" or "storyId" or "supportPosition")
                             && !(info.Type == typeof(TrainingPlacement) && property.Name is "director" or "reporter")
+                            && !(info.Type == typeof(PioneerRaceHistory) && property.Name == "runningStyle")
+                            && !(info.Type == typeof(TrainingEnvironment) && property.Name == "totalSupportBond")
                             && !(info.Type == typeof(SimulationStop) && property.Name == "detail"))
                             property.IsRequired = true;
             } }

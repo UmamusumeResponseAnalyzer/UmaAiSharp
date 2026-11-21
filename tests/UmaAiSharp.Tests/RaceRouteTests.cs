@@ -1,10 +1,48 @@
 using UmaAiSharp.Core;
+using System.Text.Json.Nodes;
+using UmaAiSharp.Pioneer.Game;
 using UmaAiSharp.Base.Races;
+using UmaAiSharp.Pioneer.Runtime;
 
 namespace UmaAiSharp.Tests;
 
 public sealed class RaceRouteTests
 {
+    [Fact]
+    public void JbcVenuesRemainBoundToTheirYearAndMissingHistoryRemainsUnknown()
+    {
+        // Haru Urara's opening and current-race packets, packets-0004 #27821 and #28415.
+        var opening = JsonNode.Parse("""{"race_random_program_array":[{"turn":45,"program_id":1116},{"turn":45,"program_id":1117},{"turn":45,"program_id":1118},{"turn":69,"program_id":1113},{"turn":69,"program_id":1114},{"turn":69,"program_id":1115}]}""")!.AsObject();
+        var schedule = PioneerGameData.ReadRandomRacePrograms(opening)!.Value;
+        Assert.Contains(new PioneerScheduledProgram(69, 1114), schedule);
+        Assert.DoesNotContain(new PioneerScheduledProgram(45, 1114), schedule);
+        Assert.Null(PioneerGameData.ReadRandomRacePrograms(new JsonObject()));
+    }
+
+    [Theory]
+    [InlineData(1, 2, 0, 1476)]
+    [InlineData(1, 2, 1, 0)]
+    [InlineData(1, 2, 2, 1475)]
+    [InlineData(-1, 1, 2, 1476)]
+    public void EspoirFinalGoalUsesAllStartsThroughNambuHai(int escapeLead, int style, int futureStarts, int expected)
+        => Assert.Equal(expected, new EspoirRaceRoute(escapeLead, style, []).GoalAfter(futureStarts));
+
+    [Fact]
+    public void ProjectedFinalGoalRespectsAnObservedPlayerChoice()
+    {
+        var notes = new List<string>();
+        var undecided = new HashSet<int>();
+        CharacterRaceRoutes.ProjectFutureGoals(1022, 48, undecided, [], notes.Add);
+        Assert.Equal(550, Assert.Single(undecided));
+        Assert.Single(notes);
+
+        notes.Clear();
+        var selected = new HashSet<int> { 553 };
+        CharacterRaceRoutes.ProjectFutureGoals(1022, 48, selected, [], notes.Add);
+        Assert.Equal(553, Assert.Single(selected));
+        Assert.Empty(notes);
+    }
+
     static RaceRouteCatalog Catalog(int scenario, int[] groups) => new(
         [new(122, 0, 1135, 1135, 0, 0)],
         [new(1523, 1135, 100, 1, 5, 44, 0, 1, 168, 3, 0, 1, 0, 99, 0, 99),

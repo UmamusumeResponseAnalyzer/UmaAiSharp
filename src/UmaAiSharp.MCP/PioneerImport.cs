@@ -24,7 +24,8 @@ public static class PioneerImport
         var (rules, identity) = PioneerRulesSnapshot.ReadArtifact(rulesPath);
         CapturedPioneerTraining? captured = null;
         CapturedPioneerEvent? revealed = null;
-        (string Endpoint, byte[] Packet)? reporter = null;
+        (string Endpoint, byte[] Packet)? anchorResponse = null;
+        string? ignoredHistory = null;
         if (packetId is { } id)
         {
             try
@@ -32,8 +33,17 @@ public static class PioneerImport
                 revealed = PioneerEventCapture.Read(sourcePath, id, cancellationToken);
                 if (revealed is null)
                 {
-                    reporter = ReadReporterEnding(sourcePath, id);
-                    if (reporter is null) captured = PioneerTrainingHistory.Read(sourcePath, id, cancellationToken);
+                    anchorResponse = ReadResponse(sourcePath, id, reporterEndingOnly: true);
+                    if (anchorResponse is null)
+                    {
+                        try { captured = PioneerTrainingHistory.Read(sourcePath, id, cancellationToken); }
+                        catch (UnknownMechanismException error)
+                        {
+                            // The independently decoded current response remains usable without the prefix.
+                            anchorResponse = ReadResponse(sourcePath, id, reporterEndingOnly: false);
+                            ignoredHistory = $"抓包 {id} 省略无法还原的育成历史：{error.Message}";
+                        }
+                    }
                 }
             }
             catch (UnknownMechanismException error)
@@ -41,13 +51,13 @@ public static class PioneerImport
                 return PioneerExecution.WriteInitializationStop(sourcePath, Path.Combine(output, "import.json"), error);
             }
         }
-        endpoint = revealed?.Endpoint ?? captured?.Endpoint ?? reporter?.Endpoint ?? endpoint;
+        endpoint = revealed?.Endpoint ?? captured?.Endpoint ?? anchorResponse?.Endpoint ?? endpoint;
         if (endpoint is null || !endpoint.StartsWith("/single_mode/", StringComparison.Ordinal)
             && !endpoint.StartsWith("/single_mode_pioneer/", StringComparison.Ordinal)
             && !endpoint.StartsWith("/umamusume/single_mode/", StringComparison.Ordinal)
             && !endpoint.StartsWith("/umamusume/single_mode_pioneer/", StringComparison.Ordinal))
             throw new InvalidDataException("endpoint 要求实际育成响应路径，如/single_mode/load；不接受完整URL或请求端点推测。");
-        var packet = revealed?.Payload ?? captured?.Payload ?? reporter?.Packet ?? File.ReadAllBytes(sourcePath);
+        var packet = revealed?.Payload ?? captured?.Payload ?? anchorResponse?.Packet ?? File.ReadAllBytes(sourcePath);
         var responseData = DecodeResponse(packet)["data"] as JsonObject ?? throw new InvalidDataException("响应缺少data对象。");
         JsonObject common;
         try { common = PioneerNormalizer.GetCommon(responseData, endpoint) ?? throw new InvalidDataException("响应缺少当前端点的育成common。"); }
@@ -69,12 +79,16 @@ public static class PioneerImport
             PioneerStart start;
             string kind;
             RootCandidate<PioneerRuntimeAction>[]? candidates = null;
-            if (revealed is not null)
+            if (revealed is not null || Int(chara, "state") == 0
+                && events.FirstOrDefault()?["event_contents_info"]?["choice_array"] is JsonArray { Count: > 1 })
             {
                 var pioneer = responseData["pioneer_data_set"] as JsonObject ?? throw new InvalidDataException("事件响应缺少pioneer_data_set。");
-                var declared = PioneerEventCompiler.Compile(chara, events[0], revealed.Rewards,
-                    PioneerMasterCompiler.EventPartners(rules.EventPartners, chara, pioneer));
-                start = declared; kind = "declaredEvent";
+                var declared = PioneerEventCompiler.Compile(chara, events[0], revealed?.Rewards, pioneer, rules.EventPartners);
+                start = revealed is not null ? declared : declared with
+                {
+                    IgnoredMechanisms = declared.IgnoredMechanisms.Add($"育成卡 {Int(chara, "card_id")}，故事 {declared.Event.StoryId}：本包仅含选项，缺少对应的 get_choice_reward 奖励响应。")
+                };
+                kind = "declaredEvent";
                 candidates = [.. declared.Choices.Select(choice => new RootCandidate<PioneerRuntimeAction>(
                     choice.ChoiceNumber, PioneerRuntimeAction.Choose(declared.Event, choice.ChoiceNumber)))];
             }
@@ -96,7 +110,7 @@ public static class PioneerImport
                     Inheritance = inheritance, ObservedGrants = captured?.ObservedGrants,
                     HomeActions = PioneerAutonomousSession.ReadHomeActions(common, rules,
                         captured?.UnseenFriendMask ?? (training.Commands.All(command => command.ExecutionCount == 0) ? 63 : 0), events.Length == 0,
-                        captured?.RaceHistory, captured?.RaceReservations),
+                        captured?.RaceHistory, captured?.RaceReservations, captured?.RandomRacePrograms),
                     ObservedStoryHistory = PioneerAutonomousSession.ResolveStories(captured?.ObservedStories, rules) };
                 kind = "trainingTurn";
             }
@@ -113,7 +127,7 @@ public static class PioneerImport
                         ?? (observedCounts.All(count => count == 0) ? [0, 0, 0, 0, 0] : null),
                     HomeActions = PioneerAutonomousSession.ReadHomeActions(common, rules,
                         captured?.UnseenFriendMask ?? (observedCounts.All(count => count == 0) ? 63 : 0), false,
-                        captured?.RaceHistory, captured?.RaceReservations),
+                        captured?.RaceHistory, captured?.RaceReservations, captured?.RandomRacePrograms),
                 };
                 placement = PioneerPlacementSeed.Observe(chara, pioneer);
                 start = planning with { Continuation = training };
@@ -160,8 +174,15 @@ public static class PioneerImport
                 }
                 candidates = [new(revealedEvent.StoryId, PioneerRuntimeAction.Choose(revealedEvent, 0))];
             }
-            else throw new UnknownMechanismException($"响应位于回合{Int(chara, "turn")}、角色状态{Int(chara, "state")}、阶段{Int(chara, "playing_state")}，待处理事件{events.Length}个；导入支持普通／合宿就绪态、建设规划、建设、训练升级／休息确认、记者收尾和角色结局。事件选项需以抓包中的get_choice_reward响应为锚点。");
+            else
+            {
+                var stories = string.Join("、", events.Select(item => $"{item["story_id"]}（事件 {item["event_id"]}）"));
+                throw new UnknownMechanismException($"育成卡 {Int(chara, "card_id")}，回合 {Int(chara, "turn")}、角色状态 {Int(chara, "state")}、阶段 {Int(chara, "playing_state")}，此响应没有可比较的行动。"
+                    + (events.Length == 0 ? "" : $" 待处理故事 {stories}。比较已揭示选项请使用对应的 get_choice_reward 响应。"));
+            }
 
+            if (ignoredHistory is not null)
+                start = start with { IgnoredMechanisms = start.IgnoredMechanisms.Add(ignoredHistory) };
             var input = new PioneerExecutionInput(identity, PioneerExecutionMode.Autonomous,
                 new(kind, JsonSerializer.SerializeToElement(start, start.GetType(), PioneerExecution.JsonOptions)), [], [], placement);
             var trainingContext = start as PioneerStart.TrainingTurn ?? (start as PioneerStart.Planning)?.Continuation;
@@ -169,7 +190,7 @@ public static class PioneerImport
             var estimated = PioneerAutonomousSession.EstimateTrainingHistory(start, rules);
             var compiled = PioneerRuntimeData.Compile(start, [], identity, rules.Construction,
                 checkpointMaster: turnRules is null ? null : rules.CompileCheckpoints(), turnRules: turnRules,
-                trainingHistory: estimated, raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects);
+                trainingHistory: estimated, raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects, forecast: true);
             var root = compiled.CreateInitialState(); var scenario = new PioneerScenario(compiled);
             var currentProgress = rules.StoryProgress.FirstOrDefault(row => row.StoryId == root.Header.Event.StoryId);
             candidates ??= scenario.Candidates(root).ToArray();
@@ -185,14 +206,14 @@ public static class PioneerImport
             using (var stream = new FileStream(Path.Combine(output, "import.json"), FileMode.CreateNew))
                 JsonSerializer.Serialize(stream, new { status = "completed", endpoint,
                     packetSha256 = Convert.ToHexStringLower(SHA256.HashData(packet)), masterSha256 = rules.SourceMasterSha256,
-                    compiled.RulesIdentity, decision = scenario.Inspect(root, 0).Decision.Id, candidateCount = candidates.Length,
+                    compiled.RulesIdentity, compiled.IgnoredMechanisms, decision = scenario.Inspect(root, 0).Decision.Id, candidateCount = candidates.Length,
                     trainingHistory = captured?.History, estimatedTrainingHistory = estimated is not null, eventRewards = revealed?.History,
                     inheritance = trainingContext is null || trainingContext.Turn >= MidRunInheritanceRules.SeniorTurn ? null
                         : inheritance is { } family ? (family.HasUmaPlan ? "umaPlan" : "ordinary") : "missingPedigree",
                     currentStoryProgress = currentProgress.StoryId > 0 ? (PioneerStoryProgress?)currentProgress : null,
                     observedStoryOccurrences = captured?.ObservedStories.Length,
                     unmatchedStoryConfirmations = captured?.UnmatchedStoryConfirmations }, PioneerExecution.JsonOptions);
-            return new("completed", new { turn = root.Header.Turn, stage = root.Header.Stage, candidateCount = candidates.Length },
+            return new("completed", new { turn = root.Header.Turn, stage = root.Header.Stage, candidateCount = candidates.Length, compiled.IgnoredMechanisms },
                 ToolResult.Paths(output, ("input", "input.json"), ("candidates", "candidates.json"), ("report", "import.json")));
         }
         catch (UnknownMechanismException error)
@@ -201,19 +222,21 @@ public static class PioneerImport
         }
     }
 
-    static (string Endpoint, byte[] Packet)? ReadReporterEnding(string path, long anchor)
+    static (string Endpoint, byte[] Packet)? ReadResponse(string path, long anchor, bool reporterEndingOnly)
     {
         using var db = EvidenceAudit.OpenReadOnly(path);
         using var query = db.CreateCommand();
         query.CommandText = """
             SELECT endpoint,payload FROM packets
-            WHERE id=$id AND direction='response' AND endpoint LIKE '%/check_event'
+            WHERE id=$id AND direction='response' AND ($any=1 OR endpoint LIKE '%/check_event')
             """;
         query.Parameters.AddWithValue("$id", anchor);
+        query.Parameters.AddWithValue("$any", !reporterEndingOnly);
         using var row = query.ExecuteReader();
         if (!row.Read()) return null;
         var endpoint = row.GetString(0);
         var packet = (byte[])row.GetValue(1);
+        if (!reporterEndingOnly) return (endpoint, packet);
         var common = PioneerNormalizer.GetCommon(DecodeResponse(packet)["data"] as JsonObject, endpoint);
         return common?["unchecked_event_array"] is JsonArray { Count: 1 } events
             && events[0]?["story_id"]?.GetValue<int>() == PioneerEvent.ReporterEndingStory

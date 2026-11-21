@@ -19,6 +19,30 @@ public sealed class TrainingNumericKernelTests
     ];
 
     [Fact]
+    public void PublishedPanelUniquesMatchTheirActiveBonuses()
+    {
+        var cases = new (int Card, int Command, SupportUniqueEffect Unique, int Bonus)[]
+        {
+            (30083, 103, new(102, 80, 20, 0, 0, 0), 20),
+            (30095, 101, new(108, 8, 100, 75, 5, 20), 12),
+            (30099, 103, new(109, 8, 30, 0, 0, 0), 13),
+            (30102, 103, new(110, 8, 5, 0, 0, 0), 10),
+            (30115, 105, new(114, 8, 5, 20, 0, 0), 12),
+        };
+        foreach (var (id, command, unique, bonus) in cases)
+        {
+            var card = new TrainingSupport(id, 50, 1, command, 80, [], [unique]);
+            var other = new TrainingSupport(30282, 50, 2, 101, 40, [], []);
+            var input = Ordinary([card, other]) with { CommandId = 101, TotalSupportBond = 400 };
+            input = input with { Current = input.Current with { Vital = 60 }, Limits = input.Limits with { Vital = 110 } };
+            var expected = TrainingNumericKernel.GenerateOrdinary(input with
+                { Supports = [card with { Effects = [new(8, bonus)], UniqueEffects = [] }, other] });
+            Assert.Equal(expected, TrainingNumericKernel.GenerateOrdinary(input, new([card, other])));
+            Equal(TrainingFormulaCandidate.GenerateOrdinary(input), expected);
+        }
+    }
+
+    [Fact]
     public void TamamoMotivationAppliesWhenSheJoinsAnotherCardsFriendshipTraining()
     {
         var tamamo = new TrainingSupport(30256, 50, 1, 102, 35, [new(32, 30)], [new(113, 2, 60, 0, 0, 0)]);

@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Base.Events;
+using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Runtime;
 
 namespace UmaAiSharp.Tests;
@@ -72,7 +73,8 @@ public sealed class DeclaredEventRewardTests
         execution = SimulationRunner.CreateExecution(resolvedScenario, script, initial, 71, 0);
         var stopped = SimulationRunner.Continue(resolvedScenario, script, ref execution);
         Assert.Equal(1205, execution.State.Header.Resources.Speed);
-        Assert.Equal(1, execution.State.Header.EventRewardRemainingEffects);
+        Assert.Equal(0, execution.State.Header.EventRewardRemainingEffects);
+        Assert.Contains(26, execution.State.GetSection(PioneerStateSection.CharacterEffects).ToArray());
         Assert.Equal(1, execution.State.Header.EventRewardResourceMask);
         Assert.Equal(1, execution.State.Header.ConditionalOutcomeCount);
         Assert.Equal(1, stopped.Progress.ConsumedActions); Assert.Equal(0, stopped.Progress.SettledActions);
@@ -97,7 +99,8 @@ public sealed class DeclaredEventRewardTests
         var after = reward.Apply(before, caps, 5, false, false);
         Assert.Equal(104, after.Resources.Vital); Assert.Equal(104, after.Limits.Vital);
         Assert.Equal(1201, after.Resources.Speed); Assert.Equal(5, after.Motivation);
-        Assert.Throws<UnknownMechanismException>(() => new DeclaredEventRewards(new([new(2, 1, 10, 0)])).Apply(before, caps, 3, false, false));
+        var loss = new DeclaredEventRewards(new([new(2, 2, 15, 0)])).Apply(before, caps, 3, false, false);
+        Assert.Equal(1385, loss.Resources.Stamina);
         Assert.Throws<InvalidDataException>(() => new DeclaredEventRewards(new([new(1, 10, -1, 0)])));
         var guarded = new DeclaredEventRewards(new([new(2, 20, 1, 0)])).Apply(before, caps, 3, true, false);
         Assert.True(guarded.ConsumePositiveThinking); Assert.Equal(3, guarded.Motivation);
@@ -110,6 +113,33 @@ public sealed class DeclaredEventRewardTests
             [new(scenario.Inspect(root, 0).Decision.Id, PioneerRuntimeAction.Choose(start.Event, 1))], 0);
         var execution = SimulationRunner.CreateExecution(scenario, script, root, 71, 0);
         Assert.Equal(1, SimulationRunner.Continue(scenario, script, ref execution).Progress.ConsumedActions);
+    }
+
+    [Fact]
+    public void ImmediateChoiceAdviceComparesEveryRevealedBranchAgainstTheRequestedGoal()
+    {
+        var fixture = JsonNode.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "pioneer-event-resources.json")))!;
+        var row = fixture["cases"]!.AsArray().First(item => item!["beforePacketId"]!.GetValue<int>() == 706)!;
+        var template = fixture["templates"]![row["template"]!.GetValue<int>()]!;
+        var start = PioneerEventCompiler.Compile(row["before"]!.AsObject(), template["event"]!.AsObject(), template["rewards"]!.AsArray());
+        var data = PioneerRuntimeData.Compile(start, [], "event-advice");
+        var scenario = new PioneerScenario(data, autonomous: true);
+        var root = data.CreateInitialState();
+        var candidates = start.Choices.Select(choice => new RootCandidate<PioneerRuntimeAction>(
+            choice.ChoiceNumber, PioneerRuntimeAction.Choose(start.Event, choice.ChoiceNumber))).ToArray();
+        var points = new GoalDefinition([], [new([new(new GainedSkillPoints(), 1)])]);
+        var result = scenario.EvaluateEventChoices(root, candidates, points.Compiled);
+        Assert.Equal(2, result.RecommendedCandidateId);
+        Assert.Equal(2, result.Choices[1].Branches.Length);
+        Assert.All(result.Choices[1].Branches, branch => Assert.Equal(start.Resources.SkillPoints + 10, branch.After!.Value.Resources.SkillPoints));
+        Assert.Contains(result.IgnoredMechanisms, message => message.Contains("501060516") && message.Contains("选项 2")
+            && message.Contains("分支 1") && message.Contains("display_id=40"));
+
+        var speed = new GoalDefinition([], [new([new(new AttributeDeficit(TrainingAttribute.Speed), -1)])]);
+        var overlapping = scenario.EvaluateEventChoices(root, candidates, speed.Compiled);
+        Assert.Null(overlapping.RecommendedCandidateId);
+        Assert.Equal(new[] { 1, 2 }, overlapping.ContenderIds);
+        Assert.Equal(start.Resources, root.Header.Resources);
     }
 
     [Theory]

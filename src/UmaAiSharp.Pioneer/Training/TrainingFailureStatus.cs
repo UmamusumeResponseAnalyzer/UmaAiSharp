@@ -13,13 +13,16 @@ public static class TrainingFailureStatus
         return bias;
     }
 
-    public static int StatusBias(int effect, ImmutableArray<int> raceOnlyEffects = default) => effect switch
+    public static int StatusBias(int effect, ImmutableArray<int> raceOnlyEffects = default) => KnownStatusBias(effect, raceOnlyEffects)
+        ?? throw new UnknownMechanismException($"角色效果 {effect} 缺少已确认的训练失败率规则。");
+
+    internal static int? KnownStatusBias(int effect, ImmutableArray<int> raceOnlyEffects) => effect switch
     {
         10 or 13 => -2,
         11 => -4,
         6 or 12 => 2,
         1 or 2 or 3 or 4 or 5 or 7 or 8 or 9 or 25 or 26 or 27 or 31 or 40 => 0,
         _ when !raceOnlyEffects.IsDefaultOrEmpty && raceOnlyEffects.BinarySearch(effect) >= 0 => 0,
-        _ => throw new UnknownMechanismException($"角色效果 {effect} 缺少已确认的训练失败率规则。")
+        _ => null
     };
 }

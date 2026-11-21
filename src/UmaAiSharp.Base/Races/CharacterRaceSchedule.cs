@@ -29,7 +29,8 @@ public sealed class CharacterRaceSchedule
             edit.BlockRemovedTurn ? resolveGoal(edit.RemovedGoal).Turn : 0))];
 
     public static ImmutableArray<ScheduledRace> FromSelectedGoals(IEnumerable<FixedRaceGoal> selected,
-        Func<int, RaceOption> resolveProgram, IEnumerable<ScheduledRace> reservations)
+        Func<int, RaceOption> resolveProgram, IEnumerable<ScheduledRace> reservations,
+        Action<IGrouping<int, FixedRaceGoal>>? reportAmbiguous = null)
     {
         var byTurn = new SortedDictionary<int, ScheduledRace>();
         foreach (var group in selected.GroupBy(goal => goal.Turn))
@@ -37,6 +38,7 @@ public sealed class CharacterRaceSchedule
             var goal = group.First();
             if (group.All(other => other.ProgramId == goal.ProgramId))
                 byTurn.Add(group.Key, goal.Schedule(resolveProgram(goal.ProgramId)));
+            else reportAmbiguous?.Invoke(group);
         }
         foreach (var race in reservations)
             byTurn.TryAdd(race.Turn, race);

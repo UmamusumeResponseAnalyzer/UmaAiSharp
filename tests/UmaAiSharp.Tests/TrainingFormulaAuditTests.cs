@@ -12,7 +12,7 @@ public sealed class TrainingFormulaAuditTests : IDisposable
     [Theory]
     [InlineData("Paired", "valid", 1, 0)]
     [InlineData("ConflictingCapture", "valid", 0, 0)]
-    [InlineData("Paired", "group-card", 0, 1)]
+    [InlineData("Paired", "group-card", 1, 0)]
     public void AuditRequiresUnambiguousCaptureAndCompleteTypedInputs(string exchangeStatus, string inputKind, int checkedSamples, int unsupported)
     {
         Directory.CreateDirectory(directory);
@@ -26,7 +26,7 @@ public sealed class TrainingFormulaAuditTests : IDisposable
                 INSERT INTO single_mode_training VALUES(101,1,101,520);
                 CREATE TABLE single_mode_chara_effect_buff(effect_id INTEGER);
                 CREATE TABLE support_card_data(id INTEGER, rarity INTEGER, effect_table_id INTEGER, unique_effect_id INTEGER, command_id INTEGER, support_card_type INTEGER);
-                INSERT INTO support_card_data VALUES(123,2,123,0,101,$cardType);
+                INSERT INTO support_card_data VALUES(123,2,123,0,CASE WHEN $cardType=3 THEN 0 ELSE 101 END,$cardType);
                 CREATE TABLE support_card_unique_effect(id INTEGER);
                 CREATE TABLE support_card_effect_table(id INTEGER,type INTEGER,init INTEGER,limit_lv5 INTEGER,limit_lv10 INTEGER,limit_lv15 INTEGER,limit_lv20 INTEGER,limit_lv25 INTEGER,limit_lv30 INTEGER,limit_lv35 INTEGER,limit_lv40 INTEGER,limit_lv45 INTEGER,limit_lv50 INTEGER);
                 INSERT INTO support_card_effect_table VALUES(123,19,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1);
