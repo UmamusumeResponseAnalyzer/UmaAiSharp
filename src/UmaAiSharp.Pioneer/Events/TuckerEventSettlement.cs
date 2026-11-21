@@ -1,5 +1,5 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Events;
 

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 
@@ -326,7 +327,7 @@ public static class TrainingNumericKernel
                     }
         var vital = basis.Vital > 0 ? checked(basis.Vital + recovery) : (basis.Vital * vitalFactor).Truncate();
         var train = T.Ratio(100L + training + extraTraining, 100);
-        var heads = T.Ratio(100L + 5L * ((long)guests + supports.Length), 100);
+        var heads = T.Ratio(TrainingBonuses.ParticipantPercent((long)guests + supports.Length), 100);
         var house = T.Ratio(10000 + houseBonus, 10000);
         var mood = Motivation<T>(environment.Motivation, motivation);
         Span<int> common = stackalloc int[6];
@@ -367,10 +368,10 @@ public static class TrainingNumericKernel
         if (capExtra) extra = Math.Min(100, extra);
         var current = Attribute(environment.Current, index);
         var limit = Limit(environment.Limits, index);
-        uncappedCommon[index] = index < 5 ? ConvertAttribute(current, lower) : lower;
+        uncappedCommon[index] = index < 5 ? AttributeGain.FromRaw(current, lower) : lower;
         common[index] = index < 5 ? Math.Min(uncappedCommon[index], limit - current) : lower;
         // The scenario layer starts at the actual, capped common-layer state.
-        uncappedScenario[index] = index < 5 ? ConvertAttribute(current + common[index], extra) : extra;
+        uncappedScenario[index] = index < 5 ? AttributeGain.FromRaw(current + common[index], extra) : extra;
         scenario[index] = index < 5 ? Math.Min(uncappedScenario[index], limit - current - common[index]) : extra;
     }
 
@@ -400,13 +401,7 @@ public static class TrainingNumericKernel
     }
 
     static T Motivation<T>(int motivation, long bonus) where T : struct, ITrainingMultiplier<T>
-        => T.Ratio(checked(1000 + (motivation - 3) * (100 + bonus)), 1000);
-    static int ConvertAttribute(int before, int gain)
-    {
-        var below = Math.Min(gain, Math.Max(0, 1200 - before));
-        var above = gain - below;
-        return below + (above > 0 ? Math.Max(1, above / 2) : 0);
-    }
+        => T.Ratio(TrainingBonuses.MotivationPermille(motivation, bonus), 1000);
     static int Target(int index) => index < 5 ? index + 1 : 30;
     static int Attribute(TrainingValues values, int index) => index switch
     { 0 => values.Speed, 1 => values.Stamina, 2 => values.Power, 3 => values.Guts, 4 => values.Wisdom, _ => values.SkillPoints };

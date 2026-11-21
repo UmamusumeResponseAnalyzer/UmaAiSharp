@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Numerics;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Runtime;

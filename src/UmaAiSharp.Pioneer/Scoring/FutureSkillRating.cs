@@ -1,8 +1,9 @@
 using System.Buffers;
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Scoring;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Hints;
-using UmaAiSharp.Pioneer.Inheritance;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Inheritance;
 
 namespace UmaAiSharp.Pioneer.Scoring;
 
@@ -32,7 +33,7 @@ internal sealed class FutureSkillRating
     public FutureSkillRating(PioneerSkillRatingData catalog, PioneerHintProgress progress, PioneerHintRules hints,
         int cardId, in TrainingValues resources, ReadOnlySpan<int> effects)
     {
-        if (progress.Aptitudes.Length != PioneerInheritanceRules.AptitudeTargets.Length
+        if (progress.Aptitudes.Length != Aptitude.GroupIds.Length
             || progress.Aptitudes.Any(value => value is < 1 or > 8))
             throw new InvalidDataException("技能评分需要完整的十项适性。");
         var byId = catalog.Skills.ToDictionary(skill => skill.Id);

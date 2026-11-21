@@ -1,3 +1,4 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 
 namespace UmaAiSharp.Pioneer.Training;

@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Runtime;
-using UmaAiSharp.Pioneer.Scoring;
+using UmaAiSharp.Base.Scoring;
 
 namespace UmaAiSharp.Tests;
 

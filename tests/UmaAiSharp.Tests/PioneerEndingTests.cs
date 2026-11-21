@@ -1,7 +1,8 @@
+using UmaAiSharp.Base.Hints;
 using System.Text.Json;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Ending;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Tests;
 

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Training;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;

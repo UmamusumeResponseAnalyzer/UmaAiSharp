@@ -1,9 +1,9 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Offline;
 using UmaAiSharp.Pioneer.Game;
 using System.Text.Json.Nodes;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Tests;
 

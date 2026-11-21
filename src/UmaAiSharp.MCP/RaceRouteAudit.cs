@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Races;
+using UmaAiSharp.Base.Races;
 
 namespace UmaAiSharp.MCP.Evidence;
 
@@ -54,7 +54,7 @@ public static class RaceRouteAudit
             using (var reader = command.ExecuteReader())
                 while (reader.Read()) groups.Add(reader.GetInt32(0));
         }
-        var catalog = new RaceRouteCatalog(routes, goals, cards, groups);
+        var catalog = new RaceRouteCatalog(routes, goals, cards, 11, groups);
         var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var issues = new List<EvidenceIssue>();
         var seen = new HashSet<string>(StringComparer.Ordinal);

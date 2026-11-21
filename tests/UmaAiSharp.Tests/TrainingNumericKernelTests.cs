@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Training;
 
@@ -136,6 +137,8 @@ public sealed class TrainingNumericKernelTests
                     var input = Ordinary([card with { Bond = bond }]) with { Fans = fans, Level = level };
                     Equal(TrainingFormulaCandidate.GenerateOrdinary(input), TrainingNumericKernel.GenerateOrdinary(input, deck));
                 }
+        Assert.Throws<ArgumentOutOfRangeException>(() => deck.Resolve(card.Position, card.Bond, 101, 6, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => TrainingSupportEffects.Resolve(card, 101, 6, 0));
         var overflowing = card with { Effects = [new(8, 1)], UniqueEffects = [new(101, 80, 8, int.MaxValue, 0, 0)], Bond = 79 };
         var overflowDeck = new CompiledTrainingDeck([overflowing]);
         Equal(TrainingFormulaCandidate.GenerateOrdinary(Ordinary([overflowing])),

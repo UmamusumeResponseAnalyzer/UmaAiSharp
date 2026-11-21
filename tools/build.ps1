@@ -40,7 +40,7 @@ try {
 
     $version = dotnet msbuild $project -getProperty:Version -nologo
     $feed = Join-Path $stagedPlugin 'obj/nuget'
-    foreach ($name in 'UmaAiSharp.Core', 'UmaAiSharp.Pioneer', 'UmaAiSharp.Pioneer.Game') {
+    foreach ($name in 'UmaAiSharp.Core', 'UmaAiSharp.Base', 'UmaAiSharp.Pioneer', 'UmaAiSharp.Pioneer.Game') {
         dotnet pack "src/$name/$name.csproj" -c Release --no-restore -m:1 -nodeReuse:false "-p:Version=$version" -o $feed
     }
 

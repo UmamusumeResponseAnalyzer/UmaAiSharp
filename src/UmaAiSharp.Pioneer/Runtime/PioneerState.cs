@@ -1,7 +1,8 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core.Goals;
-using UmaAiSharp.Pioneer.Hints;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;
 

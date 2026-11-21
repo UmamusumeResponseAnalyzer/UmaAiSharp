@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using UmaAiSharp.Core.Goals;
 
-namespace UmaAiSharp.Pioneer.Scoring;
+namespace UmaAiSharp.Base.Scoring;
 
 public sealed record OwnedScoringSkill(int Id, int Level);
 public sealed record ScoringSkillDefinition(int Id, int Grade, ImmutableArray<int> Tags);
@@ -16,7 +16,7 @@ public sealed record CandidateScore(int AttributeScore, int SkillScore, Immutabl
     public int Total => checked(AttributeScore + SkillScore);
 }
 
-// These are falsifiable candidates copied as formulas, not accepted game rules or a Host runtime dependency.
+// Observed archive coverage and limits of the candidate formulas are recorded in docs/race-route-evidence.md.
 public static class ScoringCandidates
 {
 
@@ -80,7 +80,7 @@ public static class ScoringCandidates
         ImmutableArray<int> runningStyleAptitudes, ImmutableArray<int> distanceAptitudes)
         => SkillToPoint(skill, level, runningStyleAptitudes.AsSpan(), distanceAptitudes.AsSpan());
 
-    internal static int SkillToPoint(ScoringSkillDefinition skill, int level,
+    public static int SkillToPoint(ScoringSkillDefinition skill, int level,
         ReadOnlySpan<int> runningStyleAptitudes, ReadOnlySpan<int> distanceAptitudes)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(level);

@@ -1,4 +1,7 @@
+using DisplayAttributeGain = UmaAiSharp.Base.Training.AttributeGain;
 using System.Numerics;
+using UmaAiSharp.Base.Scoring;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Ending;
@@ -170,11 +173,11 @@ public sealed partial class PioneerScenario
                             expectedFans += (double)count / RaceFanSamples * rules.FirstPlaceFans(race.FirstPlaceFans, percent);
                         var racePoints = rules.WholeRun && turn >= periods[0].PlanningTurn && checkpoint < periods.Length
                             ? RaceDevelopmentPoints(state, target: false) : 0;
-                        var speed = Display(current.Resources.Speed, gain);
-                        var stamina = Display(current.Resources.Stamina, gain);
-                        var power = Display(current.Resources.Power, gain);
-                        var guts = Display(current.Resources.Guts, gain);
-                        var wisdom = Display(current.Resources.Wisdom, gain);
+                        var speed = DisplayAttributeGain.FromRaw(current.Resources.Speed, gain);
+                        var stamina = DisplayAttributeGain.FromRaw(current.Resources.Stamina, gain);
+                        var power = DisplayAttributeGain.FromRaw(current.Resources.Power, gain);
+                        var guts = DisplayAttributeGain.FromRaw(current.Resources.Guts, gain);
+                        var wisdom = DisplayAttributeGain.FromRaw(current.Resources.Wisdom, gain);
                         var raceValue = AttributeGain(current, attributeForecast, new(speed, stamina, power, guts, wisdom, 0, 0), default, attributeWeights) / 5;
                         reward = raceValue + skill * skillPointValue + Progress(racePoints, false)
                             + UpcomingUniqueUpgradeValue(current, race, skillPointValue);
@@ -226,9 +229,10 @@ public sealed partial class PioneerScenario
                         var bondGain = data.TrainingDeck!.TrainingBondBonus(placement.SupportMask) + (current.HasCharm ? 2 : 0);
                         var hints = placement.HintMask & rules.OrdinarySupportMask;
                         var allHints = hints != 0 && AllCampHints(state, action.CommandId);
-                        var hintBondGain = 7 + bondGain + HintBondGain(current);
+                        var ordinaryBond = TrainingBonuses.SupportCardBond + bondGain;
+                        var hintBondGain = ordinaryBond + HintBondGain(current);
                         var hintBond = hints == 0 ? 0
-                            : BondGain(hints, bonds, hintBondGain) - BondGain(hints, bonds, 7 + bondGain);
+                            : BondGain(hints, bonds, hintBondGain) - BondGain(hints, bonds, ordinaryBond);
                         if (hintBond > 0 && !allHints)
                             hintBond /= BitOperations.PopCount((uint)hints);
                         var tuckerValue = TuckerTrainingValue(placement.SupportMask, bondGain, island: false, attributeForecast, attributeWeights, prospects);
@@ -240,7 +244,7 @@ public sealed partial class PioneerScenario
                             + (gains.Common.SkillPoints + gains.Scenario.SkillPoints) * skillPointValue
                             + ExpectedHintValue(state, hints, allHints, hintBondGain, attributeForecast, attributeWeights, skillPointValue)
                             + Math.Min(1, turnsLeft / 38.0)
-                                * (BondGain(placement.SupportMask & rules.OrdinarySupportMask, bonds, 7 + bondGain) + hintBond)
+                                * (BondGain(placement.SupportMask & rules.OrdinarySupportMask, bonds, ordinaryBond) + hintBond)
                             + FirstFriendTrainingValue(placement.SupportMask, attributeForecast, attributeWeights)
                             + NpcTrainingValue(placement, index, gains, attributeForecast, attributeWeights)
                             + tuckerValue + upgrade
@@ -385,7 +389,7 @@ public sealed partial class PioneerScenario
             if ((participants & tuckerMask) == 0) return 0;
             var tuckerBond = state.GetSection(PioneerStateSection.SupportBonds)[tuckerSlot];
             var first = (state.Header.UnseenFriendMask & tuckerMask) != 0;
-            var gain = (island ? 7 : 4) + bonusBond
+            var gain = (island ? 7 : TrainingBonuses.FriendCardBond) + bonusBond
                 + (first ? TuckerFirstTrainingBond + (state.Header.HasCharm ? 2 : 0) : 0);
             var value = first ? 0 : AttributeGain(state.Header, forecasts,
                 new(0, (int)Math.Round(rules.ExpectedTuckerRepeat(island)), 0, 0, 0, 0, 0), default, weights);
@@ -640,14 +644,8 @@ public sealed partial class PioneerScenario
     static int DisplayEquivalent(int value) => value <= 1200 ? value : 1200 + (value - 1200) / 2;
 
     static TrainingValues DisplayGains(TrainingValues before, TrainingValues gain) => new(
-        Display(before.Speed, gain.Speed), Display(before.Stamina, gain.Stamina), Display(before.Power, gain.Power),
-        Display(before.Guts, gain.Guts), Display(before.Wisdom, gain.Wisdom), gain.Vital, gain.SkillPoints);
-
-    static int Display(int before, int gain)
-    {
-        var below = Math.Min(gain, Math.Max(0, 1200 - before));
-        return below + (gain > below ? Math.Max(1, (gain - below) / 2) : 0);
-    }
+        DisplayAttributeGain.FromRaw(before.Speed, gain.Speed), DisplayAttributeGain.FromRaw(before.Stamina, gain.Stamina), DisplayAttributeGain.FromRaw(before.Power, gain.Power),
+        DisplayAttributeGain.FromRaw(before.Guts, gain.Guts), DisplayAttributeGain.FromRaw(before.Wisdom, gain.Wisdom), gain.Vital, gain.SkillPoints);
 
     double SkillPointValue(PioneerState state)
         => (data.TurnRules?.SkillRating?.RatingPerPoint(

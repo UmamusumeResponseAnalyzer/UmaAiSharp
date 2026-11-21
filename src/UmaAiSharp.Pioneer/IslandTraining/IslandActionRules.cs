@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Training;
 
@@ -50,8 +51,8 @@ public static class IslandActionRules
         var selected = before.Assignments.SelectMany(group => group.Supports).ToArray();
         var deck = before.Deck.ToDictionary(card => card.Position);
         var participants = before.Assignments.Sum(group => group.Supports.Length + group.GuestCount);
-        var friendship = before.Assignments.Any(group => group.Supports.Any(card => card.Bond >= 80
-            && card.TrainingCommandId == TrainingFacilityRules.Command(group.FacilityId)));
+        var friendship = before.Assignments.Any(group => group.Supports.Any(card => TrainingSupportEffects.IsFriendshipEligible(
+            card.TrainingCommandId, TrainingFacilityRules.Command(group.FacilityId), card.Bond)));
         var pointGain = DevelopmentPointGain(before.CompletedCheckpoint, before.CheckpointBonusPercent, participants, friendship);
         var extraBond = before.CharacterEffects.Contains(8) ? 2 : 0;
         var afterDeck = before.Deck.Select(card => card with { Bond = Math.Min(100, card.Bond + (card.Type == 1 ? 10 : 7) + extraBond) }).ToImmutableArray();

@@ -1,8 +1,11 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Scoring;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Events;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Ending;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.Hints;
 using UmaAiSharp.Pioneer.Inheritance;
 using UmaAiSharp.Pioneer.Scoring;

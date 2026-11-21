@@ -4,6 +4,7 @@ using System.Text.Json;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Events;
 
 namespace UmaAiSharp.Tests;

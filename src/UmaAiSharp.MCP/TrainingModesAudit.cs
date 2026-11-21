@@ -1,3 +1,4 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Offline;
 using UmaAiSharp.Pioneer.Game;
 using System.Collections.Immutable;

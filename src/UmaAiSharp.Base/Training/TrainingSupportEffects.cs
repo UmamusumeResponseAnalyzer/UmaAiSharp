@@ -1,7 +1,8 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 using UmaAiSharp.Core;
 
-namespace UmaAiSharp.Pioneer.Training;
+namespace UmaAiSharp.Base.Training;
 
 public readonly record struct SupportEffect(int Type, int Value);
 public readonly record struct SupportUniqueEffect(int Type, int Value, int Parameter1, int Parameter2, int Parameter3, int Parameter4);
@@ -12,23 +13,60 @@ public sealed record ResolvedTrainingSupport(int CardId, bool FriendshipEligible
     ImmutableArray<int> FriendshipBonuses, ImmutableArray<int> FailureReductions, ImmutableArray<int> VitalReductions,
     ImmutableArray<int> TrainingEffectParts, ImmutableArray<int> MotivationEffectParts)
 {
-    internal ImmutableArray<SupportEffect> FriendshipTrainingEffects { get; init; } = [];
-
-    internal long FriendshipTrainingBonus(int type, int scale = 100)
-    {
-        var bonus = 0L;
-        foreach (var effect in FriendshipTrainingEffects)
-            if (effect.Type == type) bonus = checked(bonus + (long)effect.Value * scale / 100);
-        return bonus;
-    }
+    [JsonIgnore]
+    public ImmutableArray<SupportEffect> FriendshipTrainingEffects { get; internal init; } = [];
 }
 
 public static class TrainingSupportEffects
 {
+    public static ReadOnlySpan<int> SpecialtyCommands => [101, 105, 102, 103, 106];
 
-    // Resolves effects at an already supplied card level; it does not draw locations or trigger friendship randomly.
+    // Unique 120 counts the full deck, including cards absent from the selected training.
+    public static TrainingSupport BindDeckBonuses(TrainingSupport support, IEnumerable<(int CardId, int SupportType, int CommandId)> deck)
+    {
+        if (!support.UniqueEffects.Any(effect => effect.Type == 120)) return support;
+        Span<int> counts = stackalloc int[6];
+        counts.Clear();
+        foreach (var card in deck)
+        {
+            var index = card.SupportType switch { 1 => SpecialtyCommands.IndexOf(card.CommandId), 2 or 3 => 5, _ => -1 };
+            if (index < 0) throw new UnknownMechanismException($"支援卡{card.CardId}的编成类型无法用于固有120。");
+            counts[index]++;
+        }
+        ReadOnlySpan<int> targets = [3, 4, 5, 6, 7, 30];
+        var effects = ImmutableArray.CreateBuilder<SupportUniqueEffect>();
+        foreach (var effect in support.UniqueEffects)
+        {
+            if (effect.Type != 120)
+            {
+                effects.Add(effect);
+                continue;
+            }
+            if (effect.Value != 1 || effect.Parameter1 != 80 || effect.Parameter2 != 1 || effect.Parameter3 != 2 || effect.Parameter4 != 0)
+                throw new UnknownMechanismException($"支援卡{support.CardId}的编成固有120参数尚未接入。");
+            // The deck is fixed, so only the bond threshold remains a runtime condition.
+            for (var index = 0; index < targets.Length; index += 2)
+                effects.Add(new(101, effect.Parameter1, targets[index], Math.Min(effect.Parameter3, counts[index]),
+                    targets[index + 1], Math.Min(effect.Parameter3, counts[index + 1])));
+        }
+        return support with { UniqueEffects = effects.ToImmutable() };
+    }
+
+    // The command is the normalized training specialty. Group-card or scenario-granted friendship has separate conditions.
+    public static bool IsFriendshipEligible(int specialtyCommand, int trainingCommand, int bond)
+        => specialtyCommand > 0 && specialtyCommand == trainingCommand && bond >= 80;
+
+    internal static void ValidateTrainingConditions(int trainingLevel, int fans)
+    {
+        if (trainingLevel is < 1 or > 5)
+            throw new ArgumentOutOfRangeException(nameof(trainingLevel), trainingLevel, "支援效果仅覆盖训练等级1..5。");
+        ArgumentOutOfRangeException.ThrowIfNegative(fans);
+    }
+
+    // Ordinary card effects are already resolved at the supplied card level.
     public static ResolvedTrainingSupport Resolve(TrainingSupport support, int commandId, int trainingLevel, int fans)
     {
+        ValidateTrainingConditions(trainingLevel, fans);
         var values = new Dictionary<int, int>();
         var friendship = ImmutableArray.CreateBuilder<int>();
         var failure = ImmutableArray.CreateBuilder<int>();
@@ -75,7 +113,7 @@ public static class TrainingSupportEffects
                 default: throw new UnknownMechanismException($"支援卡{support.CardId}的固有type={effect.Type}尚未实现。");
             }
         }
-        return new(support.CardId, support.TrainingCommandId == commandId && support.Bond >= 80,
+        return new(support.CardId, IsFriendshipEligible(support.TrainingCommandId, commandId, support.Bond),
             new(values.GetValueOrDefault(3), values.GetValueOrDefault(4), values.GetValueOrDefault(5),
                 values.GetValueOrDefault(6), values.GetValueOrDefault(7), 0, values.GetValueOrDefault(30)),
             values.GetValueOrDefault(8), values.GetValueOrDefault(2), values.GetValueOrDefault(31),

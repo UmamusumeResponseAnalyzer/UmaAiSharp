@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Training;
@@ -185,6 +186,13 @@ public sealed class PioneerMasterCompiler
         var guests = 0;
         if (positions.Distinct().Count() != positions.Length)
             throw new InvalidDataException("training_partner_array包含重复位置，拒绝重复计入人数或支援效果。");
+        var deckTypes = deck.Values.Select(row =>
+        {
+            var member = cards[Int(row, "support_card_id")];
+            var command = member.CommandId is >= 3601 and <= 3605
+                ? TrainingBaseTable.OrdinaryCommand(member.CommandId) : member.CommandId;
+            return (member.Id, member.SupportType, command);
+        });
         foreach (var position in positions)
         {
             if (!deck.TryGetValue(position, out var support))
@@ -193,41 +201,9 @@ public sealed class PioneerMasterCompiler
                 continue;
             }
             var card = Support(Int(support, "support_card_id"), Int(support, "exp"), position, bonds[position]);
-            if (card.UniqueEffects.Any(effect => effect.Type == 120))
-                card = card with { UniqueEffects = BindDeckBonuses(card, deck.Values) };
-            supports.Add(card);
+            supports.Add(TrainingSupportEffects.BindDeckBonuses(card, deckTypes));
         }
         return (supports.ToImmutable(), guests);
-    }
-
-    ImmutableArray<SupportUniqueEffect> BindDeckBonuses(TrainingSupport support, IEnumerable<JsonObject> deck)
-    {
-        Span<int> counts = stackalloc int[6];
-        counts.Clear();
-        foreach (var row in deck)
-        {
-            var card = cards[Int(row, "support_card_id")];
-            var index = card.SupportType is 2 or 3 ? 5 : TrainingBaseTable.CommandIndex(card.CommandId);
-            if (index < 0) throw new UnknownMechanismException($"支援卡{card.Id}的编成类型无法用于固有120。");
-            counts[index]++;
-        }
-        ReadOnlySpan<int> targets = [3, 4, 5, 6, 7, 30];
-        var effects = ImmutableArray.CreateBuilder<SupportUniqueEffect>();
-        foreach (var effect in support.UniqueEffects)
-        {
-            if (effect.Type != 120)
-            {
-                effects.Add(effect);
-                continue;
-            }
-            if (effect.Value != 1 || effect.Parameter1 != 80 || effect.Parameter2 != 1 || effect.Parameter3 != 2 || effect.Parameter4 != 0)
-                throw new UnknownMechanismException($"支援卡{support.CardId}的编成固有120参数尚未接入。");
-            // The deck is fixed, so only the bond threshold remains a runtime condition.
-            for (var index = 0; index < targets.Length; index += 2)
-                effects.Add(new(101, effect.Parameter1, targets[index], Math.Min(effect.Parameter3, counts[index]),
-                    targets[index + 1], Math.Min(effect.Parameter3, counts[index + 1])));
-        }
-        return effects.ToImmutable();
     }
 
     public TrainingSupport Support(int cardId, int experience, int position, int bond)

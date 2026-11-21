@@ -2,7 +2,7 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
 
-namespace UmaAiSharp.Pioneer.Inheritance;
+namespace UmaAiSharp.Base.Inheritance;
 
 public sealed record RelationMembership(int CharacterId, int RelationType);
 public sealed record RelationPoint(int RelationType, int Points);

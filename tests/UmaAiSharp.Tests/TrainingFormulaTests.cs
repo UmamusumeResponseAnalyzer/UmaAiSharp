@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Training;
 
@@ -16,12 +17,12 @@ public sealed class TrainingFormulaTests
     [Fact]
     public void ResolvesKnownStatusEffectsAndRejectsAnUnknownEffect()
     {
-        Assert.Equal(-2, TrainingFailureRate.StatusBias([10, 26]));
-        Assert.Equal(2, TrainingFailureRate.StatusBias([12, 26]));
-        Assert.Equal(-2, TrainingFailureRate.StatusBias([13, 26]));
-        Assert.Equal(-4, TrainingFailureRate.StatusBias([11, 3]));
-        Assert.Equal(0, TrainingFailureRate.StatusBias([3, 5, 27]));
-        Assert.Throws<UnknownMechanismException>(() => TrainingFailureRate.StatusBias([999]));
+        Assert.Equal(-2, TrainingFailureStatus.StatusBias([10, 26]));
+        Assert.Equal(2, TrainingFailureStatus.StatusBias([12, 26]));
+        Assert.Equal(-2, TrainingFailureStatus.StatusBias([13, 26]));
+        Assert.Equal(-4, TrainingFailureStatus.StatusBias([11, 3]));
+        Assert.Equal(0, TrainingFailureStatus.StatusBias([3, 5, 27]));
+        Assert.Throws<UnknownMechanismException>(() => TrainingFailureStatus.StatusBias([999]));
     }
 
     [Fact]
@@ -41,6 +42,19 @@ public sealed class TrainingFormulaTests
         Assert.Equal(2, otherTraining.BaseBonuses.Speed);
         Assert.Throws<UnknownMechanismException>(() => TrainingSupportEffects.Resolve(
             card with { UniqueEffects = [new(999, 1, 0, 0, 0, 0)] }, 101, 1, 0));
+    }
+
+    [Fact]
+    public void DeckUniqueCountsAllSpecialtiesAndFriendOrGroupCardsAtItsBondThreshold()
+    {
+        var support = new TrainingSupport(30187, 50, 1, 103, 79, [], [new(120, 1, 80, 1, 2, 0)]);
+        var bound = TrainingSupportEffects.BindDeckBonuses(support, [(30187, 1, 103), (10002, 1, 101), (10003, 1, 101),
+            (10004, 1, 101), (10021, 2, 0), (30067, 3, 0)]);
+        var deck = new CompiledTrainingDeck([bound]);
+        Assert.Equal(default(TrainingValues), deck.Resolve(1, 79, 103, 1, 0).BaseBonuses);
+        var expected = new TrainingValues(2, 0, 0, 1, 0, 0, 2);
+        Assert.Equal(expected, deck.Resolve(1, 80, 103, 1, 0).BaseBonuses);
+        Assert.Equal(expected, TrainingSupportEffects.Resolve(bound with { Bond = 80 }, 103, 1, 0).BaseBonuses);
     }
 
     [Fact]

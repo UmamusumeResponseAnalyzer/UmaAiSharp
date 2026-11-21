@@ -1,6 +1,9 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Development;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Events;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.Hints;
 using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;

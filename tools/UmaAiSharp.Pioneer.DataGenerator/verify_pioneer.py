@@ -43,7 +43,7 @@ def write_json(path, value):
 def input_hashes(args):
     inputs = {"mcp": args.mcp, "rules": args.rules, "goal": args.goal, "capture": args.capture}
     inputs.update({name: args.mcp.with_name(name + ".dll") for name in
-                   ("UmaAiSharp.Core", "UmaAiSharp.Pioneer", "UmaAiSharp.Pioneer.Game")})
+                   ("UmaAiSharp.Core", "UmaAiSharp.Base", "UmaAiSharp.Pioneer", "UmaAiSharp.Pioneer.Game")})
     return {name: sha256(path) for name, path in inputs.items()}
 
 

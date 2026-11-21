@@ -1,6 +1,9 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Inheritance;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Events;
 using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;
@@ -315,7 +318,7 @@ public sealed class PioneerRuntimeData
         if (hasRaces) capacity = checked(capacity + 79);
         var aptitudes = TurnRules?.WholeRun == true ? TrainingStart!.HintProgress!.Aptitudes : (ImmutableArray<int>?)null;
         var hintRules = TurnRules?.Hints;
-        capacity = checked(capacity + (aptitudes is null ? 0 : UmaAiSharp.Pioneer.Inheritance.PioneerInheritanceRules.AptitudeTargets.Length)
+        capacity = checked(capacity + (aptitudes is null ? 0 : Aptitude.GroupIds.Length)
             + (hintRules?.StateCapacity ?? 0) + (TurnRules?.CareerGoals.Length ?? 0));
         var state = new PioneerState(this, checked(capacity + replayWorkspace));
         if (aptitudes is { } initialAptitudes) state.SetSection(PioneerStateSection.InheritanceAptitudes, initialAptitudes.AsSpan());

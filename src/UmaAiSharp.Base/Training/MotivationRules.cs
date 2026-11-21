@@ -1,4 +1,4 @@
-namespace UmaAiSharp.Pioneer.Training;
+namespace UmaAiSharp.Base.Training;
 
 public static class MotivationRules
 {

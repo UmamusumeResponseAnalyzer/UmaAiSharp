@@ -2,14 +2,17 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
 
-namespace UmaAiSharp.Pioneer.Inheritance;
+namespace UmaAiSharp.Base.Inheritance;
 
 public enum InheritanceSlot { Parent1, Parent1Parent1, Parent1Parent2, Parent2, Parent2Parent1, Parent2Parent2 }
 public sealed record InitialFactor(int Id, int Type, int GroupId, int Stars);
 public sealed record InitialFactorRule(int Type, int Value1, int Value2, int AddPoint);
 public sealed record InheritanceSource(InheritanceSlot Slot, ImmutableArray<int> FactorIds, ImmutableArray<int> ExtendedFactorIds);
 public sealed record ListedInheritanceSource(InheritanceSlot Slot, ImmutableArray<int> FactorIds);
-public sealed record InitialAptitude(int GroupId, int Grade);
+public sealed record Aptitude(int GroupId, int Grade)
+{
+    public static ImmutableArray<int> GroupIds { get; } = [11, 12, 21, 22, 23, 24, 31, 32, 33, 34];
+}
 public sealed record BlueInheritanceContribution(int AttributeGroupId, int AttributePoints, int LimitPoints);
 public sealed record RedInheritanceContribution(int AptitudeGroupId, int TotalStars, int UncappedLevels, int Before, int After)
 {
@@ -22,7 +25,6 @@ public sealed record InitialInheritanceComponents(ImmutableArray<BlueInheritance
 // Only the initial blue/red components: callers supply effective sources and the pre-inheritance aptitudes.
 public sealed class InitialInheritanceRules
 {
-    static readonly int[] AptitudeGroups = [11, 12, 21, 22, 23, 24, 31, 32, 33, 34];
     readonly FrozenDictionary<int, InitialFactor> factors;
     readonly FrozenDictionary<(int Stars, int Component), int> blue;
     readonly InitialFactorRule[] red;
@@ -42,7 +44,7 @@ public sealed class InitialInheritanceRules
             throw new InvalidDataException("开局红因子master必须对六来源星数1至18提供唯一的升档规则。");
     }
 
-    public InitialInheritanceComponents Evaluate(ImmutableArray<InheritanceSource> sources, ImmutableArray<InitialAptitude> before)
+    public InitialInheritanceComponents Evaluate(ImmutableArray<InheritanceSource> sources, ImmutableArray<Aptitude> before)
     {
         if (sources.IsDefault || sources.Any(source => source is null))
             throw new InvalidDataException("开局继承必须显式提供来源数组。");
@@ -58,18 +60,18 @@ public sealed class InitialInheritanceRules
 
     // Computes explicitly listed factors, without certifying the completeness of extension data.
     public InitialInheritanceComponents EvaluateListedFactors(ImmutableArray<ListedInheritanceSource> sources,
-        ImmutableArray<InitialAptitude> before)
+        ImmutableArray<Aptitude> before)
     {
         if (sources.IsDefault || sources.Length != 6 || sources.Any(source => source is null || !Enum.IsDefined(source.Slot))
             || sources.Select(source => source.Slot).Distinct().Count() != 6)
             throw new InvalidDataException("开局继承必须明确提供两个亲本及各自两个祖辈，共六个不重复谱系槽位。");
-        if (before.IsDefault || before.Length != AptitudeGroups.Length
+        if (before.IsDefault || before.Length != Aptitude.GroupIds.Length
             || before.Any(value => value is null || value.Grade is < 1 or > 8)
-            || !before.Select(value => value.GroupId).Order().SequenceEqual(AptitudeGroups))
+            || !before.Select(value => value.GroupId).Order().SequenceEqual(Aptitude.GroupIds))
             throw new InvalidDataException("开局继承前必须明确提供全部10项适性，等级范围为1至8，目标编号不能重复或缺失。");
         var attributes = new int[5];
         var limits = new int[5];
-        var redStars = AptitudeGroups.ToDictionary(group => group, _ => 0);
+        var redStars = Aptitude.GroupIds.ToDictionary(group => group, _ => 0);
         var uncalculated = ImmutableArray.CreateBuilder<UncalculatedInitialFactor>();
         foreach (var source in sources.OrderBy(source => source.Slot))
         {

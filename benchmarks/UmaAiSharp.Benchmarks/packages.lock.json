@@ -166,13 +166,19 @@
         "resolved": "4.7.0",
         "contentHash": "VybpaOQQhqE6siHppMktjfGBw1GCwvCqiufqmP8F1nj7fTUNtW35LOEt3UZTEsECfo+ELAl/9o9nJx3U91i7vA=="
       },
+      "umaaisharp.base": {
+        "type": "Project",
+        "dependencies": {
+          "UmaAiSharp.Core": "[1.0.0, )"
+        }
+      },
       "umaaisharp.core": {
         "type": "Project"
       },
       "umaaisharp.pioneer": {
         "type": "Project",
         "dependencies": {
-          "UmaAiSharp.Core": "[1.0.0, )"
+          "UmaAiSharp.Base": "[1.0.0, )"
         }
       }
     }

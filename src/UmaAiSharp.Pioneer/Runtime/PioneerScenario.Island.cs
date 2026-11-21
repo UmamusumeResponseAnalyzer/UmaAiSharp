@@ -1,7 +1,8 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Events;
-using UmaAiSharp.Pioneer.Hints;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;
 
@@ -89,7 +90,7 @@ public sealed partial class PioneerScenario
             var command = TrainingFacilityRules.Command(101 + i);
             if (i < 5)
                 foreach (var card in data.TrainingStart!.Deck)
-                    if (card.TrainingCommandId == command && bonds[card.Position - 1] >= 80
+                    if (TrainingSupportEffects.IsFriendshipEligible(card.TrainingCommandId, command, bonds[card.Position - 1])
                         && (cell.SupportMask & (1 << (card.Position - 1))) != 0) friendship = true;
         }
         return IslandActionRules.DevelopmentPointGain(header.CompletedCheckpoint,
@@ -133,7 +134,8 @@ public sealed partial class PioneerScenario
             foreach (var card in group.Supports)
             {
                 mask |= 1 << (card.Position - 1);
-                friendship |= bonds[card.Position - 1] >= 80 && card.TrainingCommandId == TrainingFacilityRules.Command(group.FacilityId);
+                friendship |= TrainingSupportEffects.IsFriendshipEligible(card.TrainingCommandId,
+                    TrainingFacilityRules.Command(group.FacilityId), bonds[card.Position - 1]);
             }
         }
         var before = header.DevelopmentPoints;

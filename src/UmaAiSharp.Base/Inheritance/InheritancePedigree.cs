@@ -2,7 +2,7 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
 
-namespace UmaAiSharp.Pioneer.Inheritance;
+namespace UmaAiSharp.Base.Inheritance;
 
 public sealed record PedigreeFactorSlot(int Position, ImmutableArray<int> FactorIds);
 public sealed record PedigreeFactorExtension(int Position, int BaseFactorId, int FactorId, string? RegisteredAt = null);

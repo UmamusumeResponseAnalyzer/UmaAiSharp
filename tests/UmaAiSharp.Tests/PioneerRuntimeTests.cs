@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Development;

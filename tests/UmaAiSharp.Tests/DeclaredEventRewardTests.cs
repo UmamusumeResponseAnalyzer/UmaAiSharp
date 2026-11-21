@@ -1,12 +1,12 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Game;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Events;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Runtime;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Tests;
 

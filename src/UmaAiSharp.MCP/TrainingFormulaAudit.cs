@@ -1,3 +1,4 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Offline;
 using UmaAiSharp.Pioneer.Game;
 using System.Collections.Immutable;
@@ -93,7 +94,7 @@ public static class TrainingFormulaAudit
                     var characterEffects = Integers(Array(chara, "chara_effect_id_array"), "chara_effect_id_array");
                     if (characterEffects.Distinct().Count() != characterEffects.Length)
                         throw new InvalidDataException("chara_effect_id_array包含重复效果，拒绝重复计入失败率偏移。");
-                    var bias = TrainingFailureRate.StatusBias(characterEffects, raceOnlyEffects);
+                    var bias = TrainingFailureStatus.StatusBias(characterEffects, raceOnlyEffects);
                     var input = master.Input(chara, command, pioneer);
                     var resolved = input.Supports.Select(card => TrainingSupportEffects.Resolve(card,
                         training.BaseCommandId, level, input.Fans)).ToArray();

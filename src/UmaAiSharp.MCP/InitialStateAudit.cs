@@ -4,9 +4,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Inheritance;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Inheritance;
 
 namespace UmaAiSharp.MCP.Evidence;
 
@@ -174,7 +174,7 @@ public static class InitialStateAudit
                     var prediction = master.StateRules.Compose(input, master.ScenarioLimits, sources.ToImmutable(), deck);
                     var actualAttributes = Values(chara, "");
                     var actualLimits = Values(chara, "max_");
-                    var actualAptitudes = Aptitudes.Select(value => new InitialAptitude(value.Group, Int(chara, value.Field))).ToImmutableArray();
+                    var actualAptitudes = Aptitudes.Select(value => new Aptitude(value.Group, Int(chara, value.Field))).ToImmutableArray();
                     var actualHints = Objects(chara, "skill_tips_array").Select(value => new InheritedHint(Int(value, "group_id"),
                         Int(value, "rarity"), Int(value, "level"))).OrderBy(value => value.GroupId).ThenBy(value => value.Rarity).ToImmutableArray();
                     var relation = master.RelationRules.Calculate(master.CharacterId(input.CardId), relations.ToImmutable());
@@ -393,7 +393,7 @@ public static class InitialStateAudit
             var skills = Enumerable.Range(1, 20).Where(index => skillSet[$"skill_id{index}"] != 0)
                 .Select(index => new InitialSkill(skillSet[$"skill_id{index}"], skillSet[$"skill_level{index}"])).ToImmutableArray();
             return new(cardId, grade, Values(row, ""), Values(row, "max_"),
-                Aptitudes.Select(value => new InitialAptitude(value.Group, row[value.Field])).ToImmutableArray(), talentLevel, skills);
+                Aptitudes.Select(value => new Aptitude(value.Group, row[value.Field])).ToImmutableArray(), talentLevel, skills);
         }
         public InitialSupportCard Support(JsonObject input)
         {

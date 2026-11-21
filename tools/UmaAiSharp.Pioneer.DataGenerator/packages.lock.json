@@ -48,13 +48,19 @@
           "SQLitePCLRaw.core": "2.1.13"
         }
       },
+      "umaaisharp.base": {
+        "type": "Project",
+        "dependencies": {
+          "UmaAiSharp.Core": "[1.0.0, )"
+        }
+      },
       "umaaisharp.core": {
         "type": "Project"
       },
       "umaaisharp.pioneer": {
         "type": "Project",
         "dependencies": {
-          "UmaAiSharp.Core": "[1.0.0, )"
+          "UmaAiSharp.Base": "[1.0.0, )"
         }
       },
       "umaaisharp.pioneer.game": {

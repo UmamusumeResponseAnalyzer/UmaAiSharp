@@ -420,6 +420,12 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
+      "umaaisharp.base": {
+        "type": "Project",
+        "dependencies": {
+          "UmaAiSharp.Core": "[1.0.0, )"
+        }
+      },
       "umaaisharp.core": {
         "type": "Project"
       },
@@ -438,13 +444,12 @@
       "umaaisharp.pioneer": {
         "type": "Project",
         "dependencies": {
-          "UmaAiSharp.Core": "[1.0.0, )"
+          "UmaAiSharp.Base": "[1.0.0, )"
         }
       },
       "umaaisharp.pioneer.game": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Data.Sqlite": "[10.0.14, )",
           "UmaAiSharp.Pioneer": "[1.0.0, )"
         }
       },

@@ -1,9 +1,9 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Training;
 
-namespace UmaAiSharp.Pioneer.Inheritance;
+namespace UmaAiSharp.Base.Inheritance;
 
 public readonly record struct InitialAttributes(int Speed, int Stamina, int Power, int Guts, int Wisdom)
 {
@@ -18,7 +18,7 @@ public readonly record struct InitialAttributes(int Speed, int Stamina, int Powe
 }
 
 public sealed record InitialCharacter(int CardId, int Rarity, InitialAttributes Attributes,
-    InitialAttributes Limits, ImmutableArray<InitialAptitude> Aptitudes, int TalentLevel, ImmutableArray<InitialSkill> Skills);
+    InitialAttributes Limits, ImmutableArray<Aptitude> Aptitudes, int TalentLevel, ImmutableArray<InitialSkill> Skills);
 public sealed record InitialSkill(int SkillId, int Level);
 public sealed record InitialSupportBond(int Position, int CardId, int Bond);
 public sealed record InitialSupportComponents(InitialAttributes Attributes, ImmutableArray<InitialSupportBond> Bonds);
@@ -28,7 +28,7 @@ public sealed record InheritedHint(int GroupId, int Rarity, int Level);
 public sealed record InheritanceFactorEffect(int GroupId, int EffectId, int TargetType, int Value1, int Value2);
 public sealed record InheritanceSkill(int Id, int GroupId, int Rarity);
 public sealed record InitialStateComponents(InitialAttributes Attributes, InitialAttributes Limits,
-    ImmutableArray<InitialAptitude> Aptitudes, ImmutableArray<InheritedHint> ParentHints,
+    ImmutableArray<Aptitude> Aptitudes, ImmutableArray<InheritedHint> ParentHints,
     InitialAttributes SupportAttributes, ImmutableArray<InitialSkill> Skills,
     ImmutableArray<InitialSupportBond> SupportBonds, InitialInheritanceComponents Inheritance);
 
@@ -97,7 +97,7 @@ public sealed class InitialStateRules
                 hints.Add(new(skill.GroupId, skill.Rarity, selected[0].Value2));
             }
         return new(character.Attributes + values + support.Attributes, character.Limits + scenarioLimits + caps,
-            inherited.Red.Select(red => new InitialAptitude(red.AptitudeGroupId, red.After)).ToImmutableArray(),
+            inherited.Red.Select(red => new Aptitude(red.AptitudeGroupId, red.After)).ToImmutableArray(),
             hints.OrderBy(hint => hint.GroupId).ThenBy(hint => hint.Rarity).ToImmutableArray(), support.Attributes,
             character.Skills.OrderBy(skill => skill.SkillId).ToImmutableArray(), support.Bonds,
             inherited with { UncalculatedFactors = inherited.UncalculatedFactors.Where(factor =>

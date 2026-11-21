@@ -6,10 +6,9 @@ using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer;
 using UmaAiSharp.Pioneer.Development;
-using UmaAiSharp.Pioneer.Events;
-using UmaAiSharp.Pioneer.Hints;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.Runtime;
-using UmaAiSharp.Pioneer.Scoring;
+using UmaAiSharp.Base.Scoring;
 using UmaAiSharp.Pioneer.Training;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 

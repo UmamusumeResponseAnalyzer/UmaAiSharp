@@ -1,8 +1,8 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
-using UmaAiSharp.Pioneer.Events;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Scoring;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Runtime;
 

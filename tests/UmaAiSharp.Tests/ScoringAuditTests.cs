@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 using MessagePack;
 using Microsoft.Data.Sqlite;
 using UmaAiSharp.MCP.Evidence;
-using UmaAiSharp.Pioneer.Scoring;
+using UmaAiSharp.Base.Scoring;
 
 namespace UmaAiSharp.Tests;
 

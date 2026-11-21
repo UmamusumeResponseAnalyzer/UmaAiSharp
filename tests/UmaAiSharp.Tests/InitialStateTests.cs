@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Inheritance;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Inheritance;
 
 namespace UmaAiSharp.Tests;
 
@@ -17,7 +16,7 @@ public sealed class InitialStateTests
         [new(900, 1, 41, 900001, 1), new(900, 4, 41, 900001, 3), new(900, 4, 61, 99, 0), new(901, 2, 41, 900002, 2)],
         [new(900001, 9000, 1), new(900002, 9001, 1)]);
     static InitialCharacter Character() => new(100, 1, new(10, 20, 30, 40, 50), new(1000, 1000, 1000, 1000, 1000),
-        new[] { 11, 12, 21, 22, 23, 24, 31, 32, 33, 34 }.Select(group => new InitialAptitude(group, 1)).ToImmutableArray(),
+        new[] { 11, 12, 21, 22, 23, 24, 31, 32, 33, 34 }.Select(group => new Aptitude(group, 1)).ToImmutableArray(),
         1, [new(900001, 1)]);
     static ImmutableArray<InheritanceSource> Sources() => Enum.GetValues<InheritanceSlot>()
         .Select(slot => new InheritanceSource(slot, slot == InheritanceSlot.Parent1 ? [101, 201, 302]

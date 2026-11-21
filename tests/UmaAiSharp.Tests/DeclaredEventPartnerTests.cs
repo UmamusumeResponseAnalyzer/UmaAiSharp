@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using UmaAiSharp.MCP;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Events;
 using UmaAiSharp.Pioneer.Runtime;
 

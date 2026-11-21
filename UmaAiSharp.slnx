@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/UmaAiSharp.Core/UmaAiSharp.Core.csproj" />
+    <Project Path="src/UmaAiSharp.Base/UmaAiSharp.Base.csproj" />
     <Project Path="src/UmaAiSharp.Pioneer/UmaAiSharp.Pioneer.csproj" />
     <Project Path="src/UmaAiSharp.Pioneer.Game/UmaAiSharp.Pioneer.Game.csproj" />
     <Project Path="src/UmaAiSharp.MCP/UmaAiSharp.MCP.csproj" />

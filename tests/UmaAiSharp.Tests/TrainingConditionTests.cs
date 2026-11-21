@@ -1,4 +1,5 @@
 using System.Text.Json;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.MCP;
 using UmaAiSharp.Core;
 using UmaAiSharp.Pioneer.Runtime;
@@ -27,7 +28,7 @@ public sealed class TrainingConditionTests
                 var expected = input.GetProperty("expected").GetInt32();
                 Assert.Equal(expected, TrainingFailureRate.Calculate(input.GetProperty("coefficient").GetInt32(),
                     input.GetProperty("vital").GetInt32(), input.GetProperty("reductions").Deserialize<int[]>()!,
-                    TrainingFailureRate.StatusBias(effects)));
+                    TrainingFailureStatus.StatusBias(effects)));
                 if (scenario is not null)
                     Assert.Equal(expected, scenario.PreviewTraining(root!, input.GetProperty("command").GetInt32()).FailureRate);
                 commands++;

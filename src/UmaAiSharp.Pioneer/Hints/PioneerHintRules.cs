@@ -1,8 +1,10 @@
+using UmaAiSharp.Base.Scoring;
+using UmaAiSharp.Base.Hints;
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Pioneer.Scoring;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Hints;
 

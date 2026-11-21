@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using BenchmarkDotNet.Attributes;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Runtime;

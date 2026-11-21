@@ -1,9 +1,10 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
+using UmaAiSharp.Base.Inheritance;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Hints;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Pioneer.Inheritance;
 
@@ -24,7 +25,6 @@ public sealed record PioneerInheritanceData(ImmutableArray<PioneerInheritanceFac
 
 public sealed class PioneerInheritanceRules
 {
-    public static ReadOnlySpan<int> AptitudeTargets => [11, 12, 21, 22, 23, 24, 31, 32, 33, 34];
     readonly record struct Effect(int Target, int Value, int Count, int HintIndex, bool Owned);
     sealed record Bundle(int Weight, Effect[] Effects);
     sealed record Opportunity(int Probability, Bundle[] Bundles, int TotalWeight, ulong AddonGroup);
@@ -59,7 +59,7 @@ public sealed class PioneerInheritanceRules
         if (addonGroups.Count > 64) throw new InvalidDataException("继承附加条件超过64个不同触发组。");
         var relevant = inherited.Concat(activeAddons.Select(addon => factors[addon.FactorId])).Distinct().ToArray();
         var owned = ownedSkills.ToHashSet();
-        if (context.Aptitudes.Length != AptitudeTargets.Length || context.Aptitudes.Any(value => value is < 1 or > 8))
+        if (context.Aptitudes.Length != Aptitude.GroupIds.Length || context.Aptitudes.Any(value => value is < 1 or > 8))
             throw new InvalidDataException("途中继承需要十项适性，等级范围为1至8。");
         candidateCount = context.HasUmaPlan ? 2 : 1;
         saturatedHintWeights = data.Calibration.SaturatedHintWeights.ToArray();
@@ -69,7 +69,7 @@ public sealed class PioneerInheritanceRules
         var compiled = relevant.Where(factor => factor.Type != 7).ToFrozenDictionary(factor => factor.Id, factor =>
         {
             foreach (var effect in effects[factor.Group])
-                if (effect.Target is not (>= 1 and <= 7 or 41 or >= 61 and <= 65) && !AptitudeTargets.Contains(effect.Target))
+                if (effect.Target is not (>= 1 and <= 7 or 41 or >= 61 and <= 65) && !Aptitude.GroupIds.Contains(effect.Target))
                     throw new UnknownMechanismException($"途中继承因子 {factor.Id} 不支持目标类型 {effect.Target}。");
             var bundles = effects[factor.Group].GroupBy(effect => effect.EffectId).OrderBy(group => group.Key)
                 .Select(group => new Bundle(weights[(factor.EffectGroup, group.Key)], [.. group
@@ -172,7 +172,7 @@ public sealed class PioneerInheritanceRules
                             case >= 61 and <= 65:
                                 break;
                             default:
-                                var aptitude = AptitudeTargets.IndexOf(effect.Target);
+                                var aptitude = Aptitude.GroupIds.IndexOf(effect.Target);
                                 rolledAptitudes[aptitude] = Math.Min(8, rolledAptitudes[aptitude] + effect.Value);
                                 break;
                         }

@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Training;
 
-namespace UmaAiSharp.Pioneer.Hints;
+namespace UmaAiSharp.Base.Hints;
 
 public readonly record struct HintSkill(int GroupId, int Rarity);
 public readonly record struct HintLevel(HintSkill Skill, int Level);
@@ -63,9 +63,7 @@ public static class HintRewardPool
     static (int Value, int Gain, int Overflow) Apply(int before, int cap, int reward)
     {
         if (before < 0 || before > cap || reward < 0) throw new InvalidDataException("Hint 奖励的属性、上限或增量无效。");
-        var lower = Math.Min(reward, Math.Max(0, 1200 - before));
-        var upper = reward - lower;
-        var gain = checked(lower + (upper > 0 ? Math.Max(1, upper / 2) : 0));
+        var gain = AttributeGain.FromRaw(before, reward);
         var actual = Math.Min(cap - before, gain);
         return (before + actual, gain, gain - actual);
     }

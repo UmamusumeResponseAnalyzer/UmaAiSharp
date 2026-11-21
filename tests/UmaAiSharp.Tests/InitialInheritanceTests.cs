@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Base.Inheritance;
 
 namespace UmaAiSharp.Tests;
 
@@ -11,8 +11,8 @@ public sealed class InitialInheritanceTests
             new(3101, 2, 31, 1), new(3102, 2, 31, 2), new(3103, 2, 31, 3), new(1101, 2, 11, 1), new(9001, 5, 900, 1)],
         [new(1, 1, 0, 5), new(1, 2, 0, 12), new(1, 3, 0, 21), new(1, 1, 1, 4), new(1, 2, 1, 9), new(1, 3, 1, 16),
             new(2, 1, 3, 1), new(2, 4, 6, 2), new(2, 7, 9, 3), new(2, 10, 999, 4)]);
-    static ImmutableArray<InitialAptitude> Aptitudes(int shortGrade = 1) => new[] { 11, 12, 21, 22, 23, 24, 31, 32, 33, 34 }
-        .Select(group => new InitialAptitude(group, group == 31 ? shortGrade : 1)).ToImmutableArray();
+    static ImmutableArray<Aptitude> Aptitudes(int shortGrade = 1) => new[] { 11, 12, 21, 22, 23, 24, 31, 32, 33, 34 }
+        .Select(group => new Aptitude(group, group == 31 ? shortGrade : 1)).ToImmutableArray();
     static ImmutableArray<InheritanceSource> Sources() => Enum.GetValues<InheritanceSlot>()
         .Select(slot => new InheritanceSource(slot, [101, 3101, 9001], [])).ToImmutableArray();
 

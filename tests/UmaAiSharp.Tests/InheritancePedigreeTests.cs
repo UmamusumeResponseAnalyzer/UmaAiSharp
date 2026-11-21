@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Inheritance;
+using UmaAiSharp.Base.Inheritance;
 
 namespace UmaAiSharp.Tests;
 
@@ -34,7 +34,7 @@ public sealed class InheritancePedigreeTests
             [new(1, 1, 0, 5), new(1, 2, 0, 12), new(1, 3, 0, 21), new(1, 1, 1, 4), new(1, 2, 1, 9), new(1, 3, 1, 16),
                 new(2, 1, 3, 1), new(2, 4, 6, 2), new(2, 7, 9, 3), new(2, 10, 999, 4)]);
         var six = Rules().MapParent(Parent(), InheritanceSlot.Parent1).AddRange(sources);
-        var aptitudes = new[] { 11, 12, 21, 22, 23, 24, 31, 32, 33, 34 }.Select(group => new InitialAptitude(group, 1)).ToImmutableArray();
+        var aptitudes = new[] { 11, 12, 21, 22, 23, 24, 31, 32, 33, 34 }.Select(group => new Aptitude(group, 1)).ToImmutableArray();
         Assert.Throws<UnknownMechanismException>(() => initializer.Evaluate(six, aptitudes));
     }
 

@@ -1,6 +1,6 @@
 using UmaAiSharp.Core;
 
-namespace UmaAiSharp.Pioneer.Training;
+namespace UmaAiSharp.Base.Training;
 
 // Values use the observed protocol units. No display/internal conversion is inferred here.
 public readonly record struct TrainingValues(int Speed, int Stamina, int Power, int Guts, int Wisdom, int Vital, int SkillPoints);

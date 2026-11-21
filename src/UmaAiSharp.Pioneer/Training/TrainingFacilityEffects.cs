@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 
 namespace UmaAiSharp.Pioneer.Training;
@@ -43,6 +44,14 @@ internal static class TrainingFacilityRules
     };
     static readonly int[][] EffectPercents = [[60, 0, 40, 0, 0, 50], [0, 50, 0, 30, 0, 70],
         [0, 30, 60, 0, 0, 70], [30, 0, 30, 50, 0, 70], [45, 0, 0, 0, 100, 70], [20, 15, 20, 15, 15, 70]];
+    public static long FriendshipTrainingBonus(this ResolvedTrainingSupport support, int type, int scale = 100)
+    {
+        var bonus = 0L;
+        foreach (var effect in support.FriendshipTrainingEffects)
+            if (effect.Type == type) bonus = checked(bonus + (long)effect.Value * scale / 100);
+        return bonus;
+    }
+
     public static int EffectPercent(int facility, int component) => EffectPercents[facility - 101][component];
     public static bool HasTarget(int facility, int target) => facility switch
     {

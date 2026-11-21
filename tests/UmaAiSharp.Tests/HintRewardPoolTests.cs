@@ -1,7 +1,7 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
-using UmaAiSharp.Pioneer.Hints;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Hints;
 
 namespace UmaAiSharp.Tests;
 

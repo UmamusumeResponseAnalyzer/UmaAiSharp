@@ -1,12 +1,13 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
 using UmaAiSharp.Pioneer.Development;
 using UmaAiSharp.Pioneer.Events;
-using UmaAiSharp.Pioneer.Hints;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;
-using UmaAiSharp.Pioneer.Scoring;
+using UmaAiSharp.Base.Scoring;
 
 namespace UmaAiSharp.Pioneer.Runtime;
 
@@ -287,7 +288,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             ? command.EvaluationTrainingPercent : state.Header.EvaluationTrainingPercent;
         var bias = 0;
         foreach (var effect in state.GetSection(PioneerStateSection.CharacterEffects))
-            bias += TrainingFailureRate.StatusBias(effect, data.RaceOnlyCharacterEffects);
+            bias += TrainingFailureStatus.StatusBias(effect, data.RaceOnlyCharacterEffects);
         return data.Model.Preview(environment, commandId, level,
             placement.GuestCount, evaluation, coefficient, bias,
             positions[..length], state.GetSection(PioneerStateSection.SupportBonds), data.TrainingDeck!, camp);
@@ -350,8 +351,8 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             var bondBonus = data.TrainingDeck!.TrainingBondBonus(placement.SupportMask);
             foreach (var card in turn.Deck)
                 if ((placement.SupportMask & (1 << (card.Position - 1))) != 0)
-                    bonds[card.Position - 1] = (int)Math.Min(100L, bonds[card.Position - 1]
-                        + (card.TrainingCommandId == 0 ? 4L : 7L) + (charm ? 2 : 0) + bondBonus);
+                    bonds[card.Position - 1] = TrainingBonuses.BondAfterTraining(bonds[card.Position - 1],
+                        card.TrainingCommandId == 0, charm, bondBonus);
             header.Resources = values; header.DevelopmentPoints = points; header.FutureGainedSkillPoints = gained;
             header.FutureOverflow = overflow;
             if (withDirector) header.DirectorBond = Math.Min(100, header.DirectorBond + 2 + attentionBonus);

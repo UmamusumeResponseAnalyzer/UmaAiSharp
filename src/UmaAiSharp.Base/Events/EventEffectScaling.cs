@@ -1,7 +1,7 @@
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Training;
 
-namespace UmaAiSharp.Pioneer.Events;
+namespace UmaAiSharp.Base.Events;
 
 // Event bonuses belong to the event's support, not to the whole deck.
 public readonly record struct EventEffectScaling(int RecoveryPercent, int ResourcePercent)

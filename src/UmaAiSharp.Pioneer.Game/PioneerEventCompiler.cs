@@ -1,8 +1,8 @@
 using System.Collections.Immutable;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.Events;
 using UmaAiSharp.Pioneer.Runtime;
-using UmaAiSharp.Pioneer.Training;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.Pioneer.Game;

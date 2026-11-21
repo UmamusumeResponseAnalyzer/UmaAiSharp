@@ -3,10 +3,10 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Hints;
+using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Pioneer.Runtime;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.MCP.Evidence;
 

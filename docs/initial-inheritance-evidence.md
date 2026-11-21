@@ -80,7 +80,7 @@ master 最后一档实际区间是 `10..999`；当前六来源、每来源星数
 
 ## 代码与验证
 
-[InitialInheritance.cs](../src/UmaAiSharp.Pioneer/Inheritance/InitialInheritance.cs)、[InitialInheritanceTests.cs](../tests/UmaAiSharp.Tests/InitialInheritanceTests.cs)。
+[InitialInheritance.cs](../src/UmaAiSharp.Base/Inheritance/InitialInheritance.cs)、[InitialInheritanceTests.cs](../tests/UmaAiSharp.Tests/InitialInheritanceTests.cs)。
 
 ```powershell
 dotnet test tests/UmaAiSharp.Tests/UmaAiSharp.Tests.csproj --no-restore --filter FullyQualifiedName~InitialInheritanceTests -m:1

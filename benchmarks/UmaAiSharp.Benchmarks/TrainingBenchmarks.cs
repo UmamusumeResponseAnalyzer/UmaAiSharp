@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BenchmarkDotNet.Attributes;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Benchmarks;

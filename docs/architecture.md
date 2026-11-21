@@ -2,6 +2,8 @@
 
 ## 规则、策略与执行
 
+依赖方向为 `Pioneer → Base → Core`。其他剧本可直接引用 `UmaAiSharp.Base`，传入自己的训练基础值、属性上限、已选目标和规则数据。训练倍率的叠加顺序、随机事件和行动调度由各剧本负责。各分量的输入、证据和适用范围见[共通育成机制](base-mechanics.md)。
+
 `ISimulationScenario<TState,TDecision,TAction,TOutcome>` 的规则实现可以共享不可变数据，每条轨迹的可变信息归入 `TState`：
 
 - `RulesIdentity` 标识实现和规则数据，资源来源与哈希单独记录。

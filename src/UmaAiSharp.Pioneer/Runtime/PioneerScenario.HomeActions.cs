@@ -1,6 +1,7 @@
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 using System.Collections.Immutable;
-using UmaAiSharp.Pioneer.Events;
+using UmaAiSharp.Base.Events;
 using UmaAiSharp.Pioneer.IslandTraining;
 using UmaAiSharp.Pioneer.Training;
 

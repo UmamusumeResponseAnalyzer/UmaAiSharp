@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 using UmaAiSharp.Core;
 using UmaAiSharp.Core.Goals;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Training;
 
-namespace UmaAiSharp.Pioneer.Events;
+namespace UmaAiSharp.Base.Events;
 
 public readonly record struct DeclaredEventEffect(int DisplayId, int Value0, int Value1, int Value2);
 public sealed record DeclaredEventBranch(ImmutableArray<DeclaredEventEffect> Effects);
@@ -89,13 +89,10 @@ public sealed class DeclaredEventRewards
             throw new InvalidDataException("事件前态的属性、上限、体力、技能Pt或干劲无效。");
     }
 
-    internal static (int Value, int Overflow) Attribute(int before, int limit, int value)
+    static (int Value, int Overflow) Attribute(int before, int limit, int value)
     {
-        // The over-1200 portion is halved with a one-point minimum, including a crossing action.
-        var lower = Math.Min(value, Math.Max(0, 1200 - before));
-        var upper = value - lower;
-        var gain = (long)lower + (upper > 0 ? Math.Max(1, upper / 2) : 0);
-        var after = (int)Math.Min(limit, before + gain);
-        return (after, checked((int)(gain - (after - before))));
+        var gain = AttributeGain.FromRaw(before, value);
+        var actual = Math.Min(limit - before, gain);
+        return (before + actual, gain - actual);
     }
 }

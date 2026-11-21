@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MessagePack;
-using UmaAiSharp.Pioneer.Scoring;
+using UmaAiSharp.Base.Scoring;
 using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.MCP.Evidence;

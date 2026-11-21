@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using System.Numerics;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
 
 namespace UmaAiSharp.Pioneer.Training;
@@ -10,62 +10,6 @@ public sealed record TrainingFormulaInput(int CommandId, int Level, int Motivati
 public sealed record ExactTrainingGain(int TargetType, string Numerator, string Denominator, int TruncatedBeforeLimit);
 public sealed record TrainingFormulaPrediction(TrainingValues Common, TrainingValues Scenario,
     ImmutableArray<ExactTrainingGain> RawGains);
-
-public static class TrainingFailureRate
-{
-
-    public static int StatusBias(IEnumerable<int> effects, ImmutableArray<int> raceOnlyEffects = default)
-    {
-        var bias = 0;
-        foreach (var effect in effects)
-            bias += StatusBias(effect, raceOnlyEffects);
-        return bias;
-    }
-
-    public static int StatusBias(int effect, ImmutableArray<int> raceOnlyEffects = default) => effect switch
-    {
-        10 or 13 => -2,
-        11 => -4,
-        6 or 12 => 2,
-        1 or 2 or 3 or 4 or 5 or 7 or 8 or 9 or 25 or 26 or 27 or 31 or 40 => 0,
-        _ when !raceOnlyEffects.IsDefaultOrEmpty && raceOnlyEffects.BinarySearch(effect) >= 0 => 0,
-        _ => throw new UnknownMechanismException($"角色效果 {effect} 缺少已确认的训练失败率规则。")
-    };
-
-    // Produces the displayed percentage; actual outcome probabilities and failure penalties are separate rules.
-    public static int Calculate(int masterCoefficient, int vital, IEnumerable<int> reductions, int statusBias)
-    {
-        if (masterCoefficient < 0 || vital < 0) throw new ArgumentOutOfRangeException(nameof(masterCoefficient));
-        var numerator = BigInteger.Zero;
-        var denominator = new BigInteger(400);
-        if ((long)vital * 10 < masterCoefficient)
-            numerator = BigInteger.Max(0, BigInteger.Min(99 * denominator,
-                new BigInteger(100L - vital) * (masterCoefficient - 10L * vital)));
-        foreach (var reduction in reductions)
-        {
-            if (reduction is < 0 or > 100) throw new ArgumentOutOfRangeException(nameof(reductions));
-            numerator *= 100 - reduction;
-            denominator *= 100;
-        }
-        var rate = (int)((numerator + denominator - 1) / denominator);
-        return (int)Math.Clamp((long)rate + statusBias, 0, 100);
-    }
-
-    internal static int CalculateForSupports(int coefficient, int vital, ReadOnlySpan<ResolvedTrainingSupport> supports, int bias)
-    {
-        var numerator = (long)vital * 10 < coefficient
-            ? BigInteger.Clamp(new BigInteger(100L - vital) * (coefficient - 10L * vital), 0, 99 * 400) : BigInteger.Zero;
-        var denominator = new BigInteger(400);
-        foreach (var support in supports)
-            foreach (var reduction in support.FailureReductions)
-            {
-                if (reduction is < 0 or > 100) throw new InvalidDataException("训练失败率减免必须在0..100内。");
-                numerator *= 100 - reduction;
-                denominator *= 100;
-            }
-        return (int)Math.Clamp((long)((numerator + denominator - 1) / denominator) + bias, 0, 100);
-    }
-}
 
 public static class TrainingFormulaCandidate
 {
@@ -190,11 +134,11 @@ public static class TrainingFormulaCandidate
         return Enumerable.Range(0, 6).Select(index => new TrainingFactors(
             bases[index] == 0 ? 0 : checked(bases[index] + supports.Sum(card => Attributes(card.BaseBonuses)[index])),
             new(100L + growth[index], 100), friendship, new(100 + training, 100),
-            new(100L + 5L * ((long)guests + supports.Length), 100), new(10000 + houseBasisPoints, 10000),
+            new(TrainingBonuses.ParticipantPercent((long)guests + supports.Length), 100), new(10000 + houseBasisPoints, 10000),
             Motivation(environment.Motivation, motivation))).ToArray();
     }
 
-    static TrainingRational Motivation(int motivation, long bonus) => new(checked(1000 + (motivation - 3) * (100 + bonus)), 1000);
+    static TrainingRational Motivation(int motivation, long bonus) => new(TrainingBonuses.MotivationPermille(motivation, bonus), 1000);
 
     static TrainingFormulaPrediction Predict(TrainingEnvironment environment, TrainingFactors[] factors,
         int[] percent, bool capExtra, int vital)
@@ -257,9 +201,7 @@ public static class TrainingFormulaCandidate
 
     static int ConvertAttribute(int before, int cap, int gain)
     {
-        var below = Math.Min(gain, Math.Max(0, 1200 - before));
-        var above = gain - below;
-        return Math.Min(below + (above > 0 ? Math.Max(1, above / 2) : 0), cap - before);
+        return Math.Min(AttributeGain.FromRaw(before, gain), cap - before);
     }
 
     static int Target(int index) => index < 5 ? index + 1 : 30;

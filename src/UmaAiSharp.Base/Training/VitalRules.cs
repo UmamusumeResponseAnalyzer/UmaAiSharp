@@ -1,6 +1,6 @@
-namespace UmaAiSharp.Pioneer.Training;
+namespace UmaAiSharp.Base.Training;
 
-internal static class VitalRules
+public static class VitalRules
 {
     public const int Maximum = 120;
 

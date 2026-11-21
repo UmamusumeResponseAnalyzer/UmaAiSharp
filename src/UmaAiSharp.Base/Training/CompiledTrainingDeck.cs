@@ -3,12 +3,12 @@ using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using UmaAiSharp.Core;
 
-namespace UmaAiSharp.Pioneer.Training;
+namespace UmaAiSharp.Base.Training;
 
-// Condition tables and their effect atoms are immutable and shared by trajectories.
+// Six support slots. Master effects are compiled for training levels 1..5 and shared by trajectories.
 public sealed class CompiledTrainingDeck
 {
-    internal const int BondTableBytes = 64 * sizeof(int);
+    const int BondTableBytes = 64 * sizeof(int);
     [InlineArray(64)]
     struct BondBonuses { int first; }
 
@@ -47,9 +47,10 @@ public sealed class CompiledTrainingDeck
         SharedMemoryBytes = bytes;
     }
 
-    internal int TrainingBondBonus(byte participants) => bondBonuses[participants];
+    // Unique 121 contributes a deck-wide bonus, plus a second bonus when its holder trains.
+    public int TrainingBondBonus(byte participants) => bondBonuses[participants];
 
-    internal ResolvedTrainingSupport Resolve(TrainingSupport support, int command, int level, int fans)
+    public ResolvedTrainingSupport Resolve(TrainingSupport support, int command, int level, int fans)
     {
         if (!cards.TryGetValue(support.Position, out var card))
             throw new ArgumentException($"支援位置{support.Position}没有编译后的训练定义。");
@@ -62,7 +63,7 @@ public sealed class CompiledTrainingDeck
     }
 
     // The runtime has already checked card identity and immutable effects at compilation.
-    internal ResolvedTrainingSupport Resolve(int position, int bond, int command, int level, int fans)
+    public ResolvedTrainingSupport Resolve(int position, int bond, int command, int level, int fans)
         => cards[position].Resolve(bond, command, level, fans);
 
     sealed class CompiledSupport
@@ -144,6 +145,7 @@ public sealed class CompiledTrainingDeck
 
         public ResolvedTrainingSupport Resolve(int bond, int command, int level, int fans)
         {
+            TrainingSupportEffects.ValidateTrainingConditions(level, fans);
             var bondIndex = bondCount == 1 ? 0 : Array.BinarySearch(bondThresholds, 0, bondCount, bond);
             if (bondIndex < 0) bondIndex = ~bondIndex - 1;
             var fanIndex = fanCount == 1 ? 0 : Array.BinarySearch(fanThresholds, 0, fanCount, fans);
@@ -152,7 +154,8 @@ public sealed class CompiledTrainingDeck
             // Preserve the original failure at the condition that activates it; exceptions are never shared across workers.
             return result.Failure switch
             {
-                0 => (bond >= 80 && command == Definition.TrainingCommandId ? result.Friendly : result.Ordinary)!,
+                0 => (TrainingSupportEffects.IsFriendshipEligible(Definition.TrainingCommandId, command, bond)
+                    ? result.Friendly : result.Ordinary)!,
                 1 => throw new UnknownMechanismException(result.Error!),
                 2 => throw new InvalidDataException(result.Error),
                 3 => throw new OverflowException(result.Error),

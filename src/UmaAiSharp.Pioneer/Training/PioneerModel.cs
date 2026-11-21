@@ -1,3 +1,4 @@
+using UmaAiSharp.Base.Training;
 namespace UmaAiSharp.Pioneer.Training;
 
 public abstract class PioneerModel

@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="../UmaAiSharp.Core/UmaAiSharp.Core.csproj" />
+    <ProjectReference Include="../UmaAiSharp.Base/UmaAiSharp.Base.csproj" />
   </ItemGroup>
 </Project>

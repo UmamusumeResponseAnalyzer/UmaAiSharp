@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.MCP.Evidence;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Training;
 
 namespace UmaAiSharp.Tests;
 

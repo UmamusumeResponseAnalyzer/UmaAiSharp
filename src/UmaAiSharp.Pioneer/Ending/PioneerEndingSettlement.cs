@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
+using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
-using UmaAiSharp.Pioneer.Hints;
-using UmaAiSharp.Pioneer.Training;
+using UmaAiSharp.Base.Hints;
 
 namespace UmaAiSharp.Pioneer.Ending;
 
@@ -33,10 +33,7 @@ public static class PioneerEndingSettlement
     static int Attribute(int before, int cap)
     {
         if (before < 0 || before > cap) throw new ArgumentException("结局前属性必须在0与明确上限之间。");
-        var below = Math.Min(HighAttribute, Math.Max(0, 1200 - before));
-        var above = HighAttribute - below;
-        // The minimum-one branch has one boundary observation; it is not a general event rounding rule.
-        var gain = below + (above == 0 ? 0 : Math.Max(1, above / 2));
+        var gain = AttributeGain.FromRaw(before, HighAttribute);
         return before + Math.Min(cap - before, gain);
     }
 }
