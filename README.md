@@ -47,7 +47,7 @@ dotnet test UmaAiSharp.slnx --no-restore -m:1 -nodeReuse:false
 
 导入工具将原始回合响应编译为执行输入和合法根候选。根候选搜索、人员与 Hint 抽样模型见 [回合推荐实现](docs/recommendation.md)。
 
-Pioneer 入口、普通／合宿训练回合、已揭示事件选项及真实失败片段示例见 [执行与推荐](docs/pioneer-mcp.md)。`pioneer_run` 为自主模式，`pioneer_replay` 支持实包[训练后事件](docs/pioneer-mcp.md#训练后事件条件回放)及[记者收尾与目标赛](docs/pioneer-mcp.md#记者收尾与目标赛条件回放)，`pioneer_batch` 按输入模式执行固定样本批次。未实现机制输出结构化停止，搜索结果保留各候选的逐样本停止位置。
+Pioneer 入口、普通／合宿训练回合、已揭示事件选项及真实失败片段示例见 [执行与推荐](docs/pioneer-mcp.md)。`pioneer_run` 为自主模式，`pioneer_replay` 支持实包[训练后事件](docs/pioneer-mcp.md#训练后事件条件回放)及[记者收尾与目标赛](docs/pioneer-mcp.md#记者收尾与目标赛条件回放)，`pioneer_batch` 按输入模式执行固定样本批次。自主推荐列出本次省略的卡牌、角色或事件分量；无法识别当前行动或条件回放缺少结果时，报告给出结构化停止位置。
 
 证据工具只读打开源数据库，派生文件使用新输出路径。审计摘要分别返回工具执行状态和证据核验结论。完整工具列表见 [MCP 接入](docs/mcp.md#证据工具)。
 
@@ -64,6 +64,8 @@ Pioneer 入口、普通／合宿训练回合、已揭示事件选项及真实失
 | Tests | 输入边界、规则局部样例、轨迹隔离和确定性不变量 |
 
 PioneerAiPlugin 在 URA 的训练面板显示行动建议，在「建设规划」工作区显示有序方案排名。两处都按 `goalPath` 模拟到终局，并对分差接近的候选配对加样。可用 `model` 选取公式。
+
+遇到部分卡牌效果、角色赛程或事件分支无法估值时，排名列出本次省略的编号。反馈时可附上回合、卡位或故事编号及对应面板。游戏已揭示选项奖励时，「Pioneer 事件选项」单独比较即时收益。
 
 ## 打包 PioneerAiPlugin
 

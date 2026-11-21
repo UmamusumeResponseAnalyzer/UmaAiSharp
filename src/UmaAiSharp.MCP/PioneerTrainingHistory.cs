@@ -19,13 +19,14 @@ public sealed record CapturedPioneerTraining(byte[] Payload, string Endpoint,
     ImmutableArray<int> SuccessfulOrdinaryCounts, TrainingHistoryProvenance History,
     ImmutableArray<PioneerStoryOccurrence> ObservedStories, int UnmatchedStoryConfirmations, int UnseenFriendMask,
     ImmutableArray<TemporarySupportGrant> ObservedGrants, GoldShipTrainingBoost? GoldShipBoost,
-    ImmutableArray<PioneerRaceHistory>? RaceHistory, ImmutableArray<PioneerRaceReservation>? RaceReservations);
+    ImmutableArray<PioneerRaceHistory>? RaceHistory, ImmutableArray<PioneerRaceReservation>? RaceReservations,
+    ImmutableArray<PioneerScheduledProgram>? RandomRacePrograms);
 
 public static class PioneerTrainingHistory
 {
     sealed record Frame(long Id, string Endpoint, string RequestId, int Turn, int[]? Counts, int? Command, int? Result,
         ImmutableArray<PendingStory> PendingStories, int? PartnerMasks, ImmutableArray<TemporarySupportGrant> Grants,
-        GoldShipTrainingBoost? GoldShipSignal, int RaceProgram, int RaceRank);
+        GoldShipTrainingBoost? GoldShipSignal, int RaceProgram, int RaceRank, int RunningStyle);
     readonly record struct Request(long Id, int Turn, int Command, int Type);
     readonly record struct StoryRequest(long Id, int Turn, int EventId, int CharacterId, int Choice);
     readonly record struct PendingStory(int EventId, int StoryId, int CharacterId, int Timing, int Phase, int SupportCardId, int PartnerId);
@@ -43,11 +44,12 @@ public static class PioneerTrainingHistory
             query.CommandText = "SELECT direction,endpoint,viewer_id,payload FROM packets WHERE id=$id";
             query.Parameters.AddWithValue("$id", anchorId);
             using var row = query.ExecuteReader();
-            if (!row.Read() || row.GetString(0) != "response" || row.IsDBNull(2))
-                throw new InvalidDataException($"包{anchorId}不是带明确viewer_id的响应。");
+            if (!row.Read() || row.GetString(0) != "response")
+                throw new InvalidDataException($"包{anchorId}不是响应。");
+            if (row.IsDBNull(2)) throw new UnknownMechanismException("缺少 viewer_id，无法关联同一育成的历史响应。");
             endpoint = row.GetString(1); actor = row.GetString(2); payload = (byte[])row.GetValue(3);
         }
-        if (string.IsNullOrWhiteSpace(actor)) throw new InvalidDataException("锚点viewer_id为空，不能关联育成历史。");
+        if (string.IsNullOrWhiteSpace(actor)) throw new UnknownMechanismException("缺少 viewer_id，无法关联同一育成的历史响应。");
         var anchor = Decode(payload, anchorId)["data"] as JsonObject ?? throw new InvalidDataException("锚点缺少data对象。");
         var chara = PioneerNormalizer.GetCommon(anchor, endpoint)?["chara_info"] as JsonObject
             ?? throw new InvalidDataException("锚点缺少chara_info。");
@@ -65,6 +67,7 @@ public static class PioneerTrainingHistory
         ImmutableArray<PioneerRaceHistory>? races = null;
         ImmutableArray<PioneerRaceReservation>? reservations = null;
         ImmutableArray<PioneerRaceReservation>? pendingReservations = null;
+        ImmutableArray<PioneerScheduledProgram>? randomPrograms = null;
         using (var query = db.CreateCommand())
         {
             query.Transaction = transaction;
@@ -112,6 +115,7 @@ public static class PioneerTrainingHistory
                     pendingReservations ??= PioneerGameData.ReadRaceReservations(data);
                 if (common?["chara_info"] is not JsonObject current || RunId(current) != run) continue;
                 races ??= PioneerGameData.ReadRaceHistory(common);
+                randomPrograms ??= PioneerGameData.ReadRandomRacePrograms(common);
                 reservations ??= pendingReservations ?? PioneerGameData.ReadRaceReservations(common);
                 var counts = Counts(data);
                 var result = route.EndsWith("/exec_command", StringComparison.Ordinal) ? common["command_result"] as JsonObject : null;
@@ -136,7 +140,8 @@ public static class PioneerTrainingHistory
                     route.EndsWith("/race_entry", StringComparison.Ordinal)
                         ? common["race_start_info"]?["program_id"]?.GetValue<int>() ?? 0 : 0,
                     route.EndsWith("/race_end", StringComparison.Ordinal)
-                        ? common["race_reward_info"]?["result_rank"]?.GetValue<int>() ?? 0 : 0);
+                        ? common["race_reward_info"]?["result_rank"]?.GetValue<int>() ?? 0 : 0,
+                    current["race_running_style"]?.GetValue<int>() ?? 0);
                 if (route.EndsWith("/start", StringComparison.Ordinal) && startId == 0)
                 {
                     using var first = db.CreateCommand();
@@ -167,7 +172,7 @@ public static class PioneerTrainingHistory
         foreach (var frame in ordered)
         {
             if (frame.RaceProgram > 0)
-                pendingRace = new(frame.Turn, frame.RaceProgram, 0);
+                pendingRace = new(frame.Turn, frame.RaceProgram, 0, frame.RunningStyle);
             else if (pendingRace.Turn == frame.Turn)
             {
                 if (frame.RaceRank > 0)
@@ -236,7 +241,7 @@ public static class PioneerTrainingHistory
         return new(payload, endpoint, [.. successful], new(startId, anchorId, packetCount, actions, camps, failures,
             Convert.ToHexStringLower(digest.GetHashAndReset())), stories.ToImmutable(), unmatched, unseen,
             [.. activeGrants.OrderBy(grant => grant.SourceTurn)], goldShipBoost,
-            races.HasValue || raceHistory.Count > 0 ? [.. raceHistory.Values.OrderBy(race => race.Turn)] : null, reservations);
+            races.HasValue || raceHistory.Count > 0 ? [.. raceHistory.Values.OrderBy(race => race.Turn)] : null, reservations, randomPrograms);
     }
 
     static JsonObject Decode(byte[] bytes, long id)

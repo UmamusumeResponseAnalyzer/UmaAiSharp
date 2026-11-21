@@ -8,7 +8,8 @@ public sealed partial class PioneerScenario
     internal static ReadOnlySpan<int> GoalRaceHintGroups(int character) => character switch
     {
         1003 => [20190], 1008 => [20049], 1016 => [20135, 20049, 20061, 20036],
-        1017 => [20169], 1026 => [20037], 1041 => [20128, 20204], 1063 => [20279], _ => [],
+        1017 => [20169], 1022 => [20072, 20134, 20070, 20057, 20190, 20062], 1026 => [20037],
+        1031 => [20125, 20054], 1041 => [20128, 20204], 1063 => [20279], 1075 => [20357, 20472, 20444], _ => [],
     };
 
     bool HasBrianRouteQualification(PioneerState state)
@@ -25,7 +26,7 @@ public sealed partial class PioneerScenario
     static bool GoldShipRepeatWin(PioneerState state, PioneerRaceOption race)
         => race.CareerGoalId == 273 && state.GetSection(PioneerStateSection.RaceWins)[36] == 74;
 
-    static void ApplyCareerRouteAfterWin(PioneerState state, int goal, int raceMotivation, ref SimulationRandom random)
+    void ApplyCareerRouteAfterWin(PioneerState state, int goal, int raceMotivation, ref SimulationRandom random)
     {
         ref var current = ref state.Mutable;
         switch (goal)
@@ -43,10 +44,16 @@ public sealed partial class PioneerScenario
                 var takarazuka = random.At(current.Turn, PioneerDraw.CareerRoute).NextScaled(6);
                 current.RaceBranch = takarazuka switch { 0 => 294, 1 => 295, _ => 95 };
                 break;
+            case 1474 when data.TrainingStart!.HomeActions?.EspoirRoute is { } route:
+                var starts = 1; // Include today's Nambu Hai, recorded after settling its reward.
+                foreach (var program in state.GetSection(PioneerStateSection.RaceWins)[data.TrainingStart.Turn..current.Turn])
+                    if (program > 0) starts++;
+                current.RaceBranch = route.GoalAfter(starts);
+                break;
         }
     }
 
-    void ApplyCareerGoalReward(PioneerState state, PioneerRaceOption race = default)
+    void ApplyCareerGoalReward(PioneerState state, PioneerRaceOption race = default, int excludedAttribute = -1)
     {
         ref var header = ref state.Mutable;
         var character = data.TrainingStart!.CharacterId ?? header.CardId / 100;
@@ -82,10 +89,38 @@ public sealed partial class PioneerScenario
             }
             ApplyMotivationGain(state, 3);
         }
+        else if (character == 1075 && goal is 1708 or 1712)
+            basePoints = 75;
+        else if (character == 1022 && goal == 549)
+            basePoints = 35;
 
-        ApplyProgressionReward(state, Scale(baseAttribute), Scale(basePoints));
+        var attribute = Scale(baseAttribute);
+        if (excludedAttribute == -1) ApplyProgressionReward(state, attribute, Scale(basePoints));
+        else ApplyProgressionReward(state, new(
+            excludedAttribute == 0 ? 0 : attribute, excludedAttribute == 1 ? 0 : attribute,
+            excludedAttribute == 2 ? 0 : attribute, excludedAttribute == 3 ? 0 : attribute,
+            excludedAttribute == 4 ? 0 : attribute, 0, Scale(basePoints)));
         switch (character, goal)
         {
+            case (1022, 549) when data.TrainingStart!.HomeActions?.RunningStyle == 4:
+                Hint(hintGroups[5], 1);
+                break;
+            case (1022, >= 550 and <= 553):
+                Hint(hintGroups[goal - 550], 2);
+                if (goal == 553) Hint(hintGroups[4], 2);
+                break;
+            case (1031, 684):
+                Hint(hintGroups[0], 1);
+                break;
+            case (1031, 690):
+                Hint(hintGroups[1], 2);
+                break;
+            case (1075, 1707):
+                Hint(hintGroups[0], 1);
+                break;
+            case (1075, 1708 or 1712):
+                Hint(hintGroups[goal == 1708 ? 1 : 2], 3);
+                break;
             case (1063, 1146):
                 state.AddCharacterEffect(31);
                 break;

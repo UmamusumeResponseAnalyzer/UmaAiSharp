@@ -6,7 +6,7 @@ namespace UmaAiSharp.Pioneer.Training;
 
 public sealed record TrainingFormulaInput(int CommandId, int Level, int Motivation, int Fans, int GuestCount,
     TrainingValues Current, TrainingLimits Limits, TrainingValues GrowthPercent,
-    ImmutableArray<TrainingSupport> Supports, int EvaluationTrainingPercent, GoldShipTrainingBoost? GoldShipBoost);
+    ImmutableArray<TrainingSupport> Supports, int EvaluationTrainingPercent, GoldShipTrainingBoost? GoldShipBoost, int? TotalSupportBond = null);
 public sealed record ExactTrainingGain(int TargetType, string Numerator, string Denominator, int TruncatedBeforeLimit);
 public sealed record TrainingFormulaPrediction(TrainingValues Common, TrainingValues Scenario,
     ImmutableArray<ExactTrainingGain> RawGains);
@@ -22,14 +22,17 @@ public static class TrainingFailureRate
         return bias;
     }
 
-    public static int StatusBias(int effect, ImmutableArray<int> raceOnlyEffects = default) => effect switch
+    public static int StatusBias(int effect, ImmutableArray<int> raceOnlyEffects = default) => KnownStatusBias(effect, raceOnlyEffects)
+        ?? throw new UnknownMechanismException($"角色效果 {effect} 缺少已确认的训练失败率规则。");
+
+    internal static int? KnownStatusBias(int effect, ImmutableArray<int> raceOnlyEffects) => effect switch
     {
         10 or 13 => -2,
         11 => -4,
         6 or 12 => 2,
         1 or 2 or 3 or 4 or 5 or 7 or 8 or 9 or 25 or 26 or 27 or 31 or 40 => 0,
         _ when !raceOnlyEffects.IsDefaultOrEmpty && raceOnlyEffects.BinarySearch(effect) >= 0 => 0,
-        _ => throw new UnknownMechanismException($"角色效果 {effect} 缺少已确认的训练失败率规则。")
+        _ => null
     };
 
     // Produces the displayed percentage; actual outcome probabilities and failure penalties are separate rules.
@@ -73,7 +76,7 @@ public static class TrainingFormulaCandidate
     public static TrainingFormulaPrediction GenerateOrdinary(TrainingFormulaInput input)
     {
         var environment = new TrainingEnvironment(input.Motivation, input.Fans, input.Current, input.Limits,
-            input.GrowthPercent, input.GoldShipBoost);
+            input.GrowthPercent, input.GoldShipBoost, input.TotalSupportBond);
         Validate(environment);
         if (input.GuestCount < 0 || input.EvaluationTrainingPercent < 0)
             throw new ArgumentException("训练人数和评估会加成不能为负数。");
@@ -151,6 +154,7 @@ public static class TrainingFormulaCandidate
             foreach (var member in members)
             {
                 var scale = TrainingFacilityRules.EffectPercent(member.FacilityId, i);
+                training = checked(training + member.Card.PanelTrainingBonus(input.Environment, members.Length, scale));
                 if (member.Card.FriendshipEligible)
                     foreach (var bonus in member.Card.FriendshipBonuses)
                         friendship *= new TrainingRational(100L + (long)bonus * scale / 100, 100);
@@ -177,6 +181,7 @@ public static class TrainingFormulaCandidate
         ResolvedTrainingSupport[] supports, int guests, long training, long houseBasisPoints)
     {
         TrainingRational friendship = 1;
+        training = checked(training + supports.Sum(card => card.PanelTrainingBonus(environment, supports.Length)));
         foreach (var bonus in supports.Where(card => card.FriendshipEligible).SelectMany(card => card.FriendshipBonuses))
             friendship *= new TrainingRational(100L + bonus, 100);
         var motivation = (long)supports.Sum(card => card.MotivationEffect);

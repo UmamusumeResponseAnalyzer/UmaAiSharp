@@ -31,13 +31,28 @@ public static class PioneerRecommendation
         var candidateBytes = File.ReadAllBytes(candidatesPath);
         var candidates = JsonSerializer.Deserialize<RootCandidate<PioneerRuntimeAction>[]>(candidateBytes, PioneerExecution.JsonOptions)
             ?? throw new InvalidDataException("候选文件必须是明确的动作数组。");
+        var scenario = new PioneerScenario(loaded.Data, autonomous: true);
+        if (loaded.Data.InitialStage == PioneerStage.DeclaredEvent)
+        {
+            var advice = scenario.EvaluateEventChoices(loaded.Root, candidates, goal.Compiled, cancellationToken);
+            var selected = advice.RecommendedCandidateId is { } candidateId
+                ? candidates.Single(candidate => candidate.Id == candidateId).Action : (PioneerRuntimeAction?)null;
+            var summary = new { scope = "immediateEventRewards", advice.RecommendedCandidateId,
+                recommendedAction = selected, advice.ContenderIds, advice.IgnoredMechanisms };
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            using var stream = new FileStream(output, FileMode.CreateNew);
+            JsonSerializer.Serialize(stream, new { summary.scope, initialStage = loaded.Data.InitialStage, loaded.InputSha256,
+                loaded.MasterSha256, candidatesSha256 = Convert.ToHexStringLower(SHA256.HashData(candidateBytes)), goalIdentity = goal.Identity,
+                summary.RecommendedCandidateId, summary.recommendedAction, advice.ContenderIds, advice.Event,
+                advice.SupportCardId, advice.Choices, advice.IgnoredMechanisms }, PioneerExecution.JsonOptions);
+            return ToolResult.Report(output, summary);
+        }
         var allocated = GC.GetTotalAllocatedBytes(true);
         var timer = Stopwatch.GetTimestamp();
         var compiledGoal = loaded.Data.InitialStage == PioneerStage.CharacterEnding
             ? GoalEvaluator.Compile(goal, new(loaded.Root.Header.Limits.Speed, loaded.Root.Header.Limits.Stamina,
                 loaded.Root.Header.Limits.Power, loaded.Root.Header.Limits.Guts, loaded.Root.Header.Limits.Wisdom))
             : goal.Compiled;
-        var scenario = new PioneerScenario(loaded.Data, autonomous: true);
         var wholeRun = loaded.Data.IsWholeRun;
         var result = RootSearch.Evaluate(scenario, new PioneerContinuationPolicy(), loaded.Root, candidates,
             compiledGoal, seed, samples, workers, cancellationToken,
@@ -55,7 +70,7 @@ public static class PioneerRecommendation
             initialStage = loaded.Data.InitialStage, loaded.InputSha256, loaded.MasterSha256,
             candidatesSha256 = Convert.ToHexStringLower(SHA256.HashData(candidateBytes)), goalIdentity = goal.Identity,
             samplesPerCandidate = samples, workers, recommendedAction = action, recommendationEvaluation = evaluation, search = result,
-            executionMilliseconds = elapsed.TotalMilliseconds, processAllocatedBytes = bytes,
+            loaded.Data.IgnoredMechanisms, executionMilliseconds = elapsed.TotalMilliseconds, processAllocatedBytes = bytes,
             avx512Available = ExecutionPlatform.HasAvx512
         };
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
@@ -65,7 +80,7 @@ public static class PioneerRecommendation
         {
             recommendedCandidateId = result.RecommendedCandidateId,
             recommendedAction = action, recommendationEvaluation = evaluation,
-            samplesPerCandidate = samples, result.SampleLimitPerCandidate, candidateCount = candidates.Length,
+            samplesPerCandidate = samples, result.SampleLimitPerCandidate, candidateCount = candidates.Length, loaded.Data.IgnoredMechanisms,
             stops = ToolResult.Stops(result.Candidates.SelectMany(candidate => candidate.Batch.Results))
         }, ToolResult.SearchStatus(result.Status));
     }

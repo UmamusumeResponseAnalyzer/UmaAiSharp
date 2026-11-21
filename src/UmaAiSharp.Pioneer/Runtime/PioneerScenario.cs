@@ -107,6 +107,8 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             return Stop(PioneerStopCode.OutcomeIdentityMismatch, current.Stage);
         if (current.Stage == PioneerStage.TrainingTurn)
         {
+            if (IsForcedCharacterRest(state))
+                return action.Kind == PioneerActionKind.Rest && action.CommandId == RestRules.OrdinaryCommand ? null : Illegal(current.Stage);
             if (ActiveScheduledRace(state) is { } race)
                 return action.Kind == PioneerActionKind.Race && action.CommandId == race.ProgramId ? null : Illegal(current.Stage);
             if (action.Kind == PioneerActionKind.Rest)
@@ -287,10 +289,28 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             ? command.EvaluationTrainingPercent : state.Header.EvaluationTrainingPercent;
         var bias = 0;
         foreach (var effect in state.GetSection(PioneerStateSection.CharacterEffects))
-            bias += TrainingFailureRate.StatusBias(effect, data.RaceOnlyCharacterEffects);
-        return data.Model.Preview(environment, commandId, level,
+            bias += TrainingFailureRate.StatusBias(effect, data.EffectsWithNoModeledTrainingModifier);
+        var preview = data.Model.Preview(environment, commandId, level,
             placement.GuestCount, evaluation, coefficient, bias,
             positions[..length], state.GetSection(PioneerStateSection.SupportBonds), data.TrainingDeck!, camp);
+        if (state.GetSection(PioneerStateSection.CharacterEffects).Contains(4))
+        {
+            var gains = preview.Gains;
+            preview = preview with { Gains = new(gains.Common with { Speed = 0 }, gains.Scenario with { Speed = 0 },
+                gains.UncappedCommon with { Speed = 0 }, gains.UncappedScenario with { Speed = 0 }) };
+        }
+        if ((placement.SupportMask & state.Header.ZeroFailureSupportMask) != 0) preview = preview with { FailureRate = 0 };
+        if (!autonomous || state.Header.ActionOrdinal != 0 || command.Observed is not { } observed) return preview;
+        var friendship = preview.Friendship;
+        foreach (var position in positions[..length])
+        {
+            var zone = data.TrainingStart.Deck[position - 1].CardId switch
+            {
+                30081 => 100, 30067 => 101, 30137 => 102, 30180 => 103, 30241 => 104, _ => 0,
+            };
+            if (zone != 0 && data.TrainingStart.CharacterEffects.Contains(zone)) friendship = true;
+        }
+        return new(observed.Apply(preview.Gains, environment), observed.FailureRate, friendship);
     }
 
     TransitionResult ApplyTraining(PioneerState state, int commandId, ref SimulationRandom random)
@@ -482,8 +502,9 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             branchIndex = result.BranchIndex;
         }
         var settlement = branches[branchIndex];
+        if (settlement.MissingDeclaration) return Missing(state, PioneerStopCode.EventRewardRemainderRequired);
         var reward = settlement.Resources;
-        if (reward.ResourceMask == 0 && !reward.RemainingEffects.IsEmpty && !settlement.HasPartnerEffects)
+        if (reward.ResourceMask == 0 && !reward.RemainingEffects.IsEmpty && !settlement.HasPartnerEffects && settlement.Conditions.IsEmpty)
             return Missing(state, PioneerStopCode.EventRewardRemainderRequired);
         var after = reward.Apply(state.Header.Resources, state.Header.Limits, state.Header.Motivation,
             state.GetSection(PioneerStateSection.CharacterEffects).Contains(25),
@@ -497,6 +518,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         settlement.ApplyPartners(state.MutableSection(PioneerStateSection.PartnerEvaluations));
         if (after.ConsumePositiveThinking)
             state.RemoveCharacterEffect(25);
+        settlement.ApplyConditions(state);
         if (conditional is not null) header.ConditionalOutcomeCount++;
         return Partial(state, PioneerStopCode.EventRewardRemainderRequired);
     }
@@ -507,7 +529,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         {
             if (data.OutcomeAt(state.Header.ActionOrdinal) is not null)
                 return Missing(state, PioneerStopCode.OutcomeIdentityMismatch);
-            RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.RaceOnlyCharacterEffects.AsSpan());
+            RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.EffectsWithNoModeledTrainingModifier.AsSpan());
             var vital = VitalRules.Apply(state.Header.Resources.Vital, state.Header.Limits.Vital, 40, 0).Vital;
             ref var camp = ref state.Mutable;
             camp.Resources = camp.Resources with { Vital = vital };
@@ -518,7 +540,15 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         }
         if (autonomous && data.TurnRules is { } rules)
         {
-            RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.RaceOnlyCharacterEffects.AsSpan());
+            RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.EffectsWithNoModeledTrainingModifier.AsSpan());
+            if (IsForcedCharacterRest(state))
+            {
+                ApplyProgressionReward(state, state.Header.Turn == 42
+                    ? new(10, 10, 10, 10, 10, 70, 20) : new(15, 15, 15, 15, 15, 30, 35));
+                ApplyMotivationGain(state, 1);
+                state.Mutable.CommandId = commandId;
+                return AdvanceTurn(state, PioneerArrivalSource.RestConfirmation, ref random);
+            }
             var resources = state.Header.Resources;
             var restRandom = data.IsWholeRun ? random.At(state.Header.Turn, PioneerDraw.Rest) : random;
             state.Mutable.Resources = resources with { Vital = VitalRules.Apply(resources.Vital, state.Header.Limits.Vital,
@@ -530,7 +560,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         if (data.OutcomeAt(state.Header.ActionOrdinal) is not PioneerConditionalOutcome.RestEvent outcome)
             return MissingOutcome(state, PioneerStopCode.RestOutcomeRequired);
         if (data.TrainingCharacterId is not { } characterId) return Missing(state, PioneerStopCode.RestCharacterRequired);
-        RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.RaceOnlyCharacterEffects.AsSpan());
+        RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.EffectsWithNoModeledTrainingModifier.AsSpan());
         var current = outcome.Event;
         _ = RestRules.Recovery(current, characterId);
         state.SetSection(PioneerStateSection.PendingStories, [current.StoryId]);
@@ -548,7 +578,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
     TransitionResult ConfirmRest(PioneerState state, ref SimulationRandom random)
     {
         var gain = RestRules.Recovery(state.Header.Event, state.Data.TrainingCharacterId!.Value);
-        RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.RaceOnlyCharacterEffects.AsSpan());
+        RestRules.ValidateEffects(state.GetSection(PioneerStateSection.CharacterEffects), data.EffectsWithNoModeledTrainingModifier.AsSpan());
         var vital = VitalRules.Apply(state.Header.Resources.Vital, state.Header.Limits.Vital, gain, 0).Vital;
         state.Mutable.Resources = state.Header.Resources with { Vital = vital };
         RecordCurrentStory(state);
@@ -703,6 +733,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         var scheduledRace = autonomous && ActiveScheduledRace(state) is not null;
         header.AvailableTrainingCommands = scheduledRace ? 0 : outcome?.AvailableTrainingCommands ?? 31;
         header.AvailableRestCommands = scheduledRace ? 0 : outcome?.AvailableRestCommands ?? (camp ? RestRules.CampAvailable : RestRules.OrdinaryAvailable);
+        header.ZeroFailureSupportMask = 0;
         if (scheduledRace) header.TrainingBoard = default;
         else if (outcome?.Board is { } observed) header.TrainingBoard = observed;
         else
@@ -710,6 +741,10 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             var paired = autonomous && data.IsWholeRun;
             var boardRandom = paired ? random.At(next, PioneerDraw.Board) : random;
             header.TrainingBoard = data.TurnRules!.DrawBoard(state, camp, ref boardRandom, paired);
+            if (paired)
+                foreach (var (position, chance) in data.ZeroFailureSupports)
+                    if (random.At(next, PioneerDraw.ZeroFailureSupport, position).NextInt(100) < chance)
+                        header.ZeroFailureSupportMask |= 1 << (position - 1);
             if (!paired) random = boardRandom;
         }
         header.KnownParts &= ~PioneerKnownParts.IslandAssignments;
@@ -730,6 +765,16 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
         state.SetSection(PioneerStateSection.HintCandidates, []);
         header.ActionOrdinal++;
         return TransitionResult.Settled((int)header.Stage);
+    }
+
+    bool IsForcedCharacterRest(PioneerState state)
+    {
+        ref readonly var current = ref state.Header;
+        if (!autonomous || current.AvailableRestCommands != RestRules.OrdinaryAvailable
+            || (current.CardId / 100, current.Turn) is not ((1093, 42) or (1115, 67))) return false;
+        if (data.Start is not PioneerStart.TrainingTurn || current.Turn != current.SourceTurn) return true;
+        return current.AvailableTrainingCommands == 0 && !IslandAvailable(state)
+            && data.TrainingStart!.HomeActions is { Treatment: false, Outing: false, FriendOuting: false, Races.IsEmpty: true };
     }
 
     static bool IsCamp(int turn) => turn is >= 37 and <= 40 or >= 61 and <= 64 or >= 73 and <= 78;

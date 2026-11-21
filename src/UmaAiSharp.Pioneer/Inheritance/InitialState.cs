@@ -114,11 +114,13 @@ public static class InitialSupportRules
             throw new InvalidDataException("初始支援属性必须提供六个不重复卡位。");
         var totals = new int[5];
         var bonds = ImmutableArray.CreateBuilder<InitialSupportBond>();
+        if (deck.Any(card => card.CardType is < 1 or > 3 || card.Effects.IsDefault || card.UniqueEffects.IsDefault))
+            throw new InvalidDataException("支援类型或初始效果输入不完整。");
+        var teamBond = deck.Sum(card => card.UniqueEffects.Where(effect => effect.Type == 115 && effect.Value == 14)
+            .Sum(effect => effect.Parameter1));
         foreach (var card in deck)
         {
-            if (card.CardType is < 1 or > 3 || card.Effects.IsDefault || card.UniqueEffects.IsDefault)
-                throw new InvalidDataException("支援类型或初始效果输入不完整。");
-            var bond = 0;
+            var bond = teamBond;
             foreach (var effect in card.Effects) Add(effect.Type, effect.Value);
             foreach (var unique in card.UniqueEffects)
             {
@@ -147,10 +149,7 @@ public static class InitialSupportRules
                     if (unique.Parameter1 is >= 9 and <= 14 || unique.Parameter3 is >= 9 and <= 14)
                         throw new UnknownMechanismException("条件固有包含初始属性或羁绊；其开局生效顺序未核验。");
                 }
-                else if (unique.Type == 115)
-                {
-                    throw new UnknownMechanismException("115 全队初始羁绊的对象与上限边界未实包核验。");
-                }
+                else if (unique.Type == 115 && unique.Value == 14) continue;
                 // Classified training, placement and hint effects; see the initial-state evidence scope.
                 else if (unique.Type is not (102 or 103 or 104 or 106 or 107 or 108 or 109 or 110 or 111
                     or 112 or 113 or 114 or 116 or 117 or 118 or 119 or 120 or 121 or 122))

@@ -6,7 +6,7 @@ namespace UmaAiSharp.Pioneer.Training;
 // This is the resolved effect of story 501007525, not its occurrence or target-selection probability.
 public sealed record GoldShipTrainingBoost(int CommandId);
 public readonly record struct TrainingEnvironment(int Motivation, int Fans, TrainingValues Current, TrainingLimits Limits,
-    TrainingValues GrowthPercent, GoldShipTrainingBoost? GoldShipBoost);
+    TrainingValues GrowthPercent, GoldShipTrainingBoost? GoldShipBoost, int? TotalSupportBond = null);
 public readonly record struct TrainingFacilityEffect(int Type, int Condition, int Value, int Target);
 public sealed record TrainingFacility(int Id, int StateId, int Level, ImmutableArray<TrainingFacilityEffect> Effects);
 public sealed record CampTrainingInput(int CommandId, int Level, int GuestCount, TrainingEnvironment Environment,

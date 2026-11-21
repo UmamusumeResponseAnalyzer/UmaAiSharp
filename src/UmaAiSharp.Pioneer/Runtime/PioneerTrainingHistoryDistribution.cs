@@ -12,7 +12,8 @@ public sealed record PioneerTrainingHistoryPrefix(int Turn, ImmutableArray<int> 
     ImmutableArray<TemporarySupportGrant>? ObservedGrants = null,
     ImmutableArray<PioneerStoryOccurrence>? ObservedStories = null,
     GoldShipTrainingBoost? GoldShipBoost = null,
-    ImmutableArray<PioneerRaceHistory>? RaceHistory = null, ImmutableArray<PioneerRaceReservation>? RaceReservations = null)
+    ImmutableArray<PioneerRaceHistory>? RaceHistory = null, ImmutableArray<PioneerRaceReservation>? RaceReservations = null,
+    ImmutableArray<PioneerScheduledProgram>? RandomRacePrograms = null)
 {
     public bool NeedsEstimate => UnobservedExecutions.Any(count => count != 0);
 }

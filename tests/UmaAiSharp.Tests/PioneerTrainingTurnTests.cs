@@ -10,6 +10,78 @@ namespace UmaAiSharp.Tests;
 
 public sealed class PioneerTrainingTurnTests
 {
+    [Theory]
+    [InlineData("precise")]
+    [InlineData("fast")]
+    public void TeamBondUniqueIncludesTheFourAbsentCards(string model)
+    {
+        var start = Start();
+        var card = start.Deck[0] with { CardId = 30099, TrainingCommandId = 103 };
+        var total = start.Deck.Sum(support => support.Bond);
+        TrainingNumericResult Preview(TrainingSupport support)
+        {
+            var panel = start with { Deck = start.Deck.SetItem(0, support) };
+            var data = PioneerRuntimeData.Compile(panel, [], "team-bond", model: PioneerModel.Resolve(model));
+            return new PioneerScenario(data).PreviewTraining(data.CreateInitialState(), 101).Gains;
+        }
+        var expected = Preview(card with { Effects = card.Effects.Add(new(8, total / 30)) });
+        Assert.NotEqual(Preview(card), expected);
+        Assert.Equal(expected, Preview(card with { UniqueEffects = [new(109, 8, 30, 0, 0, 0)] }));
+    }
+
+    [Theory]
+    [InlineData(30021, 1, 40, 0, 3, true)]
+    [InlineData(30021, 4, 56, 40, 5, false)]
+    [InlineData(10021, 4, 49, 18, 5, false)]
+    public void TazunaOutingsUseEquippedCardAndVisibleProgress(int cardId, int step, int recovery, int points, int mood, bool cured)
+    {
+        var start = Start();
+        var ssr = cardId == 30021;
+        var friend = start.Deck[5] with { CardId = cardId, Effects = [new(25, ssr ? 60 : 40), new(26, ssr ? 35 : 25)] };
+        start = start with { Deck = start.Deck.SetItem(5, friend), CharacterEffects = [4],
+            Environment = start.Environment with { Motivation = 3, Current = start.Environment.Current with { Vital = 20 } },
+            HomeActions = new(false, false, true, [new(6, 9001, true, step)], [], [], 0) };
+        var calibration = new PioneerTurnCalibration([new(701, 1)], [new(PioneerArrivalSource.RestConfirmation, start.Turn, 1, 0, 0, 0, 0, 0)],
+            [new(PlacementMemberKind.Training, false, 0, 1, 10), new(PlacementMemberKind.Tucker, false, 0, 1, 10)]);
+        var rules = new PioneerTurnRules(calibration, start.Commands.Select(c => (c.CommandId, c.Level, c.FailureCoefficient)), start, 63, [], []);
+        var data = PioneerRuntimeData.Compile(start, [], "tazuna-outing", turnRules: rules);
+        var state = data.CreateInitialState();
+        var random = new SimulationRandom(42);
+        new PioneerScenario(data).ApplyAction(ref state, new(PioneerActionKind.Outing, 390, SupportPosition: 6), ref random);
+        Assert.Equal(20 + recovery, state.Header.Resources.Vital);
+        Assert.Equal(20 + points, state.Header.Resources.SkillPoints);
+        Assert.Equal(mood, state.Header.Motivation);
+        Assert.Equal(cured, !state.GetSection(PioneerStateSection.CharacterEffects).Contains(4));
+    }
+
+    [Fact]
+    public void SlowMetabolismSuppressesTrainingSpeedIncludingOverflow()
+    {
+        var start = Start();
+        var data = PioneerRuntimeData.Compile(start with { CharacterEffects = [4] }, [], "slow-metabolism");
+        var gains = new PioneerScenario(data).PreviewTraining(data.CreateInitialState(), 101).Gains;
+        Assert.Equal(0, gains.Common.Speed + gains.Scenario.Speed);
+        Assert.Equal(0, gains.UncappedCommon.Speed + gains.UncappedScenario.Speed);
+        Assert.True(gains.Common.Power > 0);
+    }
+
+    [Fact]
+    public void ForecastUsesVisibleRootLayerAndKeepsEstimatedLayerWithinCap()
+    {
+        var start = Start();
+        var speed = start.Commands[0];
+        var observed = new ObservedTrainingPreview(null, new(5, 0, 0, 0, 0, 0, 0), 37);
+        start = start with { Environment = start.Environment with { Limits = start.Environment.Limits with { Speed = 1200 } },
+            Commands = start.Commands.SetItem(0, speed with { Observed = observed }) };
+        var data = PioneerRuntimeData.Compile(start, [], "observed");
+        var root = data.CreateInitialState();
+        var forecast = new PioneerScenario(data, autonomous: true).PreviewTraining(root, speed.CommandId);
+        Assert.Equal(37, forecast.FailureRate);
+        Assert.Equal(0, forecast.Gains.Common.Speed);
+        Assert.Equal(5, forecast.Gains.Scenario.Speed);
+        Assert.True(new PioneerScenario(data).PreviewTraining(root, speed.CommandId).Gains.Common.Speed > 0);
+    }
+
     [Fact]
     public void TrainingBondsIncludeDeckEffectsPresenceCharmAndCaps() => VerifyBondSettlement(Start());
 

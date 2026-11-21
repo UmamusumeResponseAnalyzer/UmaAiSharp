@@ -6,7 +6,7 @@ using UmaAiSharp.Pioneer.Training;
 namespace UmaAiSharp.Pioneer.Events;
 
 public readonly record struct DeclaredEventEffect(int DisplayId, int Value0, int Value1, int Value2);
-public sealed record DeclaredEventBranch(ImmutableArray<DeclaredEventEffect> Effects);
+public sealed record DeclaredEventBranch(ImmutableArray<DeclaredEventEffect> Effects, bool MissingDeclaration = false);
 public sealed record DeclaredEventChoice(int ChoiceNumber, ImmutableArray<DeclaredEventBranch> Branches);
 public readonly record struct EventResourceResult(TrainingValues Resources, TrainingLimits Limits, int Motivation,
     bool ConsumePositiveThinking, AttributeValues Overflow);
@@ -16,7 +16,7 @@ public sealed class DeclaredEventRewards
 {
     readonly TrainingValues gain;
     readonly int maximumVitalGain, motivationGain;
-    readonly bool repeatedResource;
+    readonly int repeatedResources;
     public ImmutableArray<DeclaredEventEffect> RemainingEffects { get; }
     public int ResourceMask { get; }
     public long SharedMemoryBytes => 128L + 16L * RemainingEffects.Length;
@@ -37,7 +37,7 @@ public sealed class DeclaredEventRewards
             if (effect.Value1 < 0) throw new InvalidDataException("事件增减量须非负，方向由display_id表示。");
             var value = effect.DisplayId == 1 ? effect.Value1 : -effect.Value1;
             var bit = 1 << (effect.Value0 switch { <= 5 => effect.Value0 - 1, 10 => 5, 11 => 6, 20 => 7, _ => 8 });
-            repeatedResource |= (ResourceMask & bit) != 0;
+            repeatedResources |= ResourceMask & bit;
             ResourceMask |= bit;
             switch (effect.Value0)
             {
@@ -55,29 +55,64 @@ public sealed class DeclaredEventRewards
         RemainingEffects = remaining.ToImmutable();
     }
 
-    public EventResourceResult Apply(TrainingValues before, TrainingLimits limits, int motivation, bool positiveThinking, bool migraine)
+    public EventResourceResult Apply(TrainingValues before, TrainingLimits limits, int motivation, bool positiveThinking, bool migraine,
+        List<string>? ignored = null)
     {
         Validate(before, limits, motivation);
-        if (repeatedResource)
-            throw new UnknownMechanismException("同一事件结果的同资源多原子顺序尚未接入结算。");
-        if (migraine && motivationGain > 0 && !RemainingEffects.IsEmpty)
-            throw new UnknownMechanismException("片头痛期间的干劲增加同时带有未解释效果，状态解除与奖励顺序尚未接入。");
-        if (maximumVitalGain < 0 || gain.Speed < 0 || gain.Stamina < 0 || gain.Power < 0 || gain.Guts < 0 || gain.Wisdom < 0)
-            throw new UnknownMechanismException("事件的负属性或体力上限降低尚未接入资源结算。");
+        var recovery = Known(5, 10, gain.Vital);
+        var maxGain = Known(6, 11, maximumVitalGain);
+        if (maxGain < 0 || (repeatedResources & (1 << 6)) != 0)
+        {
+            Ignore("体力上限变化顺序或下降量未核验，忽略本分支的体力上限与回体。");
+            maxGain = recovery = 0;
+        }
+        var moodGain = Known(7, 20, motivationGain);
+        if (migraine && moodGain > 0 && !RemainingEffects.IsEmpty)
+        {
+            Ignore("片头痛解除与干劲奖励的顺序未核验，忽略干劲增加。");
+            moodGain = 0;
+        }
         // The reference max-vital cap is 120; Tucker observations support applying the new cap before recovery.
-        var vital = VitalRules.Apply(before.Vital, limits.Vital, gain.Vital, maximumVitalGain);
-        var skillPoints = checked(before.SkillPoints + gain.SkillPoints);
-        if (skillPoints < 0) throw new UnknownMechanismException("事件技能Pt减少超过当前余额，尚未接入下限处理。");
-        var changedMotivation = MotivationRules.Apply(motivation, motivationGain, positiveThinking, migraine);
-        var speed = Attribute(before.Speed, limits.Speed, gain.Speed);
-        var stamina = Attribute(before.Stamina, limits.Stamina, gain.Stamina);
-        var power = Attribute(before.Power, limits.Power, gain.Power);
-        var guts = Attribute(before.Guts, limits.Guts, gain.Guts);
-        var wisdom = Attribute(before.Wisdom, limits.Wisdom, gain.Wisdom);
+        var vital = VitalRules.Apply(before.Vital, limits.Vital, recovery, maxGain);
+        var skillPoints = checked(before.SkillPoints + Known(8, 30, gain.SkillPoints));
+        if (skillPoints < 0)
+        {
+            Ignore("技能 Pt 减少超过余额，下限未核验，忽略技能 Pt 变化。");
+            skillPoints = before.SkillPoints;
+        }
+        var changedMotivation = MotivationRules.Apply(motivation, moodGain, positiveThinking, migraine);
+        var speed = SettleAttribute(0, before.Speed, limits.Speed, gain.Speed);
+        var stamina = SettleAttribute(1, before.Stamina, limits.Stamina, gain.Stamina);
+        var power = SettleAttribute(2, before.Power, limits.Power, gain.Power);
+        var guts = SettleAttribute(3, before.Guts, limits.Guts, gain.Guts);
+        var wisdom = SettleAttribute(4, before.Wisdom, limits.Wisdom, gain.Wisdom);
         return new(new(speed.Value, stamina.Value, power.Value, guts.Value, wisdom.Value,
             vital.Vital, skillPoints),
             limits with { Vital = vital.Limit }, changedMotivation.Value, changedMotivation.ConsumePositiveThinking,
             new(speed.Overflow, stamina.Overflow, power.Overflow, guts.Overflow, wisdom.Overflow));
+
+        (int Value, int Overflow) SettleAttribute(int index, int current, int limit, int delta)
+        {
+            delta = Known(index, index + 1, delta);
+            if (delta >= 0) return Attribute(current, limit, delta);
+            // Negative declared gains use display units even above 1200 (packets-0003 #14914).
+            if (current + delta >= 0) return (current + delta, 0);
+            Ignore($"属性 {index + 1} 扣减超过当前值，下限未核验。");
+            return (current, 0);
+        }
+
+        int Known(int bit, int target, int value)
+        {
+            if ((repeatedResources & (1 << bit)) == 0) return value;
+            Ignore($"奖励目标 {target} 出现多次，同一资源的结算顺序未核验。");
+            return 0;
+        }
+
+        void Ignore(string detail)
+        {
+            if (ignored is null) throw new UnknownMechanismException(detail);
+            ignored.Add(detail);
+        }
     }
 
     public static void Validate(TrainingValues resources, TrainingLimits limits, int motivation)

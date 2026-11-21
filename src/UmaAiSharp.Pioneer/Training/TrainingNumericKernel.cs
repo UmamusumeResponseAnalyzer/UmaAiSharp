@@ -39,7 +39,7 @@ public static class TrainingNumericKernel
     static TrainingNumericResult Ordinary(TrainingFormulaInput input, CompiledTrainingDeck? deck)
     {
         var environment = new TrainingEnvironment(input.Motivation, input.Fans, input.Current, input.Limits,
-            input.GrowthPercent, input.GoldShipBoost);
+            input.GrowthPercent, input.GoldShipBoost, input.TotalSupportBond);
         Validate(environment);
         if (input.GuestCount < 0 || input.EvaluationTrainingPercent < 0)
             throw new ArgumentException("训练人数和评估会加成不能为负数。");
@@ -138,7 +138,7 @@ public static class TrainingNumericKernel
         var failure = TrainingFailureRate.CalculateForSupports(failureCoefficient, environment.Current.Vital, supports, failureBias);
         var gains = Ordinary<T>(environment, camp?.Base ?? TrainingBaseTable.GetOrdinary(command, level), supports, guests,
             environment.GoldShipBoost?.CommandId == command ? 20 : 0, (long)friends * (camp?.HouseBonus ?? 0),
-            camp?.ScenarioPercent ?? percent, camp.HasValue);
+            camp?.ScenarioPercent ?? percent, camp.HasValue, bonds);
         return new(gains, failure, friends != 0);
     }
 
@@ -271,6 +271,8 @@ public static class TrainingNumericKernel
                 var support = member.Support;
                 cardBase = checked(cardBase + Attribute(support.BaseBonuses, i));
                 var scale = TrainingFacilityRules.EffectPercent(member.Facility, i);
+                if (!support.PanelTrainingEffects.IsEmpty)
+                    training = checked(training + support.PanelTrainingBonus(environment, participants, scale, bonds));
                 if (support.FriendshipEligible)
                     foreach (var bonus in support.FriendshipBonuses)
                         friendship *= T.Ratio(100L + (long)bonus * scale / 100, 100);
@@ -293,7 +295,8 @@ public static class TrainingNumericKernel
     }
 
     static TrainingNumericResult Ordinary<T>(TrainingEnvironment environment, TrainingValues basis,
-        ReadOnlySpan<ResolvedTrainingSupport> supports, int guests, int extraTraining, long houseBonus, int percent, bool capExtra)
+        ReadOnlySpan<ResolvedTrainingSupport> supports, int guests, int extraTraining, long houseBonus, int percent, bool capExtra,
+        ReadOnlySpan<int> bonds = default)
         where T : struct, ITrainingMultiplier<T>
     {
         T friendship = 1;
@@ -305,6 +308,8 @@ public static class TrainingNumericKernel
         foreach (var support in supports)
         {
             training = checked(training + support.TrainingEffect);
+            if (!support.PanelTrainingEffects.IsEmpty)
+                training = checked(training + support.PanelTrainingBonus(environment, supports.Length, bonds: bonds));
             motivation = checked(motivation + support.MotivationEffect);
             if (support.FriendshipEligible)
             {

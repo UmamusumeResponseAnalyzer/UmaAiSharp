@@ -24,6 +24,7 @@ public sealed partial class PioneerScenario
             return PioneerRuntimeAction.Submit(ChooseConstructionPlan(state));
         if (current.Stage != PioneerStage.TrainingTurn)
             return null;
+        if (IsForcedCharacterRest(state)) return PioneerRuntimeAction.Rest(RestRules.OrdinaryCommand);
         if (ActiveScheduledRace(state) is { } mandatory)
             return new(PioneerActionKind.Race, mandatory.ProgramId);
 
@@ -203,7 +204,7 @@ public sealed partial class PioneerScenario
                         for (var i = 0; i < careerCounts.Length; i++)
                         {
                             var goal = rules.CareerGoals[i];
-                            var needed = goal.RaceCount - careerCounts[i];
+                            var needed = goal.RaceCount - careerCounts[i] - goal.UnknownPastTurns;
                             if (needed <= 0 || turn < goal.FirstTurn || turn > goal.Deadline || race.Grade > goal.MaximumGrade) continue;
                             var availableFans = current.Fans + rules.FirstPlaceFans(race.FirstPlaceFans, MaximumRaceFanPercent) + 500;
                             var slots = 1 + Math.Max(0, rules.ReachableRaceCount(turn, availableFans, Math.Max(3, current.RaceGrade),
@@ -301,7 +302,7 @@ public sealed partial class PioneerScenario
                         reward = OutingReward(card, friend.CharacterId, step, outingReward, attributeForecast, attributeWeights)
                             + (gift ? 3 * skillPointValue : 0)
                             + RecoveryValue(recovered, outingDevelopment, friend.Position, following, newMaximum) - recoveryBefore
-                            + Motivation(1) + specialty
+                            + Motivation(FriendOutingMotivation(card, friend.CharacterId, step)) + specialty
                             + Math.Min(1, turnsLeft / 45.0) * maximum;
                         score = reward + Progress(outingDevelopment, false);
                         break;
@@ -353,7 +354,11 @@ public sealed partial class PioneerScenario
         double FirstFriendTrainingValue(int participants, ReadOnlySpan<int> forecasts, ReadOnlySpan<double> weights)
         {
             var first = participants & state.Header.UnseenFriendMask;
-            var value = Motivation(BitOperations.PopCount((uint)first));
+            var value = (first & tuckerMask) != 0 ? Motivation(1) : 0;
+            if ((first & ~tuckerMask) != 0)
+                foreach (var card in data.TrainingStart!.Deck)
+                    if (card.CardId is 10021 or 30021 && (first & (1 << (card.Position - 1))) != 0)
+                        value += Motivation(1) + EventEffectScaling.FromSupport(card).Apply(30, 15) * skillPointValue;
             if ((first & tuckerMask) == 0) return value;
             var gains = TuckerFirstTrainingReward(tuckerSlot);
             var extraVital = Math.Min(TuckerFirstTrainingMaxVital, VitalRules.Maximum - maxVital);

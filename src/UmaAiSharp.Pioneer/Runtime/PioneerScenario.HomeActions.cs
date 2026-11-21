@@ -44,11 +44,15 @@ public sealed partial class PioneerScenario
         return false;
     }
 
-    static int TreatableCondition(PioneerState state)
+    static int TreatableCondition(PioneerState state, bool requireSingle = false)
     {
         var condition = 0;
         foreach (var effect in state.GetSection(PioneerStateSection.CharacterEffects))
-            if (effect is >= 1 and <= 6 && (condition == 0 || effect < condition)) condition = effect;
+            if (effect is >= 1 and <= 6)
+            {
+                if (condition != 0 && requireSingle) return 0;
+                if (condition == 0 || effect < condition) condition = effect;
+            }
         return condition;
     }
 
@@ -105,7 +109,9 @@ public sealed partial class PioneerScenario
                 if (race.Target)
                 {
                     var raceMotivation = header.Motivation;
-                    ApplyCareerGoalReward(state, race);
+                    var excluded = race.CareerGoalId == 549 && data.TrainingStart!.HomeActions?.RunningStyle != 4
+                        ? random.At(header.Turn, PioneerDraw.RaceAttribute).NextInt(5) : -1;
+                    ApplyCareerGoalReward(state, race, excluded);
                     if (autonomous && data.IsWholeRun) ApplyCareerRouteAfterWin(state, race.CareerGoalId, raceMotivation, ref random);
                 }
                 else
@@ -293,7 +299,8 @@ public sealed partial class PioneerScenario
         {
             var goal = rules.CareerGoals[i];
             if (state.Header.Turn != goal.Deadline) continue;
-            if (state.Header.Fans < goal.FanTarget || counts[i] < goal.RaceCount) return goal.Id;
+            if (state.Header.Fans < goal.FanTarget || counts[i] + goal.UnknownPastTurns < goal.RaceCount) return goal.Id;
+            if (counts[i] < goal.RaceCount) continue;
             ApplyCareerGoalReward(state);
         }
         return null;
@@ -324,8 +331,16 @@ public sealed partial class PioneerScenario
         var (vital, maxVital) = VitalRules.Apply(header.Resources.Vital, header.Limits.Vital, recovery, maximum);
         header.Resources = header.Resources with { Vital = vital };
         header.Limits = header.Limits with { Vital = maxVital };
-        ApplyMotivationGain(state, 1);
-        GainFriendBond(state, position, 5);
+        if (friend.CharacterId == 9049 || card.CardId is 10021 or 30021)
+        {
+            ApplyMotivationGain(state, FriendOutingMotivation(card, friend.CharacterId, step));
+            GainFriendBond(state, position, 5);
+        }
+        if (card.CardId is 10021 or 30021 && step is 1 or 3)
+        {
+            var condition = TreatableCondition(state, requireSingle: true);
+            if (condition != 0) state.RemoveCharacterEffect(condition);
+        }
         header.FriendOutings += 1 << shift;
         if (autonomous && data.IsWholeRun && friend.CharacterId == 9049)
         {
@@ -341,11 +356,32 @@ public sealed partial class PioneerScenario
         return points;
     }
 
+    static int FriendOutingMotivation(TrainingSupport card, int character, int step) => character == 9049 ? 1
+        : card.CardId is 10021 or 30021 ? step switch { 1 => 0, 4 => 2, _ => 1 } : 0;
+
     (int Recovery, int MaxVital, TrainingValues Gains) FriendOuting(PioneerState state, TrainingSupport card, int character, int step)
     {
-        // shortcut: non-Tucker friends share the ordinary observed friend recovery prior until their own outings are captured.
-        if (character != 9049) return (20, 0, default);
         var scaling = EventEffectScaling.FromSupport(card);
+        if (card.CardId is 10021 or 30021)
+        {
+            var tazunaRecovery = scaling.Apply(10, step < 3 ? 25 : 35);
+            var tazunaGains = step switch
+            {
+                0 => new TrainingValues(scaling.Apply(1, 5), 0, 0, 0, 0, 0, 0),
+                2 => new(0, scaling.Apply(2, 5), 0, 0, 0, 0, 0),
+                3 => new(0, 0, 0, 0, scaling.Apply(5, 5), 0, 0),
+                4 => new(0, 0, 0, 0, 0, 0, scaling.Apply(30, card.CardId == 30021 ? 30 : 15)),
+                _ => default,
+            };
+            if (step == 2)
+            {
+                var alternative = new TrainingValues(0, scaling.Apply(2, 10), 0, scaling.Apply(4, 10), 0, 0, 0);
+                if (SelectResourceReward(state, [tazunaGains with { Vital = tazunaRecovery }, alternative]) == 1)
+                    return (0, 0, alternative);
+            }
+            return (tazunaRecovery, 0, tazunaGains);
+        }
+        if (character != 9049) return default;
         if (step == 2)
         {
             var attribute = scaling.Apply(1, 8);
@@ -416,8 +452,16 @@ public sealed partial class PioneerScenario
         foreach (var friend in data.TrainingStart!.HomeActions!.Friends)
         {
             if ((first & (1 << (friend.Position - 1))) == 0) continue;
-            ApplyMotivationGain(state, 1);
+            var card = data.TrainingStart.Deck[friend.Position - 1];
+            if (card.CardId is 10021 or 30021)
+            {
+                ApplyMotivationGain(state, 1);
+                GainFriendBond(state, friend.Position - 1, 5);
+                ApplyProgressionReward(state, new(0, 0, 0, 0, 0, 0, EventEffectScaling.FromSupport(card).Apply(30, 15)));
+                continue;
+            }
             if (friend.CharacterId != 9049) continue;
+            ApplyMotivationGain(state, 1);
             var maximum = Math.Min(VitalRules.Maximum, header.Limits.Vital + TuckerFirstTrainingMaxVital);
             header.Limits = header.Limits with { Vital = maximum };
             GainFriendBond(state, friend.Position - 1, TuckerFirstTrainingBond);

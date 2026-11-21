@@ -52,7 +52,37 @@ public sealed record TrainingCommandOption(int CommandId, int Level, int Executi
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     bool Director = false,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-    bool Reporter = false);
+    bool Reporter = false)
+{
+    public ObservedTrainingPreview? Observed { get; init; }
+}
+
+public sealed record ObservedTrainingPreview(TrainingValues? Common, TrainingValues? Scenario, int FailureRate)
+    : ObservedTrainingGains(Common, Scenario);
+
+public record ObservedTrainingGains(TrainingValues? Common, TrainingValues? Scenario)
+{
+    internal TrainingNumericResult Apply(TrainingNumericResult model, TrainingEnvironment environment)
+    {
+        var common = Common ?? model.Common;
+        var scenario = Scenario ?? model.Scenario;
+        if (common == model.Common && scenario == model.Scenario) return model;
+        if (Common is null) common = Fit(common, scenario);
+        if (Scenario is null) scenario = Fit(scenario, common);
+        return new(common, scenario, Common is null || common == model.Common ? model.UncappedCommon : common,
+            Scenario is null || scenario == model.Scenario ? model.UncappedScenario : scenario);
+
+        // Reserve room for the visible layer before applying an estimated layer near a stat cap.
+        TrainingValues Fit(TrainingValues estimate, TrainingValues visible) => estimate with
+        {
+            Speed = Math.Min(estimate.Speed, environment.Limits.Speed - environment.Current.Speed - visible.Speed),
+            Stamina = Math.Min(estimate.Stamina, environment.Limits.Stamina - environment.Current.Stamina - visible.Stamina),
+            Power = Math.Min(estimate.Power, environment.Limits.Power - environment.Current.Power - visible.Power),
+            Guts = Math.Min(estimate.Guts, environment.Limits.Guts - environment.Current.Guts - visible.Guts),
+            Wisdom = Math.Min(estimate.Wisdom, environment.Limits.Wisdom - environment.Current.Wisdom - visible.Wisdom),
+        };
+    }
+}
 
 public sealed record CampTrainingConfiguration(ImmutableArray<int> OrdinaryLevels,
     ImmutableArray<TrainingValues> Bases, ImmutableArray<TrainingFacility> Facilities);
@@ -75,15 +105,28 @@ public readonly record struct PioneerRaceOption(int ProgramId, int Grade, int Fi
 public readonly record struct PioneerScheduledRace(int Turn, PioneerRaceOption Race);
 public readonly record struct PioneerRaceScheduleEdit(int Variant, int RemovedGoal = 0,
     PioneerScheduledRace? Added = null, int BlockedTurn = 0);
-public readonly record struct PioneerRaceHistory(int Turn, int ProgramId, int Rank);
+public readonly record struct PioneerRaceHistory(int Turn, int ProgramId, int Rank, int RunningStyle = 0);
 public readonly record struct PioneerRaceReservation(int Year, int ProgramId);
-public readonly record struct PioneerCareerGoal(int Id, int FirstTurn, int Deadline, int FanTarget, int MaximumGrade, int MaximumRank, int RaceCount);
+public readonly record struct PioneerScheduledProgram(int Turn, int ProgramId);
+public sealed record PioneerEspoirRoute(int EscapeLead, int RunningStyle, ImmutableArray<PioneerRaceScheduleEdit> Alternatives)
+{
+    public int GoalAfter(int futureStarts)
+        => (EscapeLead + (RunningStyle == 1 ? futureStarts : -futureStarts)) switch { > 0 => 1476, < 0 => 1475, _ => 0 };
+}
+public readonly record struct PioneerCareerGoal(int Id, int FirstTurn, int Deadline, int FanTarget, int MaximumGrade, int MaximumRank, int RaceCount,
+    int UnknownPastTurns = 0);
 public readonly record struct PioneerFriendProgress(int Position, int CharacterId, bool OutingUnlocked, int Outings);
 public sealed record PioneerHomeActions(bool Treatment, bool Outing, bool FriendOuting, ImmutableArray<PioneerFriendProgress> Friends,
     ImmutableArray<PioneerRaceOption> Races, ImmutableArray<PioneerScheduledRace> ScheduledRaces, int UnseenFriendMask,
     int Grade = 3, ulong BlockedRaceTurns = 0,
     ImmutableArray<PioneerCareerGoal>? CareerGoals = null, ImmutableArray<PioneerRaceHistory>? RaceHistory = null,
-    bool? StrongBrianRoute = null);
+    bool? StrongBrianRoute = null)
+{
+    public ImmutableArray<string> IgnoredMechanisms { get; init; } = [];
+    public ImmutableArray<PioneerScheduledProgram> RandomRacePrograms { get; init; } = [];
+    public PioneerEspoirRoute? EspoirRoute { get; init; }
+    public int RunningStyle { get; init; }
+}
 
 public readonly record struct PioneerIslandBoard(TrainingBoard Outdoor, TrainingPlacement House)
 {
@@ -93,6 +136,8 @@ public readonly record struct PioneerIslandBoard(TrainingBoard Outdoor, Training
 // Starts describe an observed current boundary. They contain neither future states nor future queues.
 public abstract record PioneerStart
 {
+    public ImmutableArray<string> IgnoredMechanisms { get; init; } = [];
+
     public sealed record ReporterEnding(int Turn, int RawPlayingState, int CharacterState, PioneerEvent Event,
         TrainingValues Resources, TrainingLimits Limits, int Motivation, int ReporterBond, bool HasAttention) : PioneerStart;
     public sealed record CharacterEnding(int Turn, int RawPlayingState, int CharacterState, PioneerEvent Event,
@@ -100,7 +145,7 @@ public abstract record PioneerStart
     public sealed record DeclaredEvent(int Turn, int RawPlayingState, PioneerEvent Event,
         TrainingValues Resources, TrainingLimits Limits, int Motivation,
         ImmutableArray<int> CharacterEffects, ImmutableArray<DeclaredEventChoice> Choices,
-        ImmutableArray<EventPartner>? Partners = null) : PioneerStart;
+        ImmutableArray<EventPartner>? Partners = null, int SupportCardId = 0) : PioneerStart;
     public sealed record TrainingTurn(int Turn, int RawPlayingState, int CardId, TrainingEnvironment Environment,
         ImmutableArray<TrainingSupport> Deck, ImmutableArray<TrainingCommandOption> Commands,
         ImmutableArray<int> CharacterEffects, ImmutableArray<int> PendingStoryIds,
@@ -126,7 +171,10 @@ public abstract record PioneerStart
         ImmutableArray<TemporarySupportGrant>? ObservedGrants = null,
         [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         PioneerHintProgress? HintProgress = null,
-        int? ReporterBond = null) : PioneerStart;
+        int? ReporterBond = null) : PioneerStart
+    {
+        public ObservedTrainingGains? ObservedIslandGains { get; init; }
+    }
     public sealed record FailureTraining(TrainingFailureState State, int CommandId,
         ImmutableArray<int> SupportBonds, ImmutableArray<int> CharacterEffects) : PioneerStart;
     public sealed record IslandTraining(IslandActionState State, IslandTrainingInput Training) : PioneerStart;

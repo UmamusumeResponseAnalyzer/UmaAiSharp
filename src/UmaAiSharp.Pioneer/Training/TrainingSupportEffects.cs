@@ -13,6 +13,31 @@ public sealed record ResolvedTrainingSupport(int CardId, bool FriendshipEligible
     ImmutableArray<int> TrainingEffectParts, ImmutableArray<int> MotivationEffectParts)
 {
     internal ImmutableArray<SupportEffect> FriendshipTrainingEffects { get; init; } = [];
+    internal ImmutableArray<SupportUniqueEffect> PanelTrainingEffects { get; init; } = [];
+
+    internal int PanelTrainingBonus(TrainingEnvironment environment, int supportCount, int scale = 100, ReadOnlySpan<int> bonds = default)
+    {
+        var bonus = 0;
+        foreach (var effect in PanelTrainingEffects)
+        {
+            var teamBond = environment.TotalSupportBond;
+            if (effect.Type == 109 && !bonds.IsEmpty)
+            {
+                teamBond = 0;
+                foreach (var bond in bonds) teamBond += bond;
+            }
+            var value = effect.Type switch
+            {
+                108 => Math.Min(effect.Parameter4, (environment.Limits.Vital - effect.Parameter1) * effect.Parameter2 / 100 + effect.Parameter3),
+                109 => (teamBond ?? throw new InvalidDataException($"支援卡 {CardId} 固有 109 需要全队羁绊。")) / effect.Parameter1,
+                110 => effect.Parameter1 * supportCount,
+                114 => effect.Parameter2 - Math.Max(0, 100 - environment.Current.Vital) / effect.Parameter1,
+                _ => throw new InvalidOperationException($"无效训练面板固有 {effect.Type}。"),
+            };
+            bonus = checked(bonus + value * scale / 100);
+        }
+        return bonus;
+    }
 
     internal long FriendshipTrainingBonus(int type, int scale = 100)
     {
@@ -45,6 +70,10 @@ public static class TrainingSupportEffects
                 case 1: friendship.Add(value); return;
                 case 27: failure.Add(value); return;
                 case 28: vital.Add(value); return;
+                case 41:
+                    for (var attribute = 3; attribute <= 7; attribute++)
+                        values[attribute] = checked(values.GetValueOrDefault(attribute) + value);
+                    return;
                 case 2 or 3 or 4 or 5 or 6 or 7 or 8 or 30 or 31:
                     values[type] = checked(values.GetValueOrDefault(type) + value); return;
                 // These fields affect initial state, events, races, hints or placement, not the selected training gain.
@@ -65,13 +94,16 @@ public static class TrainingSupportEffects
                         Add(effect.Parameter3, effect.Parameter4);
                     }
                     break;
+                case 102:
+                    if (support.Bond >= effect.Value && commandId != support.TrainingCommandId) Add(8, effect.Parameter1);
+                    break;
                 case 104:
                     if (effect.Value <= 0) throw new InvalidDataException("粉丝数固有的除数必须大于零。");
                     Add(8, Math.Min(fans / effect.Value, effect.Parameter1));
                     break;
                 case 111: Add(effect.Value, checked(trainingLevel * effect.Parameter1)); break;
                 // These affect initial attributes, training bonds or next-turn placement, not resource gains.
-                case 105 or 113 or 121 or 122: break;
+                case 105 or 108 or 109 or 110 or 112 or 113 or 114 or 115 or 118 or 121 or 122: break;
                 default: throw new UnknownMechanismException($"支援卡{support.CardId}的固有type={effect.Type}尚未实现。");
             }
         }
@@ -82,6 +114,7 @@ public static class TrainingSupportEffects
             friendship.ToImmutable(), failure.ToImmutable(), vital.ToImmutable(), training.ToImmutable(), motivation.ToImmutable())
         {
             FriendshipTrainingEffects = ReadFriendshipTrainingEffects(support),
+            PanelTrainingEffects = [.. support.UniqueEffects.Where(effect => effect.Type is 108 or 109 or 110 or 114)],
         };
     }
 

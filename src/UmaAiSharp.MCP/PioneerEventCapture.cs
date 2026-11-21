@@ -26,13 +26,14 @@ public static class PioneerEventCapture
             query.CommandText = "SELECT direction,endpoint,request_id,viewer_id FROM packets WHERE id=$id";
             query.Parameters.AddWithValue("$id", anchorId);
             using var row = query.ExecuteReader();
-            if (!row.Read() || row.GetString(0) != "response" || row.IsDBNull(3))
-                throw new InvalidDataException($"包{anchorId}不是带明确viewer_id的响应。");
+            if (!row.Read() || row.GetString(0) != "response")
+                throw new InvalidDataException($"包{anchorId}不是响应。");
             endpoint = row.GetString(1);
             if (!endpoint.EndsWith("/get_choice_reward", StringComparison.Ordinal)) return null;
             if (endpoint is not ("/single_mode/get_choice_reward" or "/umamusume/single_mode/get_choice_reward"
                 or "/single_mode_pioneer/get_choice_reward" or "/umamusume/single_mode_pioneer/get_choice_reward"))
                 throw new InvalidDataException("奖励响应需要实际育成端点路径。");
+            if (row.IsDBNull(3)) throw new InvalidDataException("奖励响应缺少 viewer_id，无法关联当前事件。");
             requestId = row.GetString(2); actor = row.GetString(3);
         }
         if (string.IsNullOrWhiteSpace(actor)) throw new InvalidDataException("奖励响应viewer_id为空，不能关联当前事件。");
@@ -90,8 +91,9 @@ public static class PioneerEventCapture
             if (Int(chara, "scenario_id") != 11 || Int(chara, "state") != 0)
                 throw new InvalidDataException($"奖励响应{anchorId}关联的包{id}不是进行中的Pioneer育成。");
             var events = Objects(Array(common!, "unchecked_event_array"), "unchecked_event_array").ToArray();
-            if (events.Length != 1 || rewardRequests.Any(eventId => eventId != Int(events[0], "event_id")))
-                throw new UnknownMechanismException($"奖励响应{anchorId}的event_id与唯一当前事件不一致。");
+            if (events.Length == 0 || rewardRequests.Any(eventId => eventId != Int(events[0], "event_id"))
+                || events.Skip(1).Any(item => Int(item, "event_id") == Int(events[0], "event_id")))
+                throw new UnknownMechanismException($"奖励响应{anchorId}的 event_id 无法唯一对应当前队首事件。");
             return new(payload, route, rewards!, new(id, requestPacketId, anchorId, packetCount,
                 Convert.ToHexStringLower(digest.GetHashAndReset())));
         }

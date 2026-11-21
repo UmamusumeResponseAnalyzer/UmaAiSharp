@@ -11,10 +11,15 @@ namespace UmaAiSharp.Pioneer.Game;
 
 public static class PioneerGameData
 {
+    public static ImmutableArray<PioneerScheduledProgram>? ReadRandomRacePrograms(JsonObject common)
+        => common["race_random_program_array"] is JsonArray rows
+            ? [.. Objects(rows, "race_random_program_array").Select(row => new PioneerScheduledProgram(
+                Int(row, "turn"), Int(row, "program_id")))] : null;
+
     public static ImmutableArray<PioneerRaceHistory>? ReadRaceHistory(JsonObject common)
         => common["race_history"] is JsonArray rows
             ? [.. Objects(rows, "race_history").Select(row => new PioneerRaceHistory(
-                Int(row, "turn"), Int(row, "program_id"), Int(row, "result_rank")))] : null;
+                Int(row, "turn"), Int(row, "program_id"), Int(row, "result_rank"), row["running_style"]?.GetValue<int>() ?? 0))] : null;
 
     public static ImmutableArray<PioneerRaceReservation>? ReadRaceReservations(JsonObject common)
         => common["reserved_race_info"]?["reserved_race_array"] is JsonArray decks
@@ -24,7 +29,7 @@ public static class PioneerGameData
 
     public static GoldShipTrainingBoost? ReadGoldShipTrainingBoost(JsonObject common)
     {
-        if (common["chara_info"]?["card_id"]?.GetValue<int>() != 100701
+        if (common["chara_info"]?["card_id"]?.GetValue<int>() / 100 != 1007
             || common["gain_parameter_info"]?["effected_command_id_array"] is not JsonArray { Count: 1 } commands)
             return null;
         var id = commands[0]!.GetValue<int>();

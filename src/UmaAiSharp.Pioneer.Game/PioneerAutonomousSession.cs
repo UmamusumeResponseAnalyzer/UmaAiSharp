@@ -15,9 +15,10 @@ using static UmaAiSharp.Pioneer.Game.PioneerMasterCompiler;
 
 namespace UmaAiSharp.Pioneer.Game;
 
-public sealed record PioneerPanelAdvice(RootSearchResult<PioneerRuntimeAction> Search, int? OutingDevelopmentPoints);
+public sealed record PioneerPanelAdvice(RootSearchResult<PioneerRuntimeAction> Search, int? OutingDevelopmentPoints,
+    ImmutableArray<string> IgnoredMechanisms);
 
-public sealed class PioneerAutonomousSession
+public sealed partial class PioneerAutonomousSession
 {
     readonly PioneerRulesSnapshot rules;
     readonly string identity;
@@ -42,6 +43,17 @@ public sealed class PioneerAutonomousSession
     }
 
     public string? RaceName(int programId) => races[programId].Name;
+
+    public PioneerEventAdvice EvaluateChoices(JsonObject chara, JsonObject currentEvent, JsonObject pioneer,
+        JsonArray rewards, CancellationToken cancellationToken = default)
+    {
+        var start = PioneerEventCompiler.Compile(chara, currentEvent, rewards, pioneer, rules.EventPartners);
+        var data = PioneerRuntimeData.Compile(start, [], identity);
+        var scenario = new PioneerScenario(data, autonomous: true);
+        var candidates = start.Choices.Select(choice => new RootCandidate<PioneerRuntimeAction>(
+            choice.ChoiceNumber, PioneerRuntimeAction.Choose(start.Event, choice.ChoiceNumber))).ToArray();
+        return scenario.EvaluateEventChoices(data.CreateInitialState(), candidates, goal.Compiled, cancellationToken);
+    }
 
     internal static JsonObject CompleteOpening(JsonObject common)
     {
@@ -69,9 +81,6 @@ public sealed class PioneerAutonomousSession
         UmaAiSharp.Pioneer.Inheritance.PioneerInheritanceContext? inheritance = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var turn = Int(common["chara_info"]!.AsObject(), "turn");
-        if (turn < 55 && inheritance is null)
-            throw new UnknownMechanismException($"第 {turn} 回合缺少本局开局冻结的亲本因子与胜鞍，无法模拟后续继承。");
         var planning = Int(common["chara_info"]!.AsObject(), "playing_state") == 35
             ? ReadPlanningPanel(common, pioneer, compiler) : null;
         var training = (planning?.Continuation ?? ReadTrainingPanel(common, pioneer, compiler, facilities,
@@ -82,14 +91,14 @@ public sealed class PioneerAutonomousSession
             ObservedGrants = history.ObservedGrants,
             ObservedStoryHistory = ResolveStories(history.ObservedStories, rules),
             HomeActions = ReadHomeActions(common, rules, history.UnseenFriendMask ?? (history.Turn <= 2 ? 63 : 0), planning is null,
-                history.RaceHistory, history.RaceReservations),
+                history.RaceHistory, history.RaceReservations, history.RandomRacePrograms),
         };
         var estimated = history.NeedsEstimate ? new PioneerTrainingHistoryDistribution(training, history, rules.TurnCalibration.TrainingHistory) : null;
         var placement = PioneerPlacementSeed.Observe(common["chara_info"]!.AsObject(), pioneer);
         PioneerStart start = planning is null ? training : planning with { Continuation = training };
         var data = PioneerRuntimeData.Compile(start, [], identity, rules.Construction, checkpoints,
             rules.CompileTurnRules(training, placement), trainingHistory: estimated, model: model,
-            raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects);
+            raceOnlyCharacterEffects: rules.RaceOnlyCharacterEffects, forecast: true);
         var scenario = new PioneerScenario(data, autonomous: true);
         var root = data.CreateInitialState();
         var candidates = scenario.Candidates(root).ToArray();
@@ -101,7 +110,7 @@ public sealed class PioneerAutonomousSession
         var outingPoints = result.RecommendedCandidateId is int id
             ? scenario.PreviewFriendOutingDevelopmentPoints(root, candidates.Single(candidate => candidate.Id == id).Action)
             : null;
-        return new(result, outingPoints);
+        return new(result, outingPoints, data.IgnoredMechanisms);
     }
 
     internal static ImmutableArray<PioneerStoryOccurrence>? ResolveStories(ImmutableArray<PioneerStoryOccurrence>? stories,
@@ -127,6 +136,31 @@ public sealed class PioneerAutonomousSession
             ["events"] = Array(common, "unchecked_event_array").DeepClone(),
         };
         var training = compiler.TrainingStart(frame, goldShipBoost, facilities, generatedTurn);
+        if (generatedTurn is null && training.RawPlayingState == 1 && training.PendingStoryIds.IsEmpty)
+        {
+            var home = Objects(Array(frame["home"]!.AsObject(), "command_info_array"), "home commands")
+                .Where(row => Int(row, "command_type") == 1).ToDictionary(row => Int(row, "command_id"));
+            var scenario = Objects(Array(pioneer, "command_info_array"), "pioneer commands")
+                .Where(row => Int(row, "command_type") == 1).ToDictionary(row => Int(row, "command_id"));
+            var ignored = training.IgnoredMechanisms.ToHashSet();
+            var island = compiler.ReadIslandBoard(frame, ignored);
+            ObservedTrainingGains Gains(int id)
+            {
+                var row = home[id];
+                var upper = scenario.GetValueOrDefault(id);
+                void Ignore(int target) => ignored.Add($"育成卡 {training.CardId} 的训练 {id}：面板奖励目标 {target} 未纳入收益。");
+                return new(row["params_inc_dec_info_array"] is JsonArray ? Values(row, Ignore) : null,
+                    upper?["params_inc_dec_info_array"] is JsonArray ? Values(upper, Ignore) : null);
+            }
+            training = training with { Commands = [.. training.Commands.Select(command =>
+            {
+                if (!command.Enabled) return command;
+                var id = command.CommandId;
+                var gains = Gains(id);
+                return command with { Observed = new(gains.Common, gains.Scenario, Int(home[id], "failure_rate")) };
+            })], ObservedIsland = island, ObservedIslandGains = island is null ? null : Gains(3101),
+                IgnoredMechanisms = [.. ignored.Distinct()] };
+        }
         var development = ConstructionEvidence.ReadObservation(JsonSerializer.SerializeToElement(common), JsonSerializer.SerializeToElement(pioneer));
         return training with
         {
@@ -137,8 +171,6 @@ public sealed class PioneerAutonomousSession
                     new OwnedScoringSkill(Int(skill, "skill_id"), Int(skill, "level")))],
                 [.. Array(chara, "disable_skill_id_array").Select(id => id!.GetValue<int>())],
                 Int(chara, "talent_level"), PioneerInheritanceCapture.ReadAptitudes(chara)),
-            ObservedIsland = generatedTurn is null && training.RawPlayingState == 1 && training.PendingStoryIds.IsEmpty
-                ? compiler.ReadIslandBoard(frame) : null,
             CheckpointResults = [.. Objects(Array(pioneer, "check_point_info_array"), "check_point_info_array")
                 .OrderBy(row => Int(row, "check_point_type")).Select(row => Int(row, "result_state"))],
             DirectorBond = Int(Objects(Array(chara, "evaluation_info_array"), "evaluation_info_array")
@@ -163,88 +195,5 @@ public sealed class PioneerAutonomousSession
         var counts = training.Commands.OrderBy(command => TrainingBaseTable.CommandIndex(command.CommandId));
         var prefix = new PioneerTrainingHistoryPrefix(turn, [.. counts.Select(command => command.ExecutionCount)], [0, 0, 0, 0, 0]);
         return prefix.NeedsEstimate ? new(training, prefix, rules.TurnCalibration.TrainingHistory) : null;
-    }
-
-    internal static PioneerHomeActions ReadHomeActions(JsonObject common, PioneerRulesSnapshot rules, int unseenFriendMask, bool ready,
-        ImmutableArray<PioneerRaceHistory>? history = null, ImmutableArray<PioneerRaceReservation>? reservations = null)
-    {
-        var chara = common["chara_info"]!.AsObject();
-        var home = common["home_info"] as JsonObject;
-        var disabled = home?["disable_command_id_array"] as JsonArray ?? [];
-        var enabled = ready && home?["command_info_array"] is JsonArray commands
-            ? commands.OfType<JsonObject>().Where(row => Int(row, "is_enable") == 1).Select(row => Int(row, "command_id"))
-                .Except(disabled.Select(row => row!.GetValue<int>())).ToHashSet()
-            : [];
-        var evaluations = Objects(Array(chara, "evaluation_info_array"), "evaluation_info_array").ToDictionary(row => Int(row, "target_id"));
-        var friends = ImmutableArray.CreateBuilder<PioneerFriendProgress>();
-        var unseen = 0;
-        foreach (var card in Objects(Array(chara, "support_card_array"), "support_card_array"))
-        {
-            var identity = rules.EventPartners.Supports.First(row => row.CardId == Int(card, "support_card_id"));
-            if (identity.Type != 2) continue;
-            var position = Int(card, "position");
-            var evaluation = evaluations[position];
-            var unlocked = Int(evaluation, "is_outing") == 1;
-            var outings = Int(evaluation, "story_step");
-            if (!unlocked && (unseenFriendMask & (1 << (position - 1))) != 0)
-                unseen |= 1 << (position - 1);
-            friends.Add(new(position, identity.CharacterId, unlocked, outings));
-        }
-
-        var currentTurn = Int(chara, "turn");
-        var firstDecisionTurn = Int(chara, "playing_state") == 35 && currentTurn != 3 ? currentTurn + 1 : currentTurn;
-        var grade = Int(chara, "chara_grade");
-        var currentGoals = (chara["route_race_id_array"] as JsonArray ?? []).Select(id => id!.GetValue<int>()).ToHashSet();
-        var fixedGoals = rules.Progression!.FixedRaceGoals.Where(goal => goal.Turn >= firstDecisionTurn && currentGoals.Contains(goal.Id)).ToArray();
-        var careerGoals = rules.Progression.CareerGoals.Where(goal => currentGoals.Contains(goal.Id) && goal.Deadline >= firstDecisionTurn).ToArray();
-        history ??= PioneerGameData.ReadRaceHistory(common);
-        reservations ??= PioneerGameData.ReadRaceReservations(common);
-        if (history is null && careerGoals.Any(goal => goal.RaceCount > 0 && goal.FirstTurn < currentTurn))
-            throw new UnknownMechanismException($"第 {currentTurn} 回合的累计出赛目标需要本局比赛历史，请从包含 race_history 的响应或抓包前缀导入。");
-        var raceById = rules.Races.ToDictionary(race => race.ProgramId);
-        var disabledRaces = home?["disable_race_turn_array"] as JsonArray ?? [];
-        ulong blocked = 0;
-        foreach (var turn in disabledRaces.Select(node => node!.GetValue<int>()))
-            if (turn is >= 13 and <= 72) blocked |= 1UL << (turn - 13);
-        var races = ImmutableArray<PioneerRaceOption>.Empty;
-        if (enabled.Contains(401) && (home!["race_entry_restriction"]?.GetValue<int>() ?? 0) == 0
-            && !disabledRaces.Any(turn => turn!.GetValue<int>() == currentTurn)
-            && common["race_condition_array"] is JsonArray raceConditions)
-        {
-            var target = !enabled.Any(id => TrainingBaseTable.CommandIndex(id) >= 0);
-            var currentIds = raceConditions.OfType<JsonObject>().Select(row => Int(row, "program_id")).ToHashSet();
-            var fans = Int(chara, "fans");
-            races = [.. rules.Races.Where(race => currentIds.Contains(race.ProgramId) && fans >= race.RequiredFans
-                && (race.Grade switch { 900 => grade == 1, 800 => grade == 2, _ => grade >= 3 }))
-                .Select(race =>
-                {
-                    var goal = fixedGoals.FirstOrDefault(goal => goal.Turn == currentTurn && goal.ProgramId == race.ProgramId);
-                    return race.Option(goal.Id != 0 || target && (race.Grade == 900 || fixedGoals.All(goal => goal.Turn != currentTurn)))
-                        with { CareerGoalId = goal.Id };
-                })];
-        }
-        var scheduled = new SortedDictionary<int, PioneerRaceOption>();
-        foreach (var group in fixedGoals.Where(goal => goal.Turn > currentTurn || !ready).GroupBy(goal => goal.Turn))
-        {
-            var programs = group.Select(goal => goal.ProgramId).Distinct().ToArray();
-            if (programs.Length == 1)
-                scheduled.Add(group.Key, raceById[programs[0]].Option(true) with { CareerGoalId = group.First().Id });
-        }
-        foreach (var reservation in reservations ?? [])
-        {
-            var race = raceById[reservation.ProgramId];
-            var turn = rules.Progression.RaceCalendar.FirstOrDefault(date =>
-                date.Year == reservation.Year && date.Month == race.Month && date.Half == race.Half).Turn;
-            if (turn >= firstDecisionTurn && (!ready || turn > currentTurn || races.Any(option => option.ProgramId == race.ProgramId)))
-                scheduled.TryAdd(turn, race.Option(false));
-        }
-        var reservedId = chara["reserve_race_program_id"]?.GetValue<int>() ?? 0;
-        if (reservedId > 0 && races.FirstOrDefault(race => race.ProgramId == reservedId) is { ProgramId: > 0 } reserved)
-            scheduled.TryAdd(currentTurn, reserved);
-        bool? strongBrianRoute = currentGoals.Any(id => id is 378 or 380 or 382 or 384) ? true
-            : currentGoals.Any(id => id is 379 or 381 or 383 or 385) ? false : null;
-        return new(enabled.Contains(801), enabled.Contains(301), enabled.Contains(390), friends.ToImmutable(), races,
-            [.. scheduled.Select(pair => new PioneerScheduledRace(pair.Key, pair.Value))], unseen, grade, blocked,
-            [.. careerGoals], history, strongBrianRoute);
     }
 }

@@ -78,7 +78,7 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
             start, placement.AppearedSupportMask, placement.AppearedProjectMembers,
             Facilities.States, Facilities.Bases, Progression.UraFirstPlaceFans,
             inheritance, hints, new(first, second, third, trainee), CompileRaceCalendar(start), SkillRating,
-            seniorHints.MoveToImmutable(), CompileScheduleEdits(start.CharacterId ?? start.CardId / 100));
+            seniorHints.MoveToImmutable(), start.HomeActions?.EspoirRoute?.Alternatives ?? CompileScheduleEdits(start.CharacterId ?? start.CardId / 100));
     }
 
     ImmutableArray<PioneerRaceScheduleEdit> CompileScheduleEdits(int character)
@@ -99,6 +99,10 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
                 return [.. new[] { 90, 292, 293, 95, 294, 295 }.Select(goal => new PioneerRaceScheduleEdit(goal, Added: Goal(goal)))];
             case 1062:
                 return [new(0, 627, BlockedTurn: Goal(627).Turn)];
+            case 1079:
+                return [new(0, 1333, BlockedTurn: Goal(1333).Turn)];
+            case 1093:
+                return [new(0, 1050, BlockedTurn: Goal(1050).Turn)];
             case 1135:
                 return [new(0, 1523, Goal(1524)), new(0, Added: Goal(1529))];
             default:
@@ -116,19 +120,32 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
     ImmutableArray<PioneerRaceOption>[] CompileRaceCalendar(PioneerStart.TrainingTurn start)
     {
         var calendar = new ImmutableArray<PioneerRaceOption>[79];
-        var groups = Progression.CharacterPrograms.Where(row => row.CharacterId == start.CardId / 100)
-            .SelectMany(row => new[] { row.ProgramGroup, row.SecondProgramGroup }).Append(0).ToHashSet();
-        var byDate = Races.Where(race => race.Grade is >= 100 and <= 800 && groups.Contains(race.ProgramGroup))
+        var groups = Progression.CharacterPrograms.Where(row => row.CharacterId == 0 || row.CharacterId == start.CardId / 100)
+            .Select(row => row.ProgramGroup).Append(0).ToHashSet();
+        var byDate = Races.Where(race => race.Grade is >= 100 and <= 800 && race.RandomGroupId == 0 && groups.Contains(race.ProgramGroup))
             .ToLookup(race => (race.Month, race.Half));
+        var randomRaces = (start.HomeActions?.RandomRacePrograms ?? []).Join(Races, program => program.ProgramId,
+            race => race.ProgramId, (program, race) => (program.Turn, race)).ToLookup(entry => entry.Turn, entry => entry.race);
+        var commonJbc = Progression.RaceGroups.Join(Races, member => member.ProgramId, race => race.ProgramId,
+                (member, race) => (member.GroupId, Race: race)).GroupBy(entry => entry.GroupId)
+            .Where(group => group.DistinctBy(entry => entry.Race.RewardTerms).Count() == 1)
+            .Select(group => group.First().Race with { ProgramId = group.Key, Name = null }).ToArray();
         foreach (var date in Progression.RaceCalendar)
-            calendar[date.Turn] = [.. byDate[(date.Month, date.Half)].Where(race => race.Permission switch
+        {
+            var available = byDate[(date.Month, date.Half)].Where(race => race.Permission switch
                 {
-                    1 or 6 => date.Year == 1,
-                    2 or 7 => date.Year == 2,
+                    1 => date.Year == 1,
+                    2 => date.Year == 2,
                     3 => date.Year is 2 or 3,
-                    4 or 8 => date.Year == 3,
+                    4 => date.Year == 3,
                     _ => false,
-                }).Select(race => race.Option(false)).OrderByDescending(race => race.FirstPlaceFans).ThenBy(race => race.ProgramId)];
+                }).ToArray();
+            var replaced = available.Where(race => race.BaseProgramId > 0).Select(race => race.BaseProgramId).ToHashSet();
+            var jbc = date.Turn is 45 or 69 && !randomRaces.Contains(date.Turn) ? commonJbc : randomRaces[date.Turn];
+            calendar[date.Turn] = [.. available.Where(race => !replaced.Contains(race.ProgramId)).Concat(jbc)
+                .Select(race => race.Option(false))
+                .OrderByDescending(race => race.FirstPlaceFans).ThenBy(race => race.ProgramId)];
+        }
         return calendar;
     }
 
@@ -151,7 +168,9 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
             || StoryProgress.IsDefaultOrEmpty
             || Progression.UraFirstPlaceFans.Length != 3 || Progression.UraFirstPlaceFans.Any(fans => fans <= 0)
             || Progression.FixedRaceGoals.IsDefaultOrEmpty || Progression.CareerGoals.IsDefaultOrEmpty
-            || Progression.CharacterPrograms.IsDefaultOrEmpty || Progression.RaceCalendar.IsDefaultOrEmpty
+            || Progression.SpecialGoals.IsDefaultOrEmpty || Progression.RaceGroups.IsDefaultOrEmpty || Progression.RaceRestrictions.IsDefaultOrEmpty
+            || Progression.CharacterPrograms.IsDefaultOrEmpty || !Progression.CharacterPrograms.Any(row => row.CharacterId == 0)
+            || Progression.RaceCalendar.IsDefaultOrEmpty
             || Construction.SourceSha256 != SourceMasterSha256)
             throw new InvalidDataException("Pioneer 规则资源缺少建设规则、回合校准、故事进度、继承或整局阶段数据。");
         if (SourceMasterSha256.Length != 64 || !SourceMasterSha256.All(char.IsAsciiHexDigit))
@@ -204,15 +223,21 @@ public sealed record PioneerEventPartnersData(ImmutableArray<PioneerSupportIdent
 public readonly record struct PioneerSupportIdentity(int CardId, int CharacterId, int Type);
 public readonly record struct PioneerNpcIdentity(int PartnerId, int CharacterId);
 public readonly record struct PioneerRaceRule(int ProgramId, int RequiredFans, string? Name, int Grade = 0, int FirstPlaceFans = 0,
-    int ProgramGroup = 0, int Permission = 0, int Month = 0, int Half = 0)
+    int ProgramGroup = 0, int Permission = 0, int Month = 0, int Half = 0, int BaseProgramId = 0, int RandomGroupId = 0)
 {
+    internal (int RequiredFans, int Grade, int FirstPlaceFans) RewardTerms => (RequiredFans, Grade, FirstPlaceFans);
     internal PioneerRaceOption Option(bool target) => new(ProgramId, Grade, FirstPlaceFans, target, Name, RequiredFans);
 }
 public readonly record struct PioneerStoryProgress(int StoryId, int Stage, int Length, int SupportCardId = 0);
 public readonly record struct PioneerFixedRaceGoal(int Id, int Turn, int ProgramId);
+public readonly record struct PioneerSpecialGoal(int Character, int Id, int Order, int Turn, int Determine, int Condition, int Target);
+public readonly record struct PioneerRaceGroupMember(int GroupId, int ProgramId);
+public readonly record struct PioneerRaceRestriction(int Character, int Turn, int GainId);
 public readonly record struct PioneerRaceDate(int Turn, int Year, int Month, int Half);
-public readonly record struct PioneerCharacterRaceProgram(int CharacterId, int ProgramGroup, int SecondProgramGroup);
+public readonly record struct PioneerCharacterRaceProgram(int CharacterId, int ProgramGroup);
 public sealed record PioneerProgressionData(ImmutableArray<CheckpointPointBonus> CheckpointBonuses,
     ImmutableArray<CheckpointEffect> CheckpointEffects, ImmutableArray<int> UraFirstPlaceFans,
     ImmutableArray<PioneerFixedRaceGoal> FixedRaceGoals, ImmutableArray<PioneerCareerGoal> CareerGoals,
-    ImmutableArray<PioneerRaceDate> RaceCalendar, ImmutableArray<PioneerCharacterRaceProgram> CharacterPrograms);
+    ImmutableArray<PioneerRaceDate> RaceCalendar, ImmutableArray<PioneerCharacterRaceProgram> CharacterPrograms,
+    ImmutableArray<PioneerSpecialGoal> SpecialGoals, ImmutableArray<PioneerRaceGroupMember> RaceGroups,
+    ImmutableArray<PioneerRaceRestriction> RaceRestrictions);
