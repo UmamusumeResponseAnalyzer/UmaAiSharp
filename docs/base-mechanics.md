@@ -17,7 +17,7 @@
 
 固有 120 按完整编成统计五种得意训练，友人和团队卡计入技能 Pt 项，每项最多加 2。当前日服 master 中的支援 30187、30264 均使用羁绊 80 的同一参数组。Pioneer.Game 读取卡面与解锁等级，Base 将编成计数绑定到羁绊条件。固有 121 的全编成加成则按持有卡是否参加所选训练结算。[umasim 支援固有实现](https://github.com/mee1080/umasim/blob/75bebbeb4316cac4049fe47981231b9088d2627e/core/src/commonMain/kotlin/io/github/mee1080/umasim/data/SupportCardSpecialUnique.kt) · [固有 121 的 master 投影](../tests/UmaAiSharp.Tests/Fixtures/training-bond-support.json)
 
-正向属性奖励在 1200 以下等量增长，超出的部分折半取整，有剩余时至少增加 1 点，然后应用当前上限。已声明事件夹具覆盖 1,789 个窗口，包括耐力 1199、声明 +10、后态 1204。事件加成取事件所属卡，体力恢复使用效果 25，属性和技能 Pt 使用效果 26。途中继承原算法在「1199 加 2」这类输入上采用不同的舍入，故保留在途中继承模型。[玩家的跨剧本数值说明](https://umamusumeschool.com/status_aptitude/) · [支援效果对照](https://gamewith.jp/uma-musume/article/show/274990) · [umasim 友人事件](https://github.com/mee1080/umasim/blob/c97dede4efd71af9606cac0342f5f03944a41e74/core/src/commonMain/kotlin/io/github/mee1080/umasim/simulation2/SimulationStateUpdater.kt#L387-L411) · [固定奖励夹具](../tests/UmaAiSharp.Tests/Fixtures/pioneer-event-resources.json)
+正向属性奖励在 1200 以下等量增长，超出的部分折半取整，有剩余时至少增加 1 点，然后应用当前上限。已声明事件夹具覆盖 1,789 个窗口，包括耐力 1199、声明 +10、后态 1204。事件加成取事件所属卡，体力恢复使用效果 25，属性和技能 Pt 使用效果 26。[玩家的跨剧本数值说明](https://umamusumeschool.com/status_aptitude/) · [支援效果对照](https://gamewith.jp/uma-musume/article/show/274990) · [umasim 友人事件](https://github.com/mee1080/umasim/blob/c97dede4efd71af9606cac0342f5f03944a41e74/core/src/commonMain/kotlin/io/github/mee1080/umasim/simulation2/SimulationStateUpdater.kt#L387-L411) · [固定奖励夹具](../tests/UmaAiSharp.Tests/Fixtures/pioneer-event-resources.json)
 
 ### Hint、继承与路线
 
@@ -27,7 +27,9 @@
 
 经典年和资深年 4 月上半各有一次途中继承。开局时持有 Uma Plan，每次给出两组结果供选择，育成中途到期也保持两组。无会员时直接结算一组。五份本地包库中，开局明确无会员的 221 局共观察到 441 个继承事件，候选数组均为空；明确有会员的 5 局共观察到 6 个事件，每个均有两组候选。缺开局标记且无法从恢复包判明会员状态时，Pioneer 导入沿用有会员的假设。[官方 Uma Plan 说明](https://umamusume.jp/news/detail?id=3078)
 
-因子触发率、效果档位和满 Hint 转换使用传入的模型参数。Base 用五维换算增量之和加两倍技能 Pt 增量为模拟与实包候选评分，平分取先出现的一组。选中的属性、上限、适性、Hint、技能 Pt 和溢出整组生效。这个评分是模拟器的选择策略。实包 2697 的两个候选按此策略分别得到 172、243 分，选第二组。[继承校准生成器](../tools/UmaAiSharp.Pioneer.DataGenerator/fit_inheritance.py) · [候选结算及实包排序测试](../tests/UmaAiSharp.Tests/MidRunInheritanceTests.cs)
+模拟器按冻结谱系、相性及校准概率计算一次原始收益期望，供本次推荐的所有轨迹在第 31、55 回合共用。普通继承将触发概率、效果档概率和原始收益相乘后求和，附加因子按满足触发组门槛的概率计入。Uma Plan 按一组声明的五维原始增量之和加两倍技能 Pt 排序，同分取第一组。两组独立时，分数为 `s` 的整组收益按 `P(S < s) + P(S ≤ s)` 加权，组内的 Hint 与适性随胜者计入。实包已揭示的候选仍按包内实际属性及技能 Pt 比较，包 2697 两组得分为 172、243。
+
+兑现时先加原始期望，再换成显示值并应用当时的属性上限。例如 +5 和 +40 各半时，单组期望为 +22.5，剩余原始空间为 10 点时到账 10 点。未解锁 Hint 保留解锁概率和解锁后的平均等级，已满级或已学技能按转换分布计入五维收益。小数收益按配对样本序号分配到整数状态。[继承校准生成器](../tools/UmaAiSharp.Pioneer.DataGenerator/fit_inheritance.py) · [候选结算及实包排序测试](../tests/UmaAiSharp.Tests/MidRunInheritanceTests.cs)
 
 角色分支依据角色及当局的目标、赛果、干劲或事件选择。已实现成田白仁强敌路线、爱丽速子皋月赏后换赛、待兼福来的两次抽签、待兼诗歌剧禁赛及黄金旅程换赛和加赛。日服 master 中这些分支涉及的 23 个目标属于各自角色，路线的 `scenario_id=0`，目标的 `scenario_group_id=100`。待兼福来的候选及触发点另有玩家记录，权重来自实包估计。[角色路线核查](race-route-evidence.md) · [玩家对待兼福来两次抽签的记录](https://trap.jp/post/1367/)
 

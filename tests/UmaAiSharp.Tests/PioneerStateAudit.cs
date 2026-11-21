@@ -17,6 +17,8 @@ sealed class PioneerStateAudit(PioneerScenario inner)
     public PioneerState CreateWorkspace(in PioneerState source) => inner.CreateWorkspace(source);
     public long GetWorkspaceBytes(in PioneerState state) => inner.GetWorkspaceBytes(state);
     public void CopyState(in PioneerState source, ref PioneerState destination) => inner.CopyState(source, ref destination);
+    public void StartSample(in PioneerState root, ref PioneerState destination, int sampleIndex)
+        => inner.StartSample(root, ref destination, sampleIndex);
     public Inspection<PioneerDecisionView> Inspect(in PioneerState state, long ordinal) => inner.Inspect(state, ordinal);
     public SimulationStop? ValidateAction(in PioneerState state, in PioneerRuntimeAction action) => inner.ValidateAction(state, action);
     public TransitionResult ApplyAction(ref PioneerState state, in PioneerRuntimeAction action, ref SimulationRandom random)

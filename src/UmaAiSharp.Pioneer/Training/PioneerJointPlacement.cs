@@ -57,11 +57,12 @@ public sealed class PioneerJointPlacement
                 if (member.Distribution.SampleHint(ref draw, paired: paired)) hints |= 1 << index;
             }
         Span<int> counts = stackalloc int[5];
+        Span<TrainingPlacement> cells = stackalloc TrainingPlacement[5];
         var attempt = 0UL;
         while (true)
         {
             var positions = paired ? random.Fork(2 + attempt++) : random;
-            var board = new TrainingBoard();
+            cells.Clear();
             counts.Clear();
             for (var index = 0; index < Members.Length; index++)
             {
@@ -75,10 +76,10 @@ public sealed class PioneerJointPlacement
                 counts[training]++;
                 // Finish all draws in a rejected board, with no partial placement committed.
                 if (counts[training] > 5) continue;
-                var cell = board[training];
-                board = board.With(training, index < 6
+                ref var cell = ref cells[training];
+                cell = index < 6
                     ? cell with { SupportMask = (byte)(cell.SupportMask | (1 << index)), HintMask = (byte)(cell.HintMask | (hint ? 1 << index : 0)) }
-                    : cell with { GuestCount = (byte)(cell.GuestCount + 1) });
+                    : cell with { GuestCount = (byte)(cell.GuestCount + 1) };
             }
             if (counts[0] > 5 || counts[1] > 5 || counts[2] > 5 || counts[3] > 5 || counts[4] > 5) continue;
             if (!facilityHintPercent.IsEmpty)
@@ -90,9 +91,10 @@ public sealed class PioneerJointPlacement
                     ref var draw = ref (paired ? ref hint : ref random);
                     if (!Members[index].Distribution.SampleHint(ref draw, facilityHintPercent[training], paired)) continue;
                     placements[index] = placements[index] with { HasHint = true };
-                    board = board.With(training, board[training] with { HintMask = (byte)(board[training].HintMask | (1 << index)) });
+                    ref var cell = ref cells[training];
+                    cell = cell with { HintMask = (byte)(cell.HintMask | (1 << index)) };
                 }
-            return board;
+            return new(cells[0], cells[1], cells[2], cells[3], cells[4]);
         }
     }
 }

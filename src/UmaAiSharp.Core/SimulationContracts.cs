@@ -39,11 +39,13 @@ public interface ISimulationScenario<TState, TDecision, TAction, TOutcome>
     where TState : notnull where TDecision : notnull where TAction : notnull
 {
     string RulesIdentity { get; }
+    bool ParallelizeSmallBatches => false;
     long SharedMemoryBytes { get; }
     TState CreateWorkspace(in TState source);
     long GetWorkspaceBytes(in TState state);
     // Copies all future-relevant state into exclusively owned storage, including active lengths.
     void CopyState(in TState source, ref TState destination);
+    void StartSample(in TState root, ref TState destination, int sampleIndex) => CopyState(root, ref destination);
     Inspection<TDecision> Inspect(in TState state, long decisionOrdinal);
     SimulationStop? ValidateAction(in TState state, in TAction action);
     TransitionResult ApplyAction(ref TState state, in TAction action, ref SimulationRandom random);

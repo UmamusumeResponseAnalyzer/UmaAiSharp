@@ -67,8 +67,9 @@ public sealed record PioneerRulesSnapshot(string SourceMasterSha256, PioneerTrai
         var seniorHints = ImmutableArray.CreateBuilder<HintSkill>(SeniorIslandLinks.Length);
         foreach (var (character, group) in SeniorIslandLinks)
             seniorHints.Add(new(group, linked.Contains(character) ? 2 : 1));
-        var inheritance = start.Inheritance is { } parents ? new MidRunInheritanceRules(Inheritance, parents,
-            start.CharacterId ?? start.CardId / 100, start.CardId, hints.RegisterHint, [.. progress.OwnedSkills.Select(skill => skill.Id)]) : null;
+        var inheritance = start.Inheritance is { } parents ? MidRunInheritanceRules.Compile(Inheritance, parents,
+            start.CharacterId ?? start.CardId / 100, start.CardId, hints.RegisterHint, [.. progress.OwnedSkills.Select(skill => skill.Id)],
+            start.Turn < MidRunInheritanceRules.SeniorTurn) : null;
         var observed = start.ObservedStoryHistory ?? [];
         var supportStories = observed.Where(story => story.SupportCardId != 0
             && start.Deck.Any(card => card.TrainingCommandId != 0 && card.CardId == story.SupportCardId)).ToArray();

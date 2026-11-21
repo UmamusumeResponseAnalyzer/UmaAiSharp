@@ -18,11 +18,17 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
     static readonly PioneerEvent FirstYearConfirmation = new(211022, 0, 400000100, 6);
     readonly TrainingProjection? trainingProjection = autonomous && data.IsWholeRun ? new(data) : null;
     public string RulesIdentity { get; } = data.RulesIdentity + "/" + data.Model.Identity;
+    public bool ParallelizeSmallBatches => autonomous && data.IsWholeRun;
     public long SharedMemoryBytes => data.SharedMemoryBytes + (trainingProjection?.SharedMemoryBytes ?? 0);
     public static long DecisionKey(int turn, int storyOrCommandId) => ((long)turn << 32) | (uint)storyOrCommandId;
     public PioneerState CreateWorkspace(in PioneerState source) => source.Clone();
     public long GetWorkspaceBytes(in PioneerState state) => state.WorkspaceBytes + (data.TurnRules?.SkillRating?.ScratchBytes ?? 0);
     public void CopyState(in PioneerState source, ref PioneerState destination) => source.CopyInto(destination);
+    public void StartSample(in PioneerState root, ref PioneerState destination, int sampleIndex)
+    {
+        root.CopyInto(destination);
+        destination.Mutable.SampleIndex = sampleIndex;
+    }
 
     public Inspection<PioneerDecisionView> Inspect(in PioneerState state, long decisionOrdinal)
     {
@@ -718,7 +724,7 @@ public sealed partial class PioneerScenario(PioneerRuntimeData data, bool autono
             if (hadGrants) state.TurnBoard = null;
             if (autonomous && next != previous)
             {
-                SettleScheduledInheritance(state, ref random);
+                SettleScheduledInheritance(state);
                 ApplyFixedTurnEvents(state, next, arriving: true, ref random);
                 ApplyOrdinaryStory(state, ref random);
             }

@@ -67,6 +67,7 @@ public sealed class FastPioneerModel : PioneerModel
         public static Multiplier Ratio(long numerator, long denominator) => new((double)numerator / denominator);
         public static implicit operator Multiplier(int value) => new(value);
         public static Multiplier operator *(Multiplier left, Multiplier right) => new(left.value * right.value);
+        public Multiplier ApplySixDigitFactor(Multiplier factor) => (this * factor).Quantize(6, false);
 
         public Multiplier Quantize(int digits, bool halfUp) => value >= 0 ? this
             : throw new ArgumentOutOfRangeException(nameof(value), "训练收益量化要求非负数。");
@@ -76,6 +77,7 @@ public sealed class FastPioneerModel : PioneerModel
 
 internal interface ITrainingMultiplier<T> where T : struct, ITrainingMultiplier<T>
 {
+    T ApplySixDigitFactor(T factor);
     static abstract T Ratio(long numerator, long denominator);
     static abstract implicit operator T(int value);
     static abstract T operator *(T left, T right);

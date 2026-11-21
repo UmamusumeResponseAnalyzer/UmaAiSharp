@@ -63,6 +63,21 @@ public sealed class CoreSimulationTests
         Assert.All(one.Results, result => Assert.Equal(TrajectoryStatus.Completed, result.Status));
     }
 
+    [Theory]
+    [InlineData(3, 3)]
+    [InlineData(64, 8)]
+    public void SmallParallelBatchesUseTheRequestedWorkspacesUpToTheSampleCount(int samples, int expectedWorkspaces)
+    {
+        var root = Root();
+        var scenario = new TestScenario { ParallelizeSmallBatches = true };
+        var policy = new CounterPolicy(3);
+        var single = SimulationRunner.RunBatch(new TestScenario(), new CounterPolicy(3), root, 1234, samples, 1);
+        var parallel = SimulationRunner.RunBatch(scenario, policy, root, 1234, samples, 8);
+        Assert.Equal(expectedWorkspaces, scenario.WorkspacesCreated);
+        Assert.Equal(expectedWorkspaces, policy.CursorsCreated);
+        Assert.Equal(single.Results, parallel.Results);
+    }
+
     [Fact]
     public void PolicyDrawsCannotChangeRuleRandomStream()
     {
@@ -251,6 +266,7 @@ public sealed class CoreSimulationTests
         public int WorkspacesCreated => workspaces;
         public int ApplyCalls => applyCalls;
         public string RulesIdentity => "synthetic-kernel";
+        public bool ParallelizeSmallBatches { get; init; }
         public long SharedMemoryBytes => sharedBytes;
         public long GetWorkspaceBytes(in TestState state) => 64 + state.Values.Length * sizeof(ulong);
         public TestState CreateWorkspace(in TestState source)

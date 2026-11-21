@@ -6,10 +6,22 @@ namespace UmaAiSharp.Pioneer.Training;
 // Omitting GCD is exact; quantization replaces the product denominator with a decimal power.
 internal readonly struct TrainingFraction(BigInteger numerator, BigInteger denominator) : ITrainingMultiplier<TrainingFraction>
 {
-    public static TrainingFraction Ratio(long numerator, long denominator) => new(numerator, denominator);
+    public static TrainingFraction Ratio(long numerator, long denominator)
+    {
+        if (numerator == denominator && denominator > 0) return new(1, 1);
+        while (denominator >= 10 && numerator % 10 == 0 && denominator % 10 == 0)
+        {
+            numerator /= 10;
+            denominator /= 10;
+        }
+        return new(numerator, denominator);
+    }
     public static implicit operator TrainingFraction(int value) => new(value, 1);
     public static TrainingFraction operator *(TrainingFraction left, TrainingFraction right)
         => new(left.numerator * right.numerator, left.denominator * right.denominator);
+    // This stage receives an already truncated six-significant-digit value.
+    public TrainingFraction ApplySixDigitFactor(TrainingFraction factor)
+        => factor.numerator == factor.denominator ? this : (this * factor).Quantize(6, false);
     readonly BigInteger numerator = numerator;
     readonly BigInteger denominator = denominator > 0 ? denominator : throw new ArgumentOutOfRangeException(nameof(denominator));
 

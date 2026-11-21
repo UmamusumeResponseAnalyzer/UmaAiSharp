@@ -569,10 +569,12 @@ public sealed class PioneerTurnRules
             Span<SupportPlacement> positions = stackalloc SupportPlacement[forecastPlacement.Members.Length];
             var sample = new SimulationRandom(709981);
             var hasFacilities = layout.Any(facility => facility.Level != 0);
+            var islandBase = default(TrainingValues);
             if (hasFacilities)
             {
                 islands = new IslandTrainingInput[ForecastBoardCount];
                 islandFacilities = TrainingNumericKernel.CompileIslandFacilities(layout);
+                islandBase = IslandBase(layout);
             }
             for (var i = 0; i < forecasts.Length; i++)
             {
@@ -581,7 +583,7 @@ public sealed class PioneerTurnRules
                 if (!hasFacilities) continue;
                 var board = MapIslandBoard(forecasts[i], state.Header.ProjectNpcCount, AppearedMask(state.Header), layout,
                     forecastPlacement, project: true, ref draw);
-                islands[i] = CreateIslandInput(state, board, layout);
+                islands[i] = CreateIslandInput(state, board, layout, islandBase);
             }
         }
         return new(placement, !WholeRun ? state.Data.CampCommands : [.. Enumerable.Range(3601, 5)
@@ -685,8 +687,8 @@ public sealed class PioneerTurnRules
         }
     }
 
-    internal IslandTrainingInput CreateIslandInput(PioneerState state, in PioneerIslandBoard board,
-        ImmutableArray<TrainingFacility> facilities)
+    internal static IslandTrainingInput CreateIslandInput(PioneerState state, in PioneerIslandBoard board,
+        ImmutableArray<TrainingFacility> facilities, TrainingValues islandBase)
     {
         var count = 0;
         for (var i = 0; i < 6; i++)
@@ -698,7 +700,7 @@ public sealed class PioneerTurnRules
             if (group.SupportMask == 0 && group.GuestCount == 0) continue;
             assignments.Add(new(101 + i, state.Data.IslandSupports[group.SupportMask], group.GuestCount));
         }
-        return new(state.Data.TrainingStart!.Environment, [], IslandBase(facilities), facilities, assignments.MoveToImmutable());
+        return new(state.Data.TrainingStart!.Environment, [], islandBase, facilities, assignments.MoveToImmutable());
     }
 
     internal CompiledCampTraining CompileCampTraining(int command, ImmutableArray<TrainingFacility> layout)

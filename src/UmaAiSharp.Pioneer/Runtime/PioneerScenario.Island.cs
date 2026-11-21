@@ -106,7 +106,8 @@ public sealed partial class PioneerScenario
     {
         if (data.Start is PioneerStart.IslandTraining imported) return imported.Training;
         var rules = data.TurnRules!;
-        return rules.CreateIslandInput(state, state.Header.IslandBoard, rules.CurrentFacilities(state));
+        var facilities = rules.CurrentFacilities(state);
+        return PioneerTurnRules.CreateIslandInput(state, state.Header.IslandBoard, facilities, rules.IslandBase(facilities));
     }
 
     TrainingNumericResult PreviewIsland(PioneerState state, IslandTrainingInput input)

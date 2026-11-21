@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Numerics;
 using UmaAiSharp.Base.Hints;
 using UmaAiSharp.Base.Training;
 using UmaAiSharp.Core;
@@ -25,26 +26,29 @@ public sealed record InheritanceData(ImmutableArray<InheritanceFactor> Factors,
 public readonly record struct InheritanceLottery(int LotteryId, AttributeValues Attributes, int SkillPoints);
 public readonly record struct RankedInheritanceLottery(int LotteryId, AttributeValues AttributeGain, int SkillPointGain, int Value);
 
-public sealed class MidRunInheritanceRules
+public sealed partial class MidRunInheritanceRules
 {
     public const int ClassicTurn = 31;
     public const int SeniorTurn = 55;
 
     readonly record struct Effect(int Target, int Value, int Count, int HintIndex, bool Owned);
     sealed record Bundle(int Weight, Effect[] Effects);
-    sealed record Opportunity(int Probability, Bundle[] Bundles, int TotalWeight, ulong AddonGroup);
-    sealed record Addon(int RequiredGroups, ulong Groups, Opportunity Opportunity);
-    readonly Opportunity[] opportunities;
-    readonly Addon[] addons;
-    readonly int[] saturatedHintWeights;
-    readonly int saturatedHintWeightSum;
-    readonly int candidateCount;
-    public long SharedMemoryBytes => 512L + (opportunities.Length + addons.Length) * 72L
-        + opportunities.Concat(addons.Select(addon => addon.Opportunity)).Sum(opportunity =>
-            opportunity.Bundles.Sum(bundle => 48L + 32L * bundle.Effects.Length));
 
-    public MidRunInheritanceRules(InheritanceData data, InheritanceContext context, int characterId, int cardId,
-        Func<HintSkill, int> registerHint, ImmutableArray<int> ownedSkills)
+    sealed class HintExpectation
+    {
+        public double Unlock;
+        public readonly double[] Gains = new double[6], Conversions = new double[6];
+    }
+
+    readonly double[] attributes = new double[5], caps = new double[5], aptitudes = new double[10];
+    readonly int[] hintSlots;
+    readonly HintExpectation[] hints;
+    readonly double conversionPerAttribute;
+    double skillPoints;
+    public long SharedMemoryBytes => 400L + 196L * hintSlots.Length;
+
+    public static MidRunInheritanceRules? Compile(InheritanceData data, InheritanceContext context, int characterId, int cardId,
+        Func<HintSkill, int> registerHint, ImmutableArray<int> ownedSkills, bool hasUpcomingInheritance)
     {
         var factors = data.Factors.ToFrozenDictionary(factor => factor.Id);
         var pedigree = new InheritancePedigree(data.Factors.Select(factor => new InitialFactor(factor.Id, factor.Type, factor.Group, factor.Stars)));
@@ -66,9 +70,8 @@ public sealed class MidRunInheritanceRules
         var owned = ownedSkills.ToHashSet();
         if (context.Aptitudes.Length != Aptitude.GroupIds.Length || context.Aptitudes.Any(value => value is < 1 or > 8))
             throw new InvalidDataException("途中继承需要十项适性，等级范围为1至8。");
-        candidateCount = context.HasUmaPlan ? 2 : 1;
-        saturatedHintWeights = data.Calibration.SaturatedHintWeights.ToArray();
-        saturatedHintWeightSum = saturatedHintWeights.Sum();
+        var saturatedHintWeights = data.Calibration.SaturatedHintWeights.ToArray();
+        var saturatedHintWeightSum = saturatedHintWeights.Sum();
         if (saturatedHintWeightSum <= 0 || saturatedHintWeights.Any(value => value < 0))
             throw new InvalidDataException("继承满级 Hint 转化分布无有效权重。");
         var compiled = relevant.Where(factor => factor.Type != 7).ToFrozenDictionary(factor => factor.Id, factor =>
@@ -87,122 +90,142 @@ public sealed class MidRunInheritanceRules
                 throw new InvalidDataException($"继承因子 {factor.Id} 缺少效果档权重。");
             return bundles;
         });
-        opportunities = [.. sources.SelectMany(source => source.FactorIds.Order()
-            .Select(id => factors[id]).Where(factor => factor.Type != 7).Select(factor =>
+        // The skill evaluator shares the registered Hint slots even after the final inheritance.
+        if (!hasUpcomingInheritance) return null;
+        var rolls = new List<RewardRoll>();
+        foreach (var source in sources)
+            foreach (var id in source.FactorIds.Order())
             {
-                var bundles = compiled[factor.Id];
+                var factor = factors[id];
+                if (factor.Type == 7) continue;
                 var probability = Math.Min(1000000,
                     rates[(factor.Type, factor.EffectGroup)] * (100 + relation.Sources[(int)source.Slot].Total));
-                return new Opportunity(probability, bundles, bundles.Sum(bundle => bundle.Weight), addonGroups.GetValueOrDefault(factor.Group));
-            }))];
-        addons = [.. activeAddons.Select(addon =>
-        {
-            var bundles = compiled[addon.FactorId];
-            return new Addon(addon.RequiredGroups, addon.Groups.Aggregate(0UL, (mask, group) => mask | addonGroups[group]),
-                new(1000000, bundles, bundles.Sum(bundle => bundle.Weight), 0));
-        })];
+                rolls.Add(CompileRoll(compiled[id], probability / 1_000_000d, addonGroups.GetValueOrDefault(factor.Group)));
+            }
+        foreach (var addon in activeAddons)
+            rolls.Add(CompileRoll(compiled[addon.FactorId], 1, 0, addon.RequiredGroups,
+                addon.Groups.Aggregate(0UL, (mask, group) => mask | addonGroups[group])));
+        var hintSlots = compiled.Values.SelectMany(bundles => bundles).SelectMany(bundle => bundle.Effects)
+            .Where(effect => effect.Target == 41).Select(effect => effect.HintIndex).Distinct().Order().ToArray();
+        var conversionMean = saturatedHintWeights.Select((weight, index) => (index + 1.0) * weight).Sum() / saturatedHintWeightSum;
+        return new(context.HasUmaPlan, hintSlots, [.. rolls], conversionMean);
     }
 
-    public void Apply(ref TrainingValues resources, ref TrainingLimits limits, Span<int> aptitudes, Span<int> hints,
-        ref AttributeValues totalOverflow, ref SimulationRandom random)
+    MidRunInheritanceRules(bool hasUmaPlan, int[] hintSlots, RewardRoll[] rolls, double conversionMean)
     {
-        Span<int> attributes = stackalloc int[5];
-        Span<int> caps = stackalloc int[5];
-        Span<int> overflow = stackalloc int[5];
-        Span<int> rolledAptitudes = stackalloc int[10];
-        // Each of six slots references only one copy of each Hint destination, bounded by the compiled master catalogue.
-        Span<int> rolledHints = stackalloc int[hints.Length];
-        Span<int> bestAptitudes = stackalloc int[10];
-        Span<int> bestHints = stackalloc int[hints.Length];
-        var best = 0;
-        var result = resources;
-        var resultCaps = limits;
-        var resultOverflow = default(AttributeValues);
-        for (var candidate = 0; candidate < candidateCount; candidate++)
-        {
-            var candidateRandom = random.Fork((ulong)candidate);
-            attributes[0] = resources.Speed; attributes[1] = resources.Stamina; attributes[2] = resources.Power;
-            attributes[3] = resources.Guts; attributes[4] = resources.Wisdom;
-            caps[0] = limits.Speed; caps[1] = limits.Stamina; caps[2] = limits.Power;
-            caps[3] = limits.Guts; caps[4] = limits.Wisdom;
-            overflow.Clear();
-            aptitudes.CopyTo(rolledAptitudes);
-            hints.CopyTo(rolledHints);
-            var points = resources.SkillPoints;
-            var triggeredGroups = 0UL;
-            for (var index = 0; index < opportunities.Length + addons.Length; index++)
-            {
-                Opportunity opportunity;
-                if (index < opportunities.Length)
-                    opportunity = opportunities[index];
-                else
-                {
-                    var addon = addons[index - opportunities.Length];
-                    if (System.Numerics.BitOperations.PopCount(triggeredGroups & addon.Groups) < addon.RequiredGroups) continue;
-                    opportunity = addon.Opportunity;
-                }
-                var factorRandom = candidateRandom.Fork((ulong)index);
-                if (factorRandom.NextInt(1000000) >= opportunity.Probability) continue;
-                triggeredGroups |= opportunity.AddonGroup;
-                var draw = factorRandom.NextInt(opportunity.TotalWeight);
-                foreach (var bundle in opportunity.Bundles)
-                {
-                    if ((draw -= bundle.Weight) >= 0) continue;
-                    foreach (var effect in bundle.Effects)
-                        if (effect.Target is >= 61 and <= 65) caps[effect.Target - 61] += effect.Value;
-                    for (var effectIndex = 0; effectIndex < bundle.Effects.Length; effectIndex++)
-                    {
-                        var effect = bundle.Effects[effectIndex];
-                        switch (effect.Target)
-                        {
-                            case >= 1 and <= 5:
-                                Gain(attributes, caps, overflow, effect.Target - 1, effect.Value);
-                                break;
-                            case 6:
-                                points += effect.Value;
-                                break;
-                            case 7:
-                                Gain(attributes, caps, overflow, factorRandom.Fork((ulong)effectIndex).NextInt(5), effect.Value);
-                                break;
-                            case 41:
-                                ref var level = ref rolledHints[effect.HintIndex];
-                                if (effect.Owned || level == 5)
-                                {
-                                    var conversion = factorRandom.Fork((ulong)effectIndex);
-                                    Gain(attributes, caps, overflow, conversion.NextInt(5), DrawHintConversion(ref conversion));
-                                }
-                                else
-                                    level = Math.Min(5, Math.Max(0, level) + effect.Count);
-                                break;
-                            case >= 61 and <= 65:
-                                break;
-                            default:
-                                var aptitude = Aptitude.GroupIds.IndexOf(effect.Target);
-                                rolledAptitudes[aptitude] = Math.Min(8, rolledAptitudes[aptitude] + effect.Value);
-                                break;
-                        }
-                    }
-                    break;
-                }
-            }
-            if (candidateCount > 1)
-            {
-                var value = Score(new(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4]), points);
-                if (candidate > 0 && value <= best) continue;
-                best = value;
-            }
-            result = new(attributes[0], attributes[1], attributes[2], attributes[3], attributes[4], resources.Vital, points);
-            resultCaps = new(caps[0], caps[1], caps[2], caps[3], caps[4], limits.Vital);
-            resultOverflow = new(overflow[0], overflow[1], overflow[2], overflow[3], overflow[4]);
-            rolledAptitudes.CopyTo(bestAptitudes);
-            rolledHints.CopyTo(bestHints);
-        }
-        resources = result;
-        limits = resultCaps;
-        totalOverflow += resultOverflow;
-        bestAptitudes.CopyTo(aptitudes);
-        bestHints.CopyTo(hints);
+        this.hintSlots = hintSlots;
+        hints = [.. hintSlots.Select(_ => new HintExpectation())];
+        conversionPerAttribute = conversionMean / 5;
+        var groups = IndependentGroups(rolls);
+        var weights = hasUmaPlan ? WinnerWeights(groups.Select(ScoreMass).ToArray()) : null;
+        for (var i = 0; i < groups.Length; i++) AddWeightedRewards(groups[i], weights?[i], conversionMean);
     }
+
+    // Repeated grants of one Hint and conditions for an addon must see their joint outcomes.
+    // Groups without either connection contribute independently to the total candidate score.
+    static RewardRoll[][] IndependentGroups(RewardRoll[] rolls)
+    {
+        var parent = Enumerable.Range(0, rolls.Length).ToArray();
+        var firstHint = new Dictionary<int, int>();
+        var firstTrigger = new Dictionary<int, int>();
+        for (var i = 0; i < rolls.Length; i++)
+        {
+            var roll = rolls[i];
+            var triggers = roll.Groups;
+            foreach (var branch in roll.Branches)
+            {
+                triggers |= branch.TriggeredGroup;
+                foreach (var effect in branch.Effects)
+                    if (effect.Target == 41 && !effect.Owned) Link(firstHint, effect.HintIndex, i);
+            }
+            while (triggers != 0)
+            {
+                Link(firstTrigger, BitOperations.TrailingZeroCount(triggers), i);
+                triggers &= triggers - 1;
+            }
+        }
+        return [.. Enumerable.Range(0, rolls.Length).GroupBy(Root).Select(group => group.Select(i => rolls[i]).ToArray())];
+
+        int Root(int i)
+        {
+            while (parent[i] != i) i = parent[i] = parent[parent[i]];
+            return i;
+        }
+
+        void Link(Dictionary<int, int> first, int key, int i)
+        {
+            if (!first.TryAdd(key, i)) parent[Root(i)] = Root(first[key]);
+        }
+    }
+
+    public void Apply(ref TrainingValues resources, ref TrainingLimits limits, Span<int> currentAptitudes, Span<int> currentHints,
+        ref AttributeValues totalOverflow, int sampleIndex, int turn = ClassicTurn)
+    {
+        var sample = System.Buffers.Binary.BinaryPrimitives.ReverseEndianness((uint)sampleIndex);
+        sample = ((sample & 0x55555555) << 1) | ((sample >> 1) & 0x55555555);
+        sample = ((sample & 0x33333333) << 2) | ((sample >> 2) & 0x33333333);
+        sample = ((sample & 0x0f0f0f0f) << 4) | ((sample >> 4) & 0x0f0f0f0f);
+
+        // Adjacent intervals spread rare unlocks across paired samples while preserving each
+        // skill's unlock probability and its mean level conditional on being unlocked.
+        var unlockRank = Rank(26);
+        var levelRank = Rank(27);
+        var conversions = 0.0;
+        for (var i = 0; i < hints.Length; i++)
+        {
+            ref var level = ref currentHints[hintSlots[i]];
+            var expectation = hints[i];
+            conversions += expectation.Conversions[Math.Max(level, 0)];
+            if (level < 0)
+            {
+                var chance = Math.Clamp(expectation.Unlock, 0, 1);
+                if (unlockRank < chance)
+                    level = Project(Math.Clamp(expectation.Gains[0] / chance, 0, 5), unlockRank / chance);
+                unlockRank = Fraction(unlockRank - chance);
+            }
+            else
+            {
+                var gain = Math.Clamp(expectation.Gains[level], 0, 5 - level);
+                level += Project(gain, levelRank);
+                levelRank = Fraction(levelRank - gain);
+            }
+        }
+
+        Span<int> values = [resources.Speed, resources.Stamina, resources.Power, resources.Guts, resources.Wisdom];
+        Span<int> ceilings = [limits.Speed, limits.Stamina, limits.Power, limits.Guts, limits.Wisdom];
+        Span<int> overflow = stackalloc int[5];
+        for (var i = 0; i < 5; i++)
+        {
+            var raw = Raw(values[i]) + attributes[i] + conversions * conversionPerAttribute;
+            var display = raw <= 1200 ? raw : 1200 + (raw - 1200) / 2;
+            var ceiling = ceilings[i] + caps[i];
+            var rank = Rank(i);
+            values[i] = Project(Math.Min(display, ceiling), rank);
+            ceilings[i] = Project(ceiling, rank);
+            overflow[i] = Project(Math.Max(0, display - ceiling), Rank(10 + i));
+        }
+        resources = new(values[0], values[1], values[2], values[3], values[4], resources.Vital,
+            resources.SkillPoints + Project(skillPoints, Rank(15)));
+        limits = new(ceilings[0], ceilings[1], ceilings[2], ceilings[3], ceilings[4], limits.Vital);
+        totalOverflow += new AttributeValues(overflow[0], overflow[1], overflow[2], overflow[3], overflow[4]);
+        for (var i = 0; i < currentAptitudes.Length; i++)
+            currentAptitudes[i] = Project(Math.Min(8, currentAptitudes[i] + aptitudes[i]), Rank(16 + i));
+
+        double Rank(int dimension)
+        {
+            var salt = unchecked((uint)(turn * 65537 + dimension + 1) * 0x9e3779b9u);
+            salt ^= salt >> 16;
+            return (unchecked(sample * (salt | 1) + salt * 0x85ebca6bu) + 0.5) / 4294967296.0;
+        }
+    }
+
+    static int Project(double value, double rank)
+    {
+        var whole = (int)value;
+        return whole + (rank < value - whole ? 1 : 0);
+    }
+
+    static double Fraction(double value) => value - Math.Floor(value);
 
     public static IEnumerable<RankedInheritanceLottery> RankLotteries(AttributeValues before, int beforePoints,
         IEnumerable<InheritanceLottery> options)
@@ -218,27 +241,10 @@ public sealed class MidRunInheritanceRules
     }
 
     // The recommender values raw-equivalent attributes plus twice the skill Pt.
+    static int Raw(int display) => display + Math.Max(0, display - 1200);
+
     static int Score(AttributeValues attributes, int skillPoints)
-    {
-        static int Raw(int display) => display + Math.Max(0, display - 1200);
-        return Raw(attributes.Speed) + Raw(attributes.Stamina) + Raw(attributes.Power)
+        => Raw(attributes.Speed) + Raw(attributes.Stamina) + Raw(attributes.Power)
             + Raw(attributes.Guts) + Raw(attributes.Wisdom) + 2 * skillPoints;
-    }
 
-    int DrawHintConversion(ref SimulationRandom random)
-    {
-        var draw = random.NextInt(saturatedHintWeightSum);
-        for (var index = 0; index < saturatedHintWeights.Length; index++)
-            if ((draw -= saturatedHintWeights[index]) < 0) return index + 1;
-        throw new InvalidOperationException("继承满级 Hint 权重和不一致。");
-    }
-
-    static void Gain(Span<int> attributes, ReadOnlySpan<int> caps, Span<int> overflow, int index, int raw)
-    {
-        var below = Math.Min(raw, Math.Max(0, 1200 - attributes[index]));
-        var amount = Math.Max(1, below + (raw - below) / 2);
-        var uncapped = attributes[index] + amount;
-        attributes[index] = Math.Min(uncapped, caps[index]);
-        overflow[index] += uncapped - attributes[index];
-    }
 }

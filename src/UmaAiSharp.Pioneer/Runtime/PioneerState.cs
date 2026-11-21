@@ -40,6 +40,7 @@ public struct PioneerStateHeader
     public bool TuckerSideStorySeen;
     public int ProjectNpcCount, EvaluationTrainingPercent, CompletedUraRaces;
     public int CompletedInheritances;
+    internal int SampleIndex;
     public int FailedCareerGoal;
     internal int RaceGrade;
     internal int LastRaceTurn, ConsecutiveRaces, RaceBranch;

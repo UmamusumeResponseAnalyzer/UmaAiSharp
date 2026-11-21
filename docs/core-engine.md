@@ -39,7 +39,7 @@ var result = SimulationRunner.Continue(scenario, policy, ref execution);
 
 “未消费但已结算”是程序不变量错误。停止结果不带伪造终局值。一个已结算动作可以紧接未知的下一阶段；其已完成计数和领域状态仍保留。
 
-`ForkInto(scenario, policy, source, ref destination)` 要求目标已有独占工作区，复制完整执行上下文、两条 RNG 的当前状态、待动作与策略历史。它不生成新随机流。`ResetSample(..., seed, sampleIndex)` 则复制根领域状态、清空轨迹进度、重置策略游标，并从根种子/样本编号建立两条独立新流。两者不能互换。
+`ForkInto(scenario, policy, source, ref destination)` 要求目标已有独占工作区，复制完整执行上下文、两条 RNG 的当前状态、待动作与策略历史。它不生成新随机流。`ResetSample(..., seed, sampleIndex)` 通过场景的 `StartSample` 复制根领域状态并传入样本编号，清空轨迹进度、重置策略游标，并从根种子/样本编号建立两条独立新流。两者不能互换。
 
 `ActionScript<TDecision,TAction>` 在构造时一次检查不可变步骤，所有轨迹共享步骤，每条轨迹使用独立 `ScriptCursor`。身份不符、脚本耗尽及终局剩余步骤均返回结构化停止，不补动作。引用类型动作必须显式提供独占不可变负载的容量声明。
 
@@ -47,7 +47,7 @@ var result = SimulationRunner.Continue(scenario, policy, ref execution);
 
 `SimulationRandom` 是只含 `ulong` 状态的值类型，调用链始终按 `ref` 传递。算法保持 `splitmix64`，样本派生保持 `sample-domain-mix`；`NextInt` 的拒绝采样和上界为1时的抽数行为保持原样。策略随机消耗不能影响规则流。
 
-`RunBatch` 同步执行固定数量样本，按每块 64 个逻辑样本分配工作区。根搜索可按单个样本分配工作区，初始批和新增区间都可用足请求的 worker。编号、种子及结果位置由逻辑样本决定。每个 worker 复用一个独占状态和策略游标，结果写入原始 `sampleIndex` 槽。每个结果保存两条 RNG 的末态。
+`RunBatch` 同步执行固定数量样本。默认每 64 个样本分配一个工作区，上限为请求的 worker 数。Pioneer 自主整局场景通过 `ParallelizeSmallBatches` 按样本数和 worker 数中的较小值分配工作区。根搜索也按单个样本分配工作区，初始批和新增区间均可并行。编号、种子及结果位置由逻辑样本决定。每个 worker 复用一个独占状态和策略游标，结果写入原始 `sampleIndex` 槽。每个结果保存两条 RNG 的末态。
 
 ```csharp
 var batch = SimulationRunner.RunBatch(scenario, policy, root, seed, samples, workerCount);

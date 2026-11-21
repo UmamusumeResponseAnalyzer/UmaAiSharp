@@ -33,7 +33,7 @@ public static class SimulationRunner
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
         ArgumentOutOfRangeException.ThrowIfNegative(sampleIndex);
-        scenario.CopyState(root, ref execution.State);
+        scenario.StartSample(root, ref execution.State, sampleIndex);
         policy.ResetCursor(ref execution.Cursor, sampleIndex);
         execution.RulesRandom = new(SimulationRandom.DeriveSeed(seed, sampleIndex, SimulationRandomStream.Rules));
         execution.PolicyRandom = new(SimulationRandom.DeriveSeed(seed, sampleIndex, SimulationRandomStream.Policy));
@@ -88,7 +88,8 @@ public static class SimulationRunner
         int workerCount, CancellationToken cancellationToken = default)
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
-        var (memory, workspaces) = CreateBatchWorkspaces(scenario, policy, root, samples, workerCount);
+        var (memory, workspaces) = CreateBatchWorkspaces(scenario, policy, root, samples, workerCount,
+            samplesPerWorkspace: scenario.ParallelizeSmallBatches ? 1 : LogicalBlockSize);
         return RunBatch(scenario, policy, root, seed, samples, memory, workspaces, cancellationToken);
     }
 
@@ -96,7 +97,7 @@ public static class SimulationRunner
         CreateBatchWorkspaces<TState, TDecision, TAction, TOutcome, TCursor>(
         ISimulationScenario<TState, TDecision, TAction, TOutcome> scenario,
         ITrajectoryPolicy<TDecision, TAction, TCursor> policy, in TState root, int samples, int workerCount,
-        int samplesPerWorkspace = LogicalBlockSize)
+        int samplesPerWorkspace)
         where TState : notnull where TDecision : notnull where TAction : notnull
     {
         ExecutionPlatform.EnsureSupported();

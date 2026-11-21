@@ -362,8 +362,8 @@ public static class TrainingNumericKernel
     {
         if (typeof(T) == typeof(TrainingFraction) && basis == 0) return 0;
         var value = ((T)basis * growth * friendship * training).Quantize(6, false);
-        value = (value * heads).Quantize(6, false);
-        value = (value * house).Quantize(6, false);
+        value = value.ApplySixDigitFactor(heads);
+        value = value.ApplySixDigitFactor(house);
         return (value * motivation).Quantize(5, true).Truncate();
     }
 
